@@ -1,1 +1,3 @@
-# incubator
+# ENTANDO-CLI
+
+The Entando CLI
