@@ -1,0 +1,75 @@
+#!/bin/bash
+[ -z $ZSH_VERSION ] && [ -z $BASH_VERSION ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
+
+[ "$1" == "--curr-dir" ] && {
+  CURR_DIR=true
+  shift
+} || CURR_DIR=false
+
+REL="$1"
+shift
+[ "$REL" == "" ] && REL="$ENTANDO_RELEASE"
+[ "$REL" == "" ] && REL="v6.2.0" && echo "Assuming ENTANDO_RELEASE=\"$REL\""
+
+$CURR_DIR || cd "$HOME"
+
+TGT_DIR="$PWD"
+PREFIX='.entando/ent'
+
+git --version
+[ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
+
+set -e
+
+mkdir -p "$PREFIX"
+cd "$PREFIX"
+
+clone() {
+  local URL="$1"; local TAG="$2"; local FLD="$3"; local DSC="$4"
+  if [[ ! -d "$FLD" ]]; then
+    git clone "$URL" "$FLD"
+    if cd "$FLD"; then
+      (
+        git fetch --tags
+        if ! git checkout -b "$TAG" "$TAG" 1> /dev/null; then
+          echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
+          exit 92
+        fi
+      )
+      if [ $? ]; then
+        cd -
+      else
+        cd -
+        rm -rf "./$FLD"
+        exit "$?"
+      fi
+    fi
+  else
+    echo "Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.." 1>&2
+  fi
+}
+
+clone "https://github.com/entando/entando-releases.git" "$REL" "$REL" "release"
+[[ -z "$ENTANDO_CLI_VERSION" ]] && source "./$REL/dist/manifest"
+[[ -z "$ENTANDO_CLI_VERSION" ]] && echo "Unable to determine the proper entando cli version, please provide it via environment variable \"ENTANDO_CLI_VERSION\"" 1>&2 && exit 1
+cd "$REL"
+mkdir -p "./cli"
+clone "https://github.com/w-caffiero-entando/e3e62dc4.git" "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version"
+cd "cli/$ENTANDO_CLI_VERSION"
+ln -sf "../dist" ./
+
+echo "."
+echo ".."
+echo "============================================================"
+echo "ENT INSTALLED."
+echo ""
+echo "Activate using command:"
+echo ""
+echo -e "\tsource $TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate"
+echo ""
+echo -e "and then get help using this command: ent-help.sh"
+echo ""
+echo "============================================================"
+echo ".."
+echo "."
+echo ""
