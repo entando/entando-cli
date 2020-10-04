@@ -1,0 +1,369 @@
+#!/bin/bash
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir"
+  exit
+}
+. s/_base.sh
+cd - >/dev/null || FATAL "internal error"
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+publish_version() {
+  push_git "$@"
+  push_docker "$@"
+}
+
+push_docker() {
+  [ -z "$DOCKER_REGISTRY_URL" ] && _log_d 1 "No docker registry configured, using default"
+  docker login "$DOCKER_REGISTRY_URL"
+  docker push
+}
+
+push_git() {
+  ensure_valid_location
+
+  [ "$1" == "--force" ] && {
+    shift
+    FORCE=true
+  } || FORCE=false
+
+  set_or_ask "VERSION_NUMBER" "$1" "%sp %var" "" "assert_fdn"
+  set_or_ask "VERSION_COMMENT" "$2" "%sp %var" "$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')" "assert_nn"
+
+  cd bundle >/dev/null || FATAL "internal error"
+
+  if [ ! "$(git status --porcelain)" ]; then
+    ask "No change detected; Should I proceed anyway?" || EXIT_UE "User interrupted"
+  else
+    git add -A
+    git commit -m "$VERSION_COMMENT"
+  fi
+
+  git fetch --tags 1>/dev/null
+
+  if git tag | grep -q -F "$VERSION_NUMBER"; then
+    if $FORCE; then
+      git tag -d "$VERSION_NUMBER" 2>/dev/null 1>&2
+    else
+      FATAL "Version \"$VERSION_NUMBER\" already exists"
+    fi
+  fi
+
+  git tag "$VERSION_NUMBER"
+
+  if $FORCE; then
+    RES="$(git push --force 2>&1)"
+    RV=$?
+  else
+    RES="$(git push 2>&1)"
+    RV=$?
+  fi
+
+  if [ $RV -ne 0 ]; then
+    if echo "$RES" | head -n 2 | grep -q -F '! [rejected]'; then
+      _log_w 1 "Unable to push to the remote repository, reason; REMOTE HISTORY NOT COMPATIBLE"
+      _log_w 1 "I'll try to fix it"
+
+      git fetch origin master &&
+        git rebase -Xtheirs origin/master
+
+      RES="$(git push 2>&1)"
+      RV=$?
+    fi
+  fi
+
+  if [ $RV -ne 0 ]; then
+    _log_e 1 "Unable to push to the remote repository, reason; $RES"
+    FATAL "Manual intervention required"
+  else
+    if echo "$RES" | head -n 2 | grep -q -F 'up-to-date'; then
+      _log_w 1 "Nothing was published: The remote repository is already up to date"
+    else
+      _log_i 1 "Version $VERSION_NUMBER published"
+    fi
+  fi
+
+  git push --tags --force 2>/dev/null
+  RV=$?
+  if [ $RV -ne 0 ]; then
+    _log_e 1 "Error pushing the version tag"
+  fi
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+new_project() {
+  set_or_ask "PRJ_NAME" "$1" "Please provide the project name" "$DEF" "assert_strict_id"
+  _log_i 1 "Creating a new project with name $PRJ_NAME.."
+  mkdir "$PRJ_NAME"
+  cd "$PRJ_NAME" || FATAL "Unable to enter the project dir"
+  init_project || FATAL "Unable to initialize the project dir"
+  generate_project "$@"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+init_project() {
+  _log_i 1 "Preparing.."
+  ent-npm link generator-jhipster-entando
+  generate_ent_project_file
+
+  _log_i 1 "Project initialized."
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+generate_project() {
+  DEF=""
+  snake_to_camel DEF "$(basename "$PWD")"
+
+  set_or_ask "TEMPLATE_ID" "$1" "Please provide the template id" "base" "assert_dn"
+  shift
+
+  set_or_ask "PRJ_NAME" "$1" "Please provide the project name" "$DEF" "assert_strict_id"
+  set_or_ask "SERVER_PORT" "$2" "Please provide the server port" "8081" "assert_num"
+  set_or_ask "PACKAGE_NAME" "$3" "Please provide the package name" "" "assert_fdn"
+  set_or_ask "PROD_DB_TYPE" "$4" "Please provide the production db type [mysql,postgresql]" "" "assert_db_type"
+
+  _log_i 1 "Configuring.."
+  sed -r "
+    s/#app\\.name#/$PRJ_NAME/
+    s/#app\\.serverPort#/$SERVER_PORT/
+    s/#app\\.packageName#/$PACKAGE_NAME/
+    s/#app\\.prodDatabaseType#/$PROD_DB_TYPE/
+  " "$ENT_HOME/res/$TEMPLATE_ID-template.jdl" >./prj-generation.jdl
+
+  _log_i 1 "Generating the project.."
+
+  jhipster -blueprint entando import-jdl ./prj-generation.jdl || FATAL "Generation failed"
+
+  #  mkdir bundle
+  #  echo -e "\n##############" >> .gitignore
+  #  echo bundle >> .gitignore
+
+  generate_ent_project_file
+  save_cfg_value "PRJ_NAME" "$PRJ_NAME" ".ent-prj"
+
+  echo ""
+  ask "Do you want to commit everything in a new local git repository?" && {
+    init_project__commit_all
+  }
+
+  _log_i 1 "Done."
+}
+
+# shellcheck disable=SC2120
+init_project__commit_all() {
+  local PRJ_USER_NAME="$(git config --global user.name)"
+  local PRJ_USER_EMAIL="$(git config --global user.email)"
+  local user_global=false
+
+  if [ -n "$PRJ_USER_NAME" ] && [ -n "$PRJ_USER_EMAIL" ]; then
+    if ask "Do you want to use you global git user?"; then
+      user_global=true
+    fi
+  fi
+
+  if $user_global; then
+    git init
+  else
+    set_or_ask "PRJ_USER_NAME" "$1" "Please provide the git user name" "$PRJ_USER_NAME" "assert_spc_id"
+    set_or_ask "PRJ_USER_EMAIL" "$2" "Please provide the git user email" "$PRJ_USER_EMAIL" "assert_email"
+    git init
+    git config user.name "$PRJ_USER_NAME"
+    git config user.email "$PRJ_USER_EMAIL"
+  fi
+
+  _log_i 1 "Committing the generated files.."
+  git add -A && git commit -m "First generation commit"
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+init_pub() {
+  mkdir -p bundle
+  ensure_valid_location
+
+  PUB_USER_NAME="$(git config user.name 2>/dev/null)"
+  PUB_USER_EMAIL="$(git config user.email 2>/dev/null)"
+
+  read_missing_pub_info_from_project
+
+  set_or_ask "URL_OF_ORIGIN" "$1" "Please provide the URL of the publication repository" "" "assert_url"
+  set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_spc_id"
+  set_or_ask "PUB_USER_EMAIL" "$3" "%sp Git %var" "$PUB_USER_EMAIL" "assert_email"
+
+  initialize_publication_repository
+  ensure_valid_location :initialized
+
+  _log_i 1 "bundle publication repository initialized"
+}
+
+initialize_publication_repository() {
+  cd bundle >/dev/null || FATAL "internal error"
+
+  # Base git init, if required
+  [ ! -f .git ] && {
+    git init
+  }
+
+  # Set origin, if required
+  ORIG="$(git remote get-url origin 2>/dev/null)"
+  [ -n "$ORIG" ] && {
+    ask "An origin is already present ($ORIG) do you want ot overwrite it?" || EXIT_UE "User abort"
+    git remote remove origin
+  }
+  git remote add origin "$URL_OF_ORIGIN"
+
+  # User info
+  git config user.name "$PUB_USER_NAME"
+  git config user.email "$PUB_USER_EMAIL"
+
+  cd - >/dev/null || FATAL "internal error"
+
+  # Project: gitignore
+  grep -sq "^bundle/$" .gitignore || {
+    echo -e "\n####\nbundle/" >>.gitignore
+    _log_d 1 "bundle project .gitignore updated"
+  }
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  while true; do
+    cmd="$1"
+    shift
+    case "$cmd" in
+    "new") #H: initializes a project dir
+      new_project "$@"
+      ;;
+    "init") #H: initializes a project dir
+      init_project
+      ;;
+    "gen") #H: generates the project contents
+      generate_project "$@"
+      ;;
+    "init-pub") #H: initializes the publication
+      init_pub "$@"
+      ;;
+    "publish-version") #H: bumps a new version given the VERSION_NUMBER
+      publish_version "$@"
+      ;;
+    *)
+      H
+      break
+      ;;
+    esac
+    [ -z "$1" ] && break
+    index_of_arg "--AND" "$@" || shift $?
+  done
+}
+
+generate_ent_project_file() {
+  #  grep -qs "\.ent$" .gitignore && {
+  #    echo -e "\n########\n.ent\n" >> ".gitignore"
+  #  }
+
+  [ -f ".ent-prj" ] && return 0
+  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" >".ent-prj"
+}
+
+ensure_valid_location() {
+  # valid path
+  [ ! -f ".ent-prj" ] && {
+    [ -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] && {
+      generate_ent_project_file
+    }
+  }
+
+  [ ! -f ".ent-prj" ] && FATAL "The current dir (\"$PWD\") doesn't seem to be a valid bundle project"
+
+  if [ "$1" = ":initialized" ]; then
+    cd bundle || FATAL "internal error"
+
+    # git initialized
+    [ -d ".git" ] || FATAL "Publication repository is not initialized"
+
+    ORIG=$(git remote get-url origin 2>/dev/null)
+    [ -z "$ORIG" ] && FATAL "Repo not initialized (run \"${0##*/} init ...\")"
+
+    # git user data set
+    [ -z "$(git config user.name 2>/dev/null)" ] && FATAL 'Publication user name is not set'
+    [ -z "$(git config user.email 2>/dev/null)" ] && FATAL 'Publication user email is not set'
+
+    # git master branch
+    if [ "$(git ls-remote origin master)" ]; then
+      _log_w 1 "A remote master has been detected"
+      ask "Do you want to import it?" || FATAL "Unable to proceed; manual intervention required"
+
+      if [ "$(git status --porcelain)" ]; then
+        local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
+        _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
+        git reset HEAD 2>/dev/null
+        git checkout -b "$BBN" &&
+          git add -A &&
+          git commit -m "$BBN"
+      fi
+
+      _log_d 1 "Checking out the remote master"
+      git fetch origin master
+      git checkout -b master origin/master
+    else
+      echo "" >.gitignore
+      git add -A
+      git commit -m "init"
+      git checkout -b master
+      git push --set-upstream origin master
+    fi
+
+    cd - >/dev/null || FATAL "internal error"
+  fi
+
+  return 0
+}
+
+# If some information is missing tries to read it from the project
+read_missing_pub_info_from_project() {
+  cd .. || FATAL "internal error"
+
+  [ -z "$PUB_USER_NAME" ] && {
+    PUB_USER_NAME="$(git config user.name 2>/dev/null)"
+    [ -n "$PUB_USER_NAME" ] && _log_d 1 "Assuming user name \"$PUB_USER_NAME\" from the bundle project dir"
+  }
+
+  [ -z "$PUB_USER_EMAIL" ] && {
+    PUB_USER_EMAIL="$(git config user.email 2>/dev/null)"
+    [ -n "$PUB_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$PUB_USER_EMAIL\" from the bundle parent project dir"
+  }
+
+  cd - >/dev/null || FATAL "internal error"
+}
+
+assert_db_type() {
+  case "$2" in
+  mysql | postgresql) return 0 ;;
+  *)
+    _log_e 0 "Value of $1 ($2) is not a valid production database type"
+    return 1
+    ;;
+  esac
+}
+
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+H() {
+  case $1 in
+  full-help)
+    echo -e "Helps managing Entando ECR components | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
+    echo "sub-command:"
+    grep '#''H:' "$0" | sed 's/[[:space:]]*\(.*\))[[:space:]]*#''H:\(.*\)/  - \1: \2/'
+
+    ;;
+  brief | *)
+    echo -e "Helps managing Entando ECR components | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
+    ;;
+  esac
+}
+
+if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+  { [ "$2" == "full-help" ] && H "full-help" && exit 0; } || { H "brief" && exit 0; }
+fi
+
+RUN "$@"

@@ -7,7 +7,7 @@ NS="$1"
 [ "$NS" == "" ] && NS="$ENTANDO_NAMESPACE"
 [ "$NS" == "" ] && echo "please provide the namespace name" 1>&2 && exit 1
 
-TT="$PWD/diagdata"
+TT="$PWD/entando-diagdata"
 mkdir -p "$TT"
 cd "$TT"
 
@@ -48,8 +48,10 @@ for pod in $($KUBECTL get pods -n "$NS" | awk 'NR>1' | awk '{print $1}'); do
   done
 done
 
+echo "> Collected diagdata available under \"./entando-diagdata\" for consultation"
+
 cd ..
 set +e
-tar cfz entando-diagdata.tgz "diagdata"
+tar cfz entando-diagdata.tgz "entando-diagdata"
 
-echo "Collected log available under \"$TT\" for consultation"
+echo "> Collected diagdata available into archive \"entando-diagdata.tgz\""
