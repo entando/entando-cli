@@ -1,0 +1,21 @@
+application {
+  config {
+    applicationType microservice,
+    reactive false,
+    baseName #app.name#,
+    serverPort #app.serverPort#,
+    packageName #app.packageName#,
+    serviceDiscoveryType no,
+    authenticationType oauth2,
+    databaseType sql,
+    prodDatabaseType #app.prodDatabaseType#,
+    devDatabaseType h2Disk,
+    cacheProvider caffeine,
+    enableHibernateCache true,
+    buildTool maven,
+    searchEngine false,
+    enableTranslation false,
+    testFrameworks [],
+    blueprints [],
+  }
+}
