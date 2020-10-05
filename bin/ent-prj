@@ -102,7 +102,7 @@ new_project() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 init_project() {
   _log_i 1 "Preparing.."
-  ent-npm link generator-jhipster-entando
+  ent-npm-link generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
   generate_ent_project_file
 
   _log_i 1 "Project initialized."
@@ -130,7 +130,7 @@ generate_project() {
 
   _log_i 1 "Generating the project.."
 
-  jhipster -blueprint entando import-jdl ./prj-generation.jdl || FATAL "Generation failed"
+  ent-jhipster -blueprint entando import-jdl ./prj-generation.jdl || FATAL "Generation failed"
 
   #  mkdir bundle
   #  echo -e "\n##############" >> .gitignore
