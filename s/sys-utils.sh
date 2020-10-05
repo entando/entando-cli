@@ -182,10 +182,9 @@ $OS_WIN && {
 
 # ent-local-npm
 function ent-npm() {
-  local P="$ENTANDO_ENT_ACTIVE/lib"
-
+  local P="$ENTANDO_ENT_ACTIVE/lib/node"
   if [ ! -f "$P/package.json" ]; then
-    ( 
+    (
       echo "Ent node dir not initialized => INITIALIZING.." 2>&1
       cd "$P"
       npm init -y 1> /dev/null
@@ -194,8 +193,13 @@ function ent-npm() {
   $XCLI npm --prefix "$P" "$@"
 }
 
+function ent-npm-link() {
+  local BP="$ENTANDO_ENT_ACTIVE/lib/"
+  $XCLI npm install --link "$BP/$1/$2"
+}
+
 function ent-jhipster() {
-  local P="$ENTANDO_ENT_ACTIVE/lib"
+  local P="$ENTANDO_ENT_ACTIVE/lib/node"
   $XCLI "$P/node_modules/.bin/jhipster" "$@"
 }
 

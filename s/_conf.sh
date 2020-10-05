@@ -26,6 +26,7 @@ C_BUNDLE_DESCRIPTOR_FILE_NAME="descriptor.yaml"
 KUBECTL="sudo kubectl"
 
 # More dynamic configurations
+[ -f dist/manifest ] && . dist/manifest
 [ -f d/_env ] && . d/_env
 [ -f w/_env ] && . w/_env
 [ -f _env ] && . _env
