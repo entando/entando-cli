@@ -32,8 +32,10 @@ clone() {
       (
         git fetch --tags
         if ! git checkout -b "$TAG" "$TAG" 1> /dev/null; then
-          echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
-          exit 92
+          if ! git checkout -b "$TAG" origin/"$TAG" 1> /dev/null; then
+            echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
+            exit 92
+          fi
         fi
       )
       if [ $? ]; then
@@ -54,9 +56,9 @@ clone "https://github.com/entando/entando-releases.git" "$REL" "$REL" "release"
 [[ -z "$ENTANDO_CLI_VERSION" ]] && echo "Unable to determine the proper entando cli version, please provide it via environment variable \"ENTANDO_CLI_VERSION\"" 1>&2 && exit 1
 cd "$REL"
 mkdir -p "./cli"
-clone "https://github.com/w-caffiero-entando/e3e62dc4.git" "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version"
+clone "https://github.com/entando/entando-cli" "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version"
 cd "cli/$ENTANDO_CLI_VERSION"
-ln -sf "../dist" ./
+ln -sf "../../dist" ./
 
 echo "."
 echo ".."
