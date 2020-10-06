@@ -61,8 +61,8 @@ shift
 
 _log_i 2 "> Checking environment"
 
-$JUST_SET_CFG || {
-  . bin/ent-check-env.sh kube
+$JUST_SET_CFG || $WITH_VM || {
+  . bin/ent-check-env.sh runtime
 }
 
 save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
@@ -91,7 +91,8 @@ net_is_address_present "$ADDR" || {
 _log_d 5 "> Using ip address: $ADDR"
 
 FQADDR="$ADDR.nip.io"
-cat "d/$DEPL_SPEC_YAML_FILE.tpl" \
+
+cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
   | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
   | sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
   | sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
@@ -100,7 +101,7 @@ cat "d/$DEPL_SPEC_YAML_FILE.tpl" \
 _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
 
 ask "Should I register the CRDs?" && {
-  $KUBECTL apply -f "d/crd"
+  $KUBECTL apply -f "dist/crd"
 }
 
 ask "Should I start the deployment?" && {
