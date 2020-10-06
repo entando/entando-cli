@@ -2,8 +2,6 @@
 
 [ "$1" = "-h" ] && echo -e "Automatically execute the quickstart deployment | Syntax: ${0##*/} --destroy | --config | addr-mode namespace appname" && exit 0
 
-PROVIDED_ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION"
-
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || { echo "Internal error: unable to find the script source dir"; exit; }
 
@@ -85,14 +83,6 @@ save_cfg_value "ENTANDO_SUFFIX" "$ADDR.nip.io"
 $JUST_SET_CFG && echo "Config has been written" && exit 0
 
 ensure_sudo
-
-if [ "FORCE_ENTANDO_CLI_VERSION" = "true" ]; then
-  ENTANDO_CLI_VERSION="$PROVIDED_ENTANDO_CLI_VERSION"
-else
-  [ -n "$PROVIDED_ENTANDO_CLI_VERSION" ] && {
-    _log_w 2 "> PROVIDED_ENTANDO_CLI_VERSION \"$PROVIDED_ENTANDO_CLI_VERSION\" will be ignored unless forced"
-  }
-fi
 
 $WITH_VM && {
   _log_i 2 "> Generating the base VM"
