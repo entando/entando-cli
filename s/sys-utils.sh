@@ -1,6 +1,7 @@
 # SYS-UTILS
 
 SYS_UTILS_BASE_DIR=$PWD
+SYS_CLI_PRE=""
 
 # OS DETECT
 OS_LINUX=false
@@ -48,7 +49,7 @@ netplan_add_custom_nameserver() {
 }
 
 net_is_address_present() {
-  [ "$(ip a s | grep "$1" | wc -l)" -gt 0 ] && return 0 || return 1
+  [ "$(ip a s 2>/dev/null | grep "$1" | wc -l)" -gt 0 ] && return 0 || return 1
 }
 
 #net_is_hostname_known() {
@@ -155,7 +156,6 @@ make_safe_resolv_conf() {
 
 # MISC - WIN
 
-XCLI=""
 $OS_WIN && {
   watch() {
     while true; do
@@ -172,7 +172,7 @@ $OS_WIN && {
   }
 
   winpty --version 1> /dev/null 2>&1 && {
-    XCLI="winpty"
+    SYS_CLI_PRE="winpty"
   }
 }
 
@@ -186,17 +186,17 @@ function ent-npm() {
       npm init -y 1> /dev/null
     ) || return $?
   fi
-  $XCLI npm --prefix "$P" "$@"
+  $SYS_CLI_PRE npm --prefix "$P" "$@"
 }
 
 function ent-npm-link() {
   local BP="$ENTANDO_ENT_ACTIVE/lib/"
-  $XCLI npm install --link "$BP/$1/$2"
+  $SYS_CLI_PRE npm install --link "$BP/$1/$2"
 }
 
 function ent-jhipster() {
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
-  $XCLI "$P/node_modules/.bin/jhipster" "$@"
+  $SYS_CLI_PRE "$P/node_modules/.bin/jhipster" "$@"
 }
 
 return 0
