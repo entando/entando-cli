@@ -1,0 +1,22 @@
+#!/bin/bash
+
+[ -z "$ENTANDO_CLI_VERSION" ] && ENTANDO_CLI_VERSION="develop" && echo "Assuming ENTANDO_CLI_VERSION=\"$ENTANDO_CLI_VERSION\""
+[ -z "$ENTANDO_NAMESPACE" ] && ENTANDO_NAMESPACE="entando-test" && echo "Assuming ENTANDO_NAMESPACE=\"$ENTANDO_NAMESPACE\""
+[ -z "$ENTANDO_APPNAME" ] && ENTANDO_APPNAME="my-app" && echo "Assuming ENTANDO_APPNAME=\"$ENTANDO_APPNAME\""
+[ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
+[ "$ENTANDO_RELEASE" == "" ] && ENTANDO_RELEASE="v6.2.0" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
+
+curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install" \
+  | ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION" \
+    ENTANDO_RELEASE="$ENTANDO_RELEASE" \
+    bash
+
+. ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
+. ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
+
+if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
+  export ENTANDO_RELEASE
+  ent-quickstart.sh --with-vm --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+else
+  ent-quickstart.sh --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+fi
