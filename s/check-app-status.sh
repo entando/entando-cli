@@ -8,12 +8,40 @@ ENTANDO_APPNAME="$1"
 [ "$ENTANDO_APPNAME" == "" ] && echo "please provide the app name" 1>&2 && exit 1
 shift
 
+start_time="$1"
+now="$(date -u +%s)"
+elapsed="$(($now-$start_time))"
+elapsed_mm="$(($elapsed/60))"
+elapsed_ss="$(($elapsed-elapsed_mm*60))"
+
 RUN() {
   INGR=$(sudo k3s kubectl get ingress -n "$ENTANDO_NAMESPACE")
 
   ingr_check "Keycloak" "kc-ingress" "auth/"
   ingr_check "ECI" "eci-ingress" "k8s/"
-  ingr_check "APP" "$ENTANDO_APPNAME-ingress" "app-builder/"
+  ingr_check "APP" "$ENTANDO_APPNAME-ingress" "app-builder/" && {
+    echo ''
+    echo '  █████████████████'
+    echo ''
+    echo '        READY      '
+    echo ''
+    echo '  █████████████████'
+    echo ''
+    echo ''
+    echo ''
+  } || {
+    echo ''
+    echo ''
+    echo '  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
+    echo ''
+    echo '      NOT READY    '
+    echo ''
+    echo '  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
+    echo ''
+    echo "  (elapsed time: ${elapsed_mm}m${elapsed_ss}s)"
+    echo ''
+    true
+  }
 
   echo -e "\n~~~\n"
 
@@ -38,6 +66,7 @@ ingr_check() {
     esac
   else
     echo "$1 entrypoint closed.."
+    false
   fi
 }
 
