@@ -25,7 +25,8 @@ reload_cfg
 [ "$1" != "" ] && ENTANDO_NAMESPACE="$1"
 
 $WATCH && {
-  watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+  start_time="$(date -u +%s)"
+  watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
   exit
 }
 
