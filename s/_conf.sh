@@ -22,8 +22,8 @@ C_HOSTS_FILE="/etc/hosts"
 C_BUNDLE_DESCRIPTOR_FILE_NAME="descriptor.yaml"
 
 # K3S
-#KUBECTL="sudo k3s kubectl"
-KUBECTL="sudo kubectl"
+KUBECTL="sudo k3s kubectl"
+#KUBECTL="sudo kubectl"
 
 # More dynamic configurations
 [ -f dist/manifest ] && . dist/manifest
