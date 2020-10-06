@@ -2,7 +2,9 @@
 
 [ "$1" = "-h" ] && echo -e "Automatically execute the quickstart deployment | Syntax: ${0##*/} --destroy | --config | addr-mode namespace appname" && exit 0
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+PROVIDED_ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION"
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || { echo "Internal error: unable to find the script source dir"; exit; }
 
 . s/_base.sh
@@ -16,38 +18,49 @@ if [ "$1" == "--destroy" ]; then
   exit
 fi
 
+if [ "$1" == "--with-vm" ]; then
+  WITH_VM=true
+  [ -z "$ENTANDO_VM_NAME" ] && ENTANDO_VM_NAME="entando-test"
+  shift
+else
+  WITH_VM=false
+fi
+
 JUST_SET_CFG=false
 if [ "$1" == "--config" ]; then
   JUST_SET_CFG=true
   shift
 fi
 
-$JUST_SET_CFG || {
+! $JUST_SET_CFG && {
   case "$1" in
-    "--simple"|--simple=*)
+    "--simple" | --simple=*)
       AUTO_ADD_ADDR=false
       if [[ $1 =~ --addr=(.*) ]]; then
         set_nn_ip ADDR "${BASH_REMATCH[1]}"
       else
         ADDR="$(hostname -I | awk '{print $1}')"
       fi
-      shift;;
-    "--dedicated"|--dedicated=*)
+      shift
+      ;;
+    "--dedicated" | --dedicated=*)
       AUTO_ADD_ADDR=true
       if [[ $1 =~ --dedicated=(.*) ]]; then
         set_nn_dn ADDR "${BASH_REMATCH[1]}"
       else
         ADDR=$C_DEF_CUSTOM_IP
       fi
-      shift;;
+      shift
+      ;;
     *)
       echo -e "Please provide a valid \"addr-mode\" mode option:" 1>&2
       echo "  --simple=[ADDR]   => standard installation with an existing ip" 1>&2
       echo "  --dedicated=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
-      echo "" 1>&2 
-      echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2 
-      echo "" 1>&2 
-      exit 1;;
+      echo "" 1>&2
+      echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
+      echo "" 1>&2
+      exit 1
+      ;;
   esac
 }
 
@@ -73,6 +86,33 @@ $JUST_SET_CFG && echo "Config has been written" && exit 0
 
 ensure_sudo
 
+if [ "FORCE_ENTANDO_CLI_VERSION" = "true" ]; then
+  ENTANDO_CLI_VERSION="$PROVIDED_ENTANDO_CLI_VERSION"
+else
+  [ -n "$PROVIDED_ENTANDO_CLI_VERSION" ] && {
+    _log_w 2 "> PROVIDED_ENTANDO_CLI_VERSION \"$PROVIDED_ENTANDO_CLI_VERSION\" will be ignored unless forced"
+  }
+fi
+
+$WITH_VM && {
+  _log_i 2 "> Generating the base VM"
+  multipass launch --name "$ENTANDO_VM_NAME" --cpus 4 --mem 8G --disk 12G
+
+  _log_i 2 "> Installing Ent on the VM"
+  multipass exec "$ENTANDO_VM_NAME" -- bash -c \
+    "curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\" \
+        | ENTANDO_CLI_VERSION=\"$ENTANDO_CLI_VERSION\" \
+          ENTANDO_RELEASE=\"$ENTANDO_RELEASE\" \
+          bash"
+
+  _log_i 2 "> Running the entando quickstart from the VM"
+  multipass exec "$ENTANDO_VM_NAME" -- bash -c \
+    "cd && . \".entando/ent/$ENTANDO_RELEASE/cli/\"$ENTANDO_CLI_VERSION\"/activate\" && \
+    ENTANDO_WITH_VM=\"\" ent-quickstart.sh --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
+
+  exit 0
+}
+
 _log_i 2 "> Generating the kubernetes specification file for the deployment"
 
 $AUTO_ADD_ADDR && {
@@ -96,7 +136,7 @@ cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
   | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
   | sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
   | sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
-  > "w/$DEPL_SPEC_YAML_FILE"
+    > "w/$DEPL_SPEC_YAML_FILE"
 
 _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
 
