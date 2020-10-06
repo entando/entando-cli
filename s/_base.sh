@@ -3,6 +3,7 @@
 [ "$ENTANDO_ENT_ACTIVE" = "" ] && echo "No ent instance is currently active" && exit 99
 
 ENT_HOME="$PWD"
+mkdir -p "$ENTANDO_ENT_ACTIVE/w"
 
 nvm_activate() {
   NVM_DIR="$HOME/.nvm"
