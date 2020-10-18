@@ -2,6 +2,12 @@
 
 # CFG
 
+# Saves a key/value pair to a configuration file
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: key           strict identifier
+# $2: value         the value of the key
+# $3: [cfg-file]    optional cfg file name; defaults to the project config file
+#
 save_cfg_value() {
   local config_file=${3:-CFG_FILE}
   if [[ -f "$config_file" ]]; then
@@ -13,6 +19,12 @@ save_cfg_value() {
   return 0
 }
 
+# Reloads the CFG file in a safe mode
+#
+# prevents injections and quoting escape tricks
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: [cfg-file]    optional cfg file name; defaults to the project config file
+#
 reload_cfg() {
   local config_file=${1:-CFG_FILE}
   local sanitized=""
@@ -32,13 +44,22 @@ prompt() {
 }
 
 # set_or_ask
-
+#
+# sets a var with the given source value
+# if no value is provided asks it to the user
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: dvar        destination var to set
+# $2: sval        source value
+# $3: prompt      (if required) Supports tags %sp (standard prompt) and %var (dest var name)
+# $4: pdef        (for the prompt)
+# $5: [asserter]  assert function (with "?" suffix allows nulls)
+#
 set_or_ask() {
-  local dvar="$1"     # destination var to set
-  local sval="$2"     # source value
-  local prompt="$3"   # (if required) Supports tags %sp (standard prompt) and %var (dest var name)
-  local pdef="$4"     # (for the prompt)
-  local asserter="$5" # assert function (with "?" suffix allows nulls)
+  local dvar="$1"
+  local sval="$2"
+  local prompt="$3"
+  local pdef="$4"
+  local asserter="$5"
 
   _set_var "$dvar" ""
 
@@ -81,6 +102,10 @@ set_or_ask() {
   _set_var "$dvar" "$res"
 }
 
+# asks a yes/no/quit question
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: text      the question text
+#
 ask() {
   while true; do
     [ "$2" == "notif" ] && echo -ne "$1" || echo -ne "$1 (y/n/q)"
@@ -101,6 +126,8 @@ ask() {
   done
 }
 
+# QUITS due to a low level fatal error
+#
 FATAL() {
   echo -e "---"
   _log_e 0 "FATAL: $*"
@@ -108,6 +135,8 @@ FATAL() {
   exit 77
 }
 
+# QUITS due to a user error
+#
 EXIT_UE() {
   echo -e "---"
   [ "$1" != "" ] && _log_w 0 "$@"
@@ -116,7 +145,6 @@ EXIT_UE() {
 }
 
 # PROGRAM STATUS
-
 xu_clear_status() {
   [ "$XU_STATUS_FILE" != "" ] && [ -f "$XU_STATUS_FILE" ] && rm -- "$XU_STATUS_FILE"
 }
@@ -133,12 +161,19 @@ xu_get_status() {
   return 0
 }
 
+# converts a snake case identifier to camel case
 snake_to_camel() {
   local res="$(echo "$2" | sed -E 's/[ _-]([a-z])/\U\1/gi;s/^([A-Z])/\l\1/')"
   _set_var "$1" "$res"
 }
 
-# Returns the index of the given argument
+# Returns the index of the given argument value
+# if "-p" is provided as first argument performs a partial match
+# return 255 if the arguments was not found
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1:   the argument value to look for
+# $...: the remaining arguments are the array to be searched
+#
 index_of_arg() {
   par="$1"
   shift
