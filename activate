@@ -22,9 +22,20 @@ if [[ "$sourced" == "0" ]]; then
   exit
 fi
 
-[ "$ENTANDO_ENT_ACTIVE" != "" ] && echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active" && return 91
+[ "$ENTANDO_ENT_ACTIVE" != "" ] && {
+  echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
+  if [ "$1" = "--force" ]; then
+    echo "FORCING ACTIVATION AS REQUESTED"
+    . "$DIR/deactivate" --force
+  else
+    echo "Quitting"
+    return 91
+  fi
+}
 
 ENTANDO_ENT_ACTIVE="$DIR"
 export ENTANDO_ENT_ACTIVE
 PATH="$DIR/bin:$PATH"
 export PATH
+
+echo "Version \"$ENTANDO_ENT_ACTIVE\" activated"
