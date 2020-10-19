@@ -184,4 +184,45 @@ index_of_arg() {
   done
   [ $i -eq 100 ] && return 0
   [ -n "$1" ] && return $i || return $((i - 1))
+
+# prints the Entando banner
+#
+print_entando_banner() {
+  B='\033[0;34m'
+  W='\033[0;37m'
+  N=''
+  echo -e ""
+  echo -e " $B████████╗$W"
+  echo -e " $B██╔═════╝$W"
+  echo -e " $B██║$W $B███████╗$W  ██    █  ███████    ███    ██    █  ██████    █████ "
+  echo -e " $B╚═╝$N $B█╔═════╝$W  █ █   █     █      █   █   █ █   █  █     █  █     █"
+  echo -e " $N$N    $B█████╗  $W  █  █  █     █     █     █  █  █  █  █     █  █     █"
+  echo -e " $N$N    $B█╔═══╝  $W  █   █ █     █     ███████  █   █ █  █     █  █     █"
+  echo -e " $N$N    $B███████╗$W  █    ██     █     █     █  █    ██  ██████    █████    $B██╗$W"
+  echo -e " $N$N    $B╚══════╝$W                                                         $B██║$W"
+  echo -e " $N$N$N$N                                                               $B████████║$W"
+  echo -e " $N$N$N$N                                                               $B╚═══════╝$W"
+}
+
+# requires that the system environment was checked for development mode
+#
+require_develop_checked() {
+  [ ! -f "$ENTANDO_ENT_ACTIVE/develop-checked.flag" ] && FATAL "Run \"ent-check-env.sh develop\" before this command"
+}
+
+# requires that the project dir is properly initialized
+#
+require_initialized_dir() {
+  [ ! -f "package.json" ] && [ ! -f "package-lock.json" ] && FATAL "Directory not initialized"
+}
+
+# pre-parse the lines of a jdlt file
+#
+# a jdlt file is a jdl file template
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: the file to parse
+#
+pre_parse_jdlt() {
+  FILE="$1" # the file to parse
+  grep "{{[a-zA-Z][.-_a-zA-Z0-9]*}}," "$FILE" | sed 's/\s\+[^{]*{{\([^}]*\).*/\1/'
 }
