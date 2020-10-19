@@ -155,7 +155,7 @@ $M_DEVL && {
 
 # ENT-LOCAL-JHIPSTER installation
 $M_DEVL && {
-  check_ver "ent-jhipster" "$VER_JHIPSTER_REQ" "-V | grep -v INFO" verbose "ent local jhipster installation is not available" || {
+  check_ver "ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
     if ask "Should I try to install it?"; then
       ent-npm install generator-jhipster@$VER_JHIPSTER_DEF
     else
@@ -181,6 +181,7 @@ $M_DEVL && {
       git clone "$C_ENTANDO_BLUEPRINT_REPO" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
       cd "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
       git checkout -b "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
+      npm install
       ent-npm install .
     else
       MAYBE_FATAL "Mandatory dependency not available"
@@ -199,4 +200,8 @@ $M_KUBE && {
       prompt "Recommended dependency not found, some tool may not work as expected.\nPress enter to continue.."
     fi
   fi
+}
+
+$M_DEVL && {
+  echo "develop-checked.flag" > "$ENTANDO_ENT_ACTIVE/develop-checked.flag"
 }
