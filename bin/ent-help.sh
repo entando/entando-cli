@@ -5,7 +5,7 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 cd "$DIR/.." || {
-  echo "Internal error: unable to find the script source dir"
+  echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
 
@@ -30,7 +30,7 @@ printf "" 1>/dev/null 2>&1
 
 cd bin
 for file in *.sh; do
-  H=$($file -h)
+  H=$($file -h --short)
   $PRINTF_AVAILABLE &&
     printf "  - %-20s => %s\n" "$file" "$H" ||
     echo -e "  - $file => $H"
@@ -47,6 +47,6 @@ echo -e "  - https://dev.entando.org/"
 echo ""
 echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"
 
-echo -e "  - Check the dependencies (ent-check-env.sh -h full-help)"
+echo -e "  - Check the dependencies (ent-check-env.sh -h)"
 
 echo ""
