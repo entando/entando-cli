@@ -4,7 +4,7 @@
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR/.." || {
-  echo "Internal error: unable to find the script source dir"
+  echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
 
@@ -23,6 +23,8 @@ STATUS=false
 
 reload_cfg
 [ "$1" != "" ] && ENTANDO_NAMESPACE="$1"
+
+export SYS_GNU_LIKE
 
 $WATCH && {
   start_time="$(date -u +%s)"
