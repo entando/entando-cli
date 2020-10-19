@@ -3,7 +3,7 @@
 [ "$1" = "-h" ] && echo -e "Automatically execute the quickstart deployment | Syntax: ${0##*/} --destroy | --config | addr-mode namespace appname" && exit 0
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || { echo "Internal error: unable to find the script source dir"; exit; }
+cd "$DIR/.." || { echo "Internal error: unable to find the script source dir" 1>&2; exit; }
 
 . s/_base.sh
 
