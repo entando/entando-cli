@@ -175,15 +175,25 @@ snake_to_camel() {
 # $...: the remaining arguments are the array to be searched
 #
 index_of_arg() {
+  REGEX=false
+  [ "$1" == "-p" ] && REGEX=true && shift
   par="$1"
   shift
   i=1
-  while [ "$1" != "$par" ] && [ -n "$1" ] && [ $i -lt 100 ]; do
-    i=$((i + 1))
-    shift
-  done
-  [ $i -eq 100 ] && return 0
-  [ -n "$1" ] && return $i || return $((i - 1))
+  if $REGEX; then
+    while [[ ! "$1" == ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+      i=$((i + 1))
+      shift
+    done
+  else
+    while [[ "$1" != "$par" ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+      i=$((i + 1))
+      shift
+    done
+  fi
+  [ $i -eq 100 ] && return 255
+  [ -n "$1" ] && return $i || return 255
+}
 
 # prints the Entando banner
 #

@@ -35,4 +35,17 @@ index_of_arg "FIND-ME" "A" "B" "C" "FIND-ME" "D"
 [[ $? -eq 4 ]] || FATAL "failed! $LINENO"
 
 index_of_arg "FIND-ME" "A" "B" "C" "D" "E"
-[[ $? -eq 5 ]] || FATAL "failed! $LINENO"
+[[ $? -eq 255 ]] || FATAL "failed! $LINENO"
+
+index_of_arg -p "FIND-ME=" "A" "B" "C" "FIND-ME=1" "D"
+[[ $? -eq 4 ]] || FATAL "failed! $LINENO"
+
+index_of_arg -p "app.name=" "A" "B" "C" "app.name=myapp" "D"
+[[ $? -eq 4 ]] || FATAL "failed! $LINENO"
+
+index_of_arg -p "app.name=" "A" "B" "C" "app-name=myapp" "D"
+[[ $? -eq 255 ]] || FATAL "failed! $LINENO"
+
+index_of_arg "FIND-ME=" "A" "B" "C" "FIND-ME=1" "D"
+[[ $? -eq 255 ]] || FATAL "failed! $LINENO"
+
