@@ -17,29 +17,48 @@ elapsed_ss="$(($elapsed-elapsed_mm*60))"
 RUN() {
   INGR=$(sudo k3s kubectl get ingress -n "$ENTANDO_NAMESPACE")
 
-  ingr_check "Keycloak" "kc-ingress" "auth/"
+  $SYS_GNU_LIKE && {
+    DISKFREE="$(df . -h | tail -n 1 | awk '{print $4}')"
+    MM="$(free -k -t | grep "Mem")"
+    MMT="$(echo "$MM" | awk '{print $2}')"
+    MMU="$(echo "$MM" | awk '{print $3}')"
+    MEMFREE="$(((MMT-MMU)/1048576))G"
+    true
+  } || {
+    DISKFREE="N/A"
+    MEMFREE="N/A"
+  }
+
+  ingr_check "KC " "kc-ingress" "auth/"
   ingr_check "ECI" "eci-ingress" "k8s/"
   ingr_check "APP" "$ENTANDO_APPNAME-ingress" "app-builder/" && {
+    [ -z "$ENTANDO_APP_ADDR" ] && ENTANDO_APP_ADDR="$LAST_INGR_ADDR_CHECKED"
     echo ''
-    echo '  █████████████████'
-    echo ''
-    echo '        READY      '
-    echo ''
-    echo '  █████████████████'
-    echo ''
-    echo ''
-    echo ''
+    echo '| '
+    echo '|   █████████████████'
+    echo '| '
+    echo '|         READY      '
+    echo '| '
+    echo '|   █████████████████'
+    echo '| '
+    echo '|  The Entando app is ready at the address:'
+    echo '| '
+    echo -e "|\t$ENTANDO_APP_ADDR"
+    echo '|'
+    true
   } || {
     echo ''
-    echo ''
-    echo '  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
-    echo ''
-    echo '      NOT READY    '
-    echo ''
-    echo '  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
-    echo ''
-    echo "  (elapsed time: ${elapsed_mm}m${elapsed_ss}s)"
-    echo ''
+    echo '| '
+    echo '|   ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
+    echo '| '
+    echo '|       NOT READY    '
+    echo '| '
+    echo '|   ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
+    echo '| '
+    echo -e "|   - Elapsed time:  ${elapsed_mm}m${elapsed_ss}s"
+    echo -e "|   - Free Disk:     $DISKFREE"
+    echo -e "|   - Free Mem:      $MEMFREE"
+    echo '|'
     true
   }
 
@@ -50,8 +69,9 @@ RUN() {
 
 ingr_check() {
   ADDR=$(echo "$INGR" | grep "$2" | awk '{print $3}')
-  echo -n "> $1 entrypoint registered.."
-  http_check "$ADDR/$3" || true
+  echo -n "> $1 entrypoint is registered.."
+  LAST_INGR_ADDR_CHECKED="http://$ADDR/$3"
+  http_check "$LAST_INGR_ADDR_CHECKED" || true
 
   if [ ! -z "$ADDR" ] && [ $http_check_res != "000" ]; then
     echo -n " open.."
@@ -65,7 +85,7 @@ ingr_check() {
     *) echo -e " AND IN UNEXPECTED STATUS ($http_check_res) $T" && return 1 ;;
     esac
   else
-    echo "$1 entrypoint closed.."
+    echo " but it's still closed.."
     false
   fi
 }
