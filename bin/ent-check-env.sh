@@ -1,7 +1,7 @@
 #!/bin/bash
 
 H() {
-  if [ "$1" == "brief" ]; then
+  if [ "$1" == "short" ]; then
     echo -e "Checks the environment for required dependencies and settings | Syntax: ${0##*/} [--lenient] <env-type>"
   else
     echo -e "Checks the environment for required dependencies and settings\nSyntax: ${0##*/} [--lenient] <env-type>"
@@ -12,12 +12,12 @@ H() {
 }
 
 [ "$1" = "-h" ] && {
-  { [ "$2" == "full-help" ] && H "full-help" && exit 0; } || { H "brief" && exit 0; }
+  { [ "$2" != "--short" ] && H "full" && exit 0; } || { H "short" && exit 0; }
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || {
-  echo "Internal error: unable to find the script source dir"
+  echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
 
