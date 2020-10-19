@@ -14,7 +14,8 @@ shift
 $CURR_DIR || cd "$HOME"
 
 TGT_DIR="$PWD"
-PREFIX='.entando/ent'
+BASE_PREFIX='.entando'
+PREFIX="$BASE_PREFIX/ent"
 
 git --version
 [ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
@@ -32,6 +33,7 @@ clone() {
       (
         git fetch --tags
         if ! git checkout -b "$TAG" "$TAG" 1> /dev/null; then
+          echo "Retrying to checkout as branch.."
           if ! git checkout -b "$TAG" origin/"$TAG" 1> /dev/null; then
             echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
             exit 92
@@ -59,19 +61,33 @@ mkdir -p "./cli"
 clone "https://github.com/entando/entando-cli" "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version"
 cd "cli/$ENTANDO_CLI_VERSION"
 ln -sf "../../dist" ./
+echo "$TGT_DIR/activate-ent-$ENTANDO_CLI_VERSION"
+ln -sf "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$REL"
+ln -sf "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
+
+. "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
 
 echo "."
 echo ".."
-echo "============================================================"
-echo "ENT INSTALLED."
+print_entando_banner || true
+echo "═════════════════════════════════════════════════════════════════════════════"
+echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
 echo ""
 echo "Activate using command:"
 echo ""
-echo -e "\tsource $TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate"
+if "$CURR_DIR"; then
+  echo -e "\tsource \"$TGT_DIR/$BASE_PREFIX/activate-$REL\""
+  echo "or simply"
+  echo -e "\tsource \"$TGT_DIR/$BASE_PREFIX/activate\""
+else
+  echo -e "\tsource \"~/$BASE_PREFIX/activate-$REL\""
+  echo "or simply"
+  echo -e "\tsource \"~/$BASE_PREFIX/activate\""
+fi
 echo ""
-echo -e "and then get help using this command: ent-help.sh"
+echo -e "then get help using this command: ent-help.sh"
 echo ""
-echo "============================================================"
+echo "═════════════════════════════════════════════════════════════════════════════"
 echo ".."
 echo "."
 echo ""
