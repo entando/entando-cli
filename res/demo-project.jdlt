@@ -1,0 +1,21 @@
+application {
+  config {
+    applicationType microservice,
+    reactive false,
+    baseName myTestApp,
+    serverPort {{app.serverPort/num/8081}},
+    packageName my_test_app,
+    serviceDiscoveryType no,
+    authenticationType oauth2,
+    databaseType sql,
+    prodDatabaseType postgresql,
+    devDatabaseType h2Disk,
+    cacheProvider caffeine,
+    enableHibernateCache true,
+    buildTool maven,
+    searchEngine false,
+    enableTranslation false,
+    testFrameworks [],
+    blueprints [],
+  }
+}
