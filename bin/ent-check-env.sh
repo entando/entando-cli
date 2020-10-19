@@ -61,7 +61,8 @@ check_ver "awk" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "cat" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 $M_DEVL && {
-  check_ver "jdk" "1.8.>=0.265" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || MAYBE_FATAL "Quitting"
+  [ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
+  check_ver "java" "$VER_JDK_REQ" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || MAYBE_FATAL "Quitting"
 }
 $M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"; }
 $M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"; }
