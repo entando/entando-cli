@@ -8,22 +8,32 @@ OS_LINUX=false
 OS_MAC=false
 OS_WIN=false
 OS_BSD=false
+SYS_GNU_LIKE=false
 SYS_OS_UNKNOWN=false
 case "$OSTYPE" in
   linux*)
     SYS_OS_TYPE="linux"
+    SYS_GNU_LIKE=true
     OS_LINUX=true
     ;;
   "darwin")
     SYS_OS_TYPE="mac"
+    SYS_GNU_LIKE=true
     OS_MAC=true
     ;;
   "cygwin" | "msys" | win*)
     SYS_OS_TYPE="win"
+    SYS_GNU_LIKE=true
+    OS_WIN=true
+    ;;
+  win*)
+    SYS_OS_TYPE="win"
+    SYS_GNU_LIKE=false
     OS_WIN=true
     ;;
   "freebsd" | "openbsd")
     SYS_OS_TYPE="bsd"
+    SYS_GNU_LIKE=true
     OS_BSD=true
     ;;
   *)
@@ -49,7 +59,7 @@ netplan_add_custom_nameserver() {
 }
 
 net_is_address_present() {
-  [ "$(ip a s 2>/dev/null | grep "$1" | wc -l)" -gt 0 ] && return 0 || return 1
+  [ "$(ip a s 2> /dev/null | grep "$1" | wc -l)" -gt 0 ] && return 0 || return 1
 }
 
 #net_is_hostname_known() {
@@ -77,13 +87,13 @@ check_ver() {
   _log_i 3 "Checking $1.."
 
   [[ "$mode" =~ "literal" ]] \
-                             && VER=$(eval "$1 $3") \
-                        || VER=$(eval "$1 $3 2>/dev/null")
+    && VER=$(eval "$1 $3") \
+    || VER=$(eval "$1 $3 2>/dev/null")
 
   if [ $? -ne 0 ] || [ -z "$VER" ]; then
     [ -z "$err_desc" ] \
-                       && _log_i 2 "Program \"$1\" is not available" \
-                                                 || _log_i 2 "$err_desc"
+      && _log_i 2 "Program \"$1\" is not available" \
+      || _log_i 2 "$err_desc"
     return 1
   fi
 
@@ -98,7 +108,7 @@ check_ver() {
   IFS='.' read -r -a V <<< "$REQ"
   r_maj="${V[0]}" && r_min="${V[1]}" && r_ptc="${V[2]}" && r_upd="${V[3]:-"*"}"
 
-  ( 
+  (
     check_ver_num_start
     check_ver_num "$f_maj" "$r_maj" || return 1
     check_ver_num "$f_min" "$r_min" || return 1
@@ -176,7 +186,7 @@ $OS_WIN && {
   }
 }
 
-# ent-local-npm
+# Runs npm from the private npm modules
 function ent-npm() {
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
   if [ ! -f "$P/package.json" ]; then
@@ -189,14 +199,39 @@ function ent-npm() {
   $SYS_CLI_PRE npm --prefix "$P" "$@"
 }
 
-function ent-npm-link() {
+# Imports a module from the entando private npm modules
+# the the given mode_modules dir
+function ent-npm--import-module-to-current-dir() {
   local BP="$ENTANDO_ENT_ACTIVE/lib/"
-  $SYS_CLI_PRE npm install --link "$BP/$1/$2"
+  #[ ! -f package.json ] && echo "{}" > package.json
+  $SYS_CLI_PRE npm install "$BP/$1/$2"
 }
 
+# Run the ent private installation of jhipster
 function ent-jhipster() {
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
-  $SYS_CLI_PRE "$P/node_modules/.bin/jhipster" "$@"
+  if [ "$1" == "--ent-no-envcheck" ]; then
+    shift
+  else
+    require_develop_checked
+    #require_initialized_dir
+    # protection against yeoman's reverse recursive lookup
+    #[ ! -f ".yo-rc.json" ] && echo "{}" > ".yo-rc.json"
+
+    [ ! -f package.json ] && {
+      ask "The project dir doesn't seem to be initialized, should I do it now?" && {
+        ent-init-project-dir
+      }
+    }
+  fi
+  # RUN
+  $SYS_CLI_PRE "$P/node_modules/.bin/jhipster" --blueprints entando "$@"
+}
+
+function ent-init-project-dir() {
+  ent-npm--import-module-to-current-dir generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+    | grep -v 'No description\|No repository field.\|No license field.'
+  generate_ent_project_file
 }
 
 return 0
