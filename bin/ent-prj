@@ -91,20 +91,9 @@ push_git() {
   fi
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-new_project() {
-  set_or_ask "PRJ_NAME" "$1" "Please provide the project name" "$DEF" "assert_strict_id"
-  _log_i 1 "Creating a new project with name $PRJ_NAME.."
-  mkdir "$PRJ_NAME"
-  cd "$PRJ_NAME" || FATAL "Unable to enter the project dir"
-  init_project || FATAL "Unable to initialize the project dir"
-  generate_project "$@"
-}
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 init_project() {
   _log_i 1 "Preparing.."
-  ent-npm-link generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
-  generate_ent_project_file
-
+  ent-init-project-dir
   _log_i 1 "Project initialized."
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,21 +101,58 @@ generate_project() {
   DEF=""
   snake_to_camel DEF "$(basename "$PWD")"
 
-  set_or_ask "TEMPLATE_ID" "$1" "Please provide the template id" "base" "assert_dn"
+  assert_dn "TEMPLATE_ID" "$1" || FATAL "Please provide a valid template id as first parameter"
+  set_or_ask "TEMPLATE_ID" "$1" "Please provide the template id" "base" "assert_dn" "silent"
   shift
 
-  set_or_ask "PRJ_NAME" "$1" "Please provide the project name" "$DEF" "assert_strict_id"
-  set_or_ask "SERVER_PORT" "$2" "Please provide the server port" "8081" "assert_num"
-  set_or_ask "PACKAGE_NAME" "$3" "Please provide the package name" "" "assert_fdn"
-  set_or_ask "PROD_DB_TYPE" "$4" "Please provide the production db type [mysql,postgresql]" "" "assert_db_type"
+  JDLT_FILE="$ENT_HOME/res/$TEMPLATE_ID.jdlt"
+  cp "$JDLT_FILE" "prj-generation.jdl~"
+
+  for V in $(pre_parse_jdlt "$JDLT_FILE"); do   # <= don't use read here
+    V="$V/"
+    val_name="$(echo "$V" | cut -d'/' -f 1)"
+    val_type="$(echo "$V" | cut -d'/' -f 2)"
+    val_def="$(echo "$V" | cut -d'/' -f 3)"
+    val_msg="$(echo "$V" | cut -d'/' -f 4)"
+
+    index_of_arg -p "${val_name}=" "$@"
+    found_at="$?"
+
+    # user provided value
+    if [ $found_at -ne 255 ]; then
+      val_user="$(echo "${!found_at}" | cut -d'=' -f 2)"
+    else
+      val_user=""
+    fi
+
+    # prompt message processing
+    if [ -z "$val_msg" ]; then
+      val_msg="Please provide the value for \"$val_name\""
+    fi
+
+    # type processing
+    if [ -n "$val_type" ]; then
+      assertion="assert_$val_type"
+
+      if [ "$(LC_ALL=C type -t "$assertion")" != "function" ]; then
+        echo "undefined type \"$val_type\", falling back to \"strict_id\"" 1>&2
+        val_type="strict_id"
+        assertion="assert_$val_type"
+      fi
+    else
+      assertion=""
+    fi
+
+    # ask
+    set_or_ask "TMPVAR" "$val_user" "$val_msg" "$val_def" "$assertion"
+
+    # apply
+    sed -r --in-place='' 's/\{\{app.serverPort[^}]*\}\}/'"$TMPVAR"'/' prj-generation.jdl~
+  done
 
   _log_i 1 "Configuring.."
-  sed -r "
-    s/#app\\.name#/$PRJ_NAME/
-    s/#app\\.serverPort#/$SERVER_PORT/
-    s/#app\\.packageName#/$PACKAGE_NAME/
-    s/#app\\.prodDatabaseType#/$PROD_DB_TYPE/
-  " "$ENT_HOME/res/$TEMPLATE_ID-template.jdl" >./prj-generation.jdl
+
+  mv "prj-generation.jdl~" "prj-generation.jdl"
 
   _log_i 1 "Generating the project.."
 
@@ -230,28 +256,33 @@ RUN() {
     cmd="$1"
     shift
     case "$cmd" in
-    "new") #H: initializes a project dir
-      new_project "$@"
-      ;;
     "init") #H: initializes a project dir
+      print_entando_banner
       init_project
       ;;
     "gen") #H: generates the project contents
+      print_entando_banner
       generate_project "$@"
       ;;
     "init-pub") #H: initializes the publication
+      require_initialized_dir
       init_pub "$@"
       ;;
     "publish-version") #H: bumps a new version given the VERSION_NUMBER
+      require_initialized_dir
       publish_version "$@"
+      ;;
+    "test-run") #H: bumps a new version given the VERSION_NUMBER
+
       ;;
     *)
       H
       break
       ;;
     esac
+    index_of_arg "--AND" "$@"
+    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
     [ -z "$1" ] && break
-    index_of_arg "--AND" "$@" || shift $?
   done
 }
 
@@ -350,20 +381,19 @@ assert_db_type() {
 # ######################################################################################################################
 H() {
   case $1 in
-  full-help)
-    echo -e "Helps managing Entando ECR components | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
-    echo "sub-command:"
-    grep '#''H:' "$0" | sed 's/[[:space:]]*\(.*\))[[:space:]]*#''H:\(.*\)/  - \1: \2/'
-
+  short)
+    echo -e "Helps managing Entando bundle projects | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
     ;;
-  brief | *)
-    echo -e "Helps managing Entando ECR components | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
+  *)
+    echo -e "Helps managing Entando bundle projects | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
+    echo "sub-commands:"
+    grep '#''H:' "$0" | sed 's/[[:space:]]*\(.*\))[[:space:]]*#''H:\(.*\)/  - \1: \2/'
     ;;
   esac
 }
 
 if [ "$1" = "-h" ] || [ "$1" == "" ]; then
-  { [ "$2" == "full-help" ] && H "full-help" && exit 0; } || { H "brief" && exit 0; }
+  { [ "$2" != "--short" ] && H "full" && exit 0; } || { H "short" && exit 0; }
 fi
 
 RUN "$@"
