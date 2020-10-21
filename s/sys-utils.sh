@@ -16,7 +16,7 @@ case "$OSTYPE" in
     SYS_GNU_LIKE=true
     OS_LINUX=true
     ;;
-  "darwin")
+  darwin*)
     SYS_OS_TYPE="mac"
     SYS_GNU_LIKE=true
     OS_MAC=true
@@ -80,7 +80,7 @@ ensure_sudo() {
 }
 
 # Checks the SemVer of a program
-# > check_ver <program> <expected-semver-pattern> <program-params-for-showing-version> <mode>
+# > check_ver <program> <expected-semver-pattern> <program-params-for-showing-version\> <mode>
 check_ver() {
   local mode="$4"
   local err_desc="$5"
