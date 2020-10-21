@@ -145,6 +145,6 @@ SET_KV() {
   FILE="$1"
   K=$(printf "%q" "$2")
   V=$(printf "%q" "$3")
-  sed -i -E "s/(^.*$K\:[[:space:]]*).*$/\1$V/" "$FILE"
+  sed --in-place='' -E "s/(^.*$K\:[[:space:]]*).*$/\1$V/" "$FILE"
   return 0
 }

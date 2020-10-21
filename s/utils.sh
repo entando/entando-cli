@@ -43,7 +43,7 @@ prompt() {
   ask "$1" notif
 }
 
-# set_or_ask
+# set_or_F
 #
 # sets a var with the given source value
 # if no value is provided asks it to the user
@@ -72,6 +72,7 @@ set_or_ask() {
   [[ "$asserter" =~ ^.*\?$ ]] && nullable=true
 
   while true; do
+
     [ -z "$res" ] && {
       if [ -n "$asserter" ]; then
         "$asserter" "${dvar}_DEFAULT" "$pdef" "silent"
@@ -104,7 +105,7 @@ set_or_ask() {
 
 # asks a yes/no/quit question
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# $1: text      the question text
+# $1: text      the text of the question
 #
 ask() {
   while true; do
@@ -115,8 +116,9 @@ ask() {
     fi
 
     # shellcheck disable=SC2162
-    read -p " " res
+    read -rep " " res
     [ "$2" == "notif" ] && return 0
+
     case $res in
       [Yy]*) return 0 ;;
       [Nn]*) return 1 ;;
