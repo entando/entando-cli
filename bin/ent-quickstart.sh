@@ -5,7 +5,9 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || { echo "Internal error: unable to find the script source dir" 1>&2; exit; }
 
+ENTANDO_CLI_VERSION_ARG=$ENTANDO_CLI_VERSION
 . s/_base.sh
+[ -n "$ENTANDO_CLI_VERSION_ARG" ] && ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION_ARG"
 
 if [ "$1" == "--destroy" ]; then
   reload_cfg
@@ -72,7 +74,7 @@ shift
 
 _log_i 2 "> Checking environment"
 
-$JUST_SET_CFG || $WITH_VM || {
+! $JUST_SET_CFG && ! $WITH_VM && {
   . bin/ent-check-env.sh runtime
 }
 
@@ -89,6 +91,7 @@ $WITH_VM && {
   multipass launch --name "$ENTANDO_VM_NAME" --cpus 4 --mem 8G --disk 12G
 
   _log_i 2 "> Installing Ent on the VM"
+
   multipass exec "$ENTANDO_VM_NAME" -- bash -c \
     "curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\" \
         | ENTANDO_CLI_VERSION=\"$ENTANDO_CLI_VERSION\" \
@@ -96,9 +99,11 @@ $WITH_VM && {
           bash"
 
   _log_i 2 "> Running the entando quickstart from the VM"
+
   multipass exec "$ENTANDO_VM_NAME" -- bash -c \
     "cd && . \".entando/ent/$ENTANDO_RELEASE/cli/\"$ENTANDO_CLI_VERSION\"/activate\" && \
-    ENTANDO_WITH_VM=\"\" ent-quickstart.sh --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
+    ENTANDO_WITH_VM=\"\" \
+    ent-quickstart.sh --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
 
   exit 0
 }
