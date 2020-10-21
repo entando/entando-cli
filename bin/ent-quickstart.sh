@@ -35,31 +35,37 @@ fi
 ! $JUST_SET_CFG && {
   case "$1" in
     "--simple" | --simple=*)
-      AUTO_ADD_ADDR=false
-      if [[ $1 =~ --addr=(.*) ]]; then
-        set_nn_ip ADDR "${BASH_REMATCH[1]}"
-      else
-        ADDR="$(hostname -I | awk '{print $1}')"
+      if ! $WITH_VM; then
+        AUTO_ADD_ADDR=false
+        if [[ $1 =~ --addr=(.*) ]]; then
+          set_nn_ip ADDR "${BASH_REMATCH[1]}"
+        else
+          ADDR="$(hostname -I | awk '{print $1}')"
+        fi
       fi
       shift
       ;;
     "--dedicated" | --dedicated=*)
-      AUTO_ADD_ADDR=true
-      if [[ $1 =~ --dedicated=(.*) ]]; then
-        set_nn_dn ADDR "${BASH_REMATCH[1]}"
-      else
-        ADDR=$C_DEF_CUSTOM_IP
+      if ! $WITH_VM; then
+        AUTO_ADD_ADDR=true
+        if [[ $1 =~ --dedicated=(.*) ]]; then
+          set_nn_dn ADDR "${BASH_REMATCH[1]}"
+        else
+          ADDR=$C_DEF_CUSTOM_IP
+        fi
       fi
       shift
       ;;
     *)
-      echo -e "Please provide a valid \"addr-mode\" mode option:" 1>&2
-      echo "  --simple=[ADDR]   => standard installation with an existing ip" 1>&2
-      echo "  --dedicated=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
-      echo "" 1>&2
-      echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
-      echo "" 1>&2
-      exit 1
+      if ! $WITH_VM; then
+        echo -e "Please provide a valid \"addr-mode\" mode option:" 1>&2
+        echo "  --simple=[ADDR]   => standard installation with an existing ip" 1>&2
+        echo "  --dedicated=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
+        echo "" 1>&2
+        echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
+        echo "" 1>&2
+        exit 1
+      fi
       ;;
   esac
 }
@@ -96,6 +102,7 @@ $WITH_VM && {
     "curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\" \
         | ENTANDO_CLI_VERSION=\"$ENTANDO_CLI_VERSION\" \
           ENTANDO_RELEASE=\"$ENTANDO_RELEASE\" \
+          ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\" \
           bash"
 
   _log_i 2 "> Running the entando quickstart from the VM"
@@ -103,6 +110,7 @@ $WITH_VM && {
   multipass exec "$ENTANDO_VM_NAME" -- bash -c \
     "cd && . \".entando/ent/$ENTANDO_RELEASE/cli/\"$ENTANDO_CLI_VERSION\"/activate\" && \
     ENTANDO_WITH_VM=\"\" \
+    ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\" \
     ent-quickstart.sh --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
 
   exit 0

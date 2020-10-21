@@ -110,7 +110,7 @@ set_or_ask() {
 ask() {
   while true; do
     [ "$2" == "notif" ] && echo -ne "$1" || echo -ne "$1 (y/n/q)"
-    if [ "$OPT_YES_FOR_ALL" = true ]; then
+    if [ -n "$ENTANDO_OPT_YES_FOR_ALL" ] && "$ENTANDO_OPT_YES_FOR_ALL"; then
       echo " (auto-yes/ok)"
       return 0
     fi
@@ -146,23 +146,6 @@ EXIT_UE() {
   [ "$1" != "" ] && _log_w 0 "$@"
   xu_set_status "USER-ERROR"
   exit 1
-}
-
-# PROGRAM STATUS
-xu_clear_status() {
-  [ "$XU_STATUS_FILE" != "" ] && [ -f "$XU_STATUS_FILE" ] && rm -- "$XU_STATUS_FILE"
-}
-
-xu_set_status() {
-  [ "$XU_STATUS_FILE" != "" ] && echo "$@" > "$XU_STATUS_FILE"
-}
-
-xu_get_status() {
-  XU_RES=""
-  if [ "$XU_STATUS_FILE" != "" ] && [ -f "$XU_STATUS_FILE" ]; then
-    XU_RES="$(cut "$XU_STATUS_FILE" -d':' -f1)"
-  fi
-  return 0
 }
 
 # converts a snake case identifier to camel case
