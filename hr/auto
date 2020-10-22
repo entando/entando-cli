@@ -6,6 +6,10 @@
 [ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
 [ "$ENTANDO_RELEASE" == "" ] && ENTANDO_RELEASE="v6.2.0" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 
+if [ "$ENTANDO_CLI_VERSION" = "develop" ] || [[ "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
+  rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
+fi
+
 curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install" \
   | ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION" \
     ENTANDO_RELEASE="$ENTANDO_RELEASE" \
