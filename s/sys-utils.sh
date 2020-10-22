@@ -234,4 +234,14 @@ function ent-init-project-dir() {
   generate_ent_project_file
 }
 
+generate_ent_project_file() {
+  #  grep -qs "\.ent$" .gitignore && {
+  #    echo -e "\n########\n.ent\n" >> ".gitignore"
+  #  }
+
+  [ -f ".ent-prj" ] && return 0
+  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" >".ent-prj"
+}
+
+
 return 0
