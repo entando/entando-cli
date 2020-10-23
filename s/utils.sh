@@ -120,8 +120,10 @@ ask() {
     case $res in
       [Yy]*) return 0 ;;
       [Nn]*) return 1 ;;
-      [Qq]*) exit 99 ;;
-      *) echo "Please answer yes, no or quit." ;;
+      [Qq]*)
+        EXIT_UE "User stopped the execution"
+        exit 99 ;;
+      *) echo "Please answer yes, no or quit."; sleep 0.5;;
     esac
   done
 }
