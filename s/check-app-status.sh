@@ -8,11 +8,13 @@ ENTANDO_APPNAME="$1"
 [ "$ENTANDO_APPNAME" == "" ] && echo "please provide the app name" 1>&2 && exit 1
 shift
 
-start_time="$1"
-now="$(date -u +%s)"
-elapsed="$(($now-$start_time))"
-elapsed_mm="$(($elapsed/60))"
-elapsed_ss="$(($elapsed-elapsed_mm*60))"
+if [ -n "$start_time" ]; then
+  start_time="$1"
+  now="$(date -u +%s)"
+  elapsed="$(($now-$start_time))"
+  elapsed_mm="$(($elapsed/60))"
+  elapsed_ss="$(($elapsed-elapsed_mm*60))"
+fi
 
 RUN() {
   INGR=$(sudo k3s kubectl get ingress -n "$ENTANDO_NAMESPACE")
@@ -55,7 +57,9 @@ RUN() {
     echo '| '
     echo '|   ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒'
     echo '| '
+if [ -n "$start_time" ]; then
     echo -e "|   - Elapsed time:  ${elapsed_mm}m${elapsed_ss}s"
+fi
     echo -e "|   - Free Disk:     $DISKFREE"
     echo -e "|   - Free Mem:      $MEMFREE"
     echo '|'
