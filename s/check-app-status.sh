@@ -72,7 +72,11 @@ fi
 }
 
 ingr_check() {
-  ADDR=$(echo "$INGR" | grep "$2" | awk '{print $3}')
+  ADDR="$(echo "$INGR" | grep "$2" | awk '{print $3}')"
+  [ -z "$ADDR" ] && {
+    echo "> $1 entrypoint not registered.."
+    return 1
+  }
   echo -n "> $1 entrypoint is registered.."
   LAST_INGR_ADDR_CHECKED="http://$ADDR/$3"
   http_check "$LAST_INGR_ADDR_CHECKED" || true
