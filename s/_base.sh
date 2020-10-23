@@ -95,23 +95,24 @@ exit-trap() {
 trap exit-trap EXIT
 
 # ----------------------------------------------------------------------------------------------------------------------
-# UTILS
-
-. s/utils.sh
-. s/sys-utils.sh
-. s/var-utils.sh
-. s/logger.sh
-
-# ----------------------------------------------------------------------------------------------------------------------
 # ENVIRONMENT
 
-$SYS_OS_UNKNOWN && FATAL "Unsupported operating system"
+. s/sys-utils.sh
+
+$SYS_OS_UNKNOWN && { echo "Unsupported operating system" 1>&2; exit 99; }
 
 mkdir -p "$ENTANDO_ENT_ACTIVE/w"
 mkdir -p "$ENTANDO_ENT_ACTIVE/d"
 mkdir -p "$ENTANDO_ENT_ACTIVE/lib"
 
 . s/_conf.sh
+
+# ----------------------------------------------------------------------------------------------------------------------
+# UTILS
+
+. s/utils.sh
+. s/var-utils.sh
+. s/logger.sh
 
 ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
 [[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {

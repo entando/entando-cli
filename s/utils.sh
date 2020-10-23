@@ -9,7 +9,7 @@
 # $3: [cfg-file]    optional cfg file name; defaults to the project config file
 #
 save_cfg_value() {
-  local config_file=${3:-CFG_FILE}
+  local config_file=${3:-$CFG_FILE}
   if [[ -f "$config_file" ]]; then
     sed --in-place='' "/^$1=.*$/d" "$config_file"
   fi
@@ -26,7 +26,8 @@ save_cfg_value() {
 # $1: [cfg-file]    optional cfg file name; defaults to the project config file
 #
 reload_cfg() {
-  local config_file=${1:-CFG_FILE}
+  local config_file=${1:-$CFG_FILE}
+  [ ! -f "$config_file" ] && return 0
   local sanitized=""
   # shellcheck disable=SC1097
   while IFS== read -r var value; do
