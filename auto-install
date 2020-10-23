@@ -32,9 +32,9 @@ clone() {
   local DSC="$4" # human description of the cloned repository
 
   if [[ ! -d "$FLD" ]]; then
-    git clone "$URL" "$FLD"
-    if cd "$FLD"; then
-      (
+    (
+      git clone "$URL" "$FLD"
+      if cd "$FLD"; then
         if [ "$TAG" == "master" ]; then
           echo "Please specify a release tag or a release branch" 1>&2
           git pull
@@ -56,8 +56,8 @@ clone() {
           rm -rf "./$FLD"
           exit "$?"
         fi
-      )
-    fi
+      fi
+    )
   else
     echo "Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.." 1>&2
   fi
@@ -74,7 +74,9 @@ cd "cli/$ENTANDO_CLI_VERSION"
 ln -sf "../../dist" ./
 echo "$TGT_DIR/activate-ent-$ENTANDO_CLI_VERSION"
 ln -sf "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$REL"
+echo "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate-$REL.ln"
 ln -sf "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
+echo "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
 
 . "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
 
