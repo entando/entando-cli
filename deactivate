@@ -1,7 +1,13 @@
 #!/bin/bash
 
 if [ -n "$BASH_VERSION" ]; then
-  DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+  if [ -f "${BASH_SOURCE[0]}.ln" ]; then
+    SS="$(cat "${BASH_SOURCE[0]}.ln")"
+  else
+    SS="$(readlink --canonicalize --no-newline "${BASH_SOURCE[0]}")"
+    [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
+  fi
+  DIR="$( cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd )"
 elif [ -n "$ZSH_VERSION" ]; then
   DIR="$(dirname "$0:A")"
 else
