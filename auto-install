@@ -26,27 +26,37 @@ mkdir -p "$PREFIX"
 cd "$PREFIX"
 
 clone() {
-  local URL="$1"; local TAG="$2"; local FLD="$3"; local DSC="$4"
+  local URL="$1" # URL TO CLONE
+  local TAG="$2" # TAG TO CHECKOUT
+  local FLD="$3" # local folder name
+  local DSC="$4" # human description of the cloned repository
+
   if [[ ! -d "$FLD" ]]; then
     git clone "$URL" "$FLD"
     if cd "$FLD"; then
       (
-        git fetch --tags
-        if ! git checkout -b "$TAG" "$TAG" 1> /dev/null; then
-          echo "Retrying to checkout as branch.."
-          if ! git checkout -b "$TAG" origin/"$TAG" 1> /dev/null; then
-            echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
-            exit 92
+        if [ "$TAG" == "master" ]; then
+          echo "Please specify a release tag or a release branch" 1>&2
+          git pull
+        else
+          git fetch --tags
+          if ! git checkout -b "$TAG" "$TAG" 1> /dev/null; then
+            echo "Retrying to checkout as branch.."
+            if ! git checkout -b "$TAG" origin/"$TAG" 1> /dev/null; then
+              echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
+              exit 92
+            fi
           fi
         fi
+
+        if [ $? ]; then
+          cd -
+        else
+          cd -
+          rm -rf "./$FLD"
+          exit "$?"
+        fi
       )
-      if [ $? ]; then
-        cd -
-      else
-        cd -
-        rm -rf "./$FLD"
-        exit "$?"
-      fi
     fi
   else
     echo "Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.." 1>&2
