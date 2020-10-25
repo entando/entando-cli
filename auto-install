@@ -80,22 +80,25 @@ echo "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE
 
 . "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
 
+R='\033[101m'
+W='\033[0;37m'
+
 echo "."
 echo ".."
 print_entando_banner || true
 echo "═════════════════════════════════════════════════════════════════════════════"
 echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
 echo ""
-echo "Activate using command:"
-echo ""
 if "$CURR_DIR"; then
-  echo -e "\tsource \"$TGT_DIR/$BASE_PREFIX/activate-$REL\""
-  echo "or simply"
-  echo -e "\tsource \"$TGT_DIR/$BASE_PREFIX/activate\""
+  echo -e "${R}ACTIVATE USING:${W}\n"
+  echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate-$REL\""
+  echo -e "\n${R}OR:${W}\n"
+  echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate\""
 else
-  echo -e "\tsource \"\$HOME/$BASE_PREFIX/activate-$REL\""
-  echo "or simply"
-  echo -e "\tsource \"\$HOME/$BASE_PREFIX/activate\""
+  echo -e "${R}ACTIVATE USING:${W}\n"
+  echo -e "    source \"\$HOME/$BASE_PREFIX/activate-$REL\""
+  echo -e "\n${R}OR:${W}\n"
+  echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
 fi
 echo ""
 echo -e "then get help using this command: ent-help.sh"
