@@ -27,4 +27,4 @@ curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERS
     export ENTANDO_OPT_YES_FOR_ALL=true
     ent-quickstart.sh --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
   fi
-)</dev/tty
+)<"$DEV_TTY"
