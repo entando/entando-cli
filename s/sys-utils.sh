@@ -15,21 +15,25 @@ case "$OSTYPE" in
     SYS_OS_TYPE="linux"
     SYS_GNU_LIKE=true
     OS_LINUX=true
+    DEV_TTY="/dev/tty"
     ;;
   darwin*)
     SYS_OS_TYPE="mac"
     SYS_GNU_LIKE=true
     OS_MAC=true
+    DEV_TTY="/dev/ttys000"
     ;;
   "cygwin" | "msys" | win*)
     SYS_OS_TYPE="win"
     SYS_GNU_LIKE=true
     OS_WIN=true
+    DEV_TTY="/dev/tty"
     ;;
   win*)
     SYS_OS_TYPE="win"
     SYS_GNU_LIKE=false
     OS_WIN=true
+    DEV_TTY="/dev/tty"
     ;;
   "freebsd" | "openbsd")
     SYS_OS_TYPE="bsd"
