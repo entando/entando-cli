@@ -10,7 +10,7 @@
 # contributor(s) be liable for damages resulting directly or indirectly from
 # the use or non-use of this software.
 
-XU_LOG_LEVEL=1
+XU_LOG_LEVEL=3
 #XU_ENABLED_LOG_TYPES="EWIDT"
 XU_ENABLED_LOG_TYPES="EWID"
 
