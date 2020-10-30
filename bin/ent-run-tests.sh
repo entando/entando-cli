@@ -12,7 +12,9 @@ cd "$DIR/.." || {
 . s/_base.sh
 . s/tests/sys-utils-tests.sh
 . s/tests/utils-tests.sh
+. s/tests/var-utils-tests.sh
 
 test_check_ver_num
 test_index_of_arg
 test_cfg_helper
+test_asserters
