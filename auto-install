@@ -1,31 +1,7 @@
 #!/bin/bash
-[ -z $ZSH_VERSION ] && [ -z $BASH_VERSION ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
+[ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
 
-[ "$1" == "--curr-dir" ] && {
-  CURR_DIR=true
-  shift
-} || CURR_DIR=false
-
-REL="$1"
-shift
-[ "$REL" == "" ] && REL="$ENTANDO_RELEASE"
-[ "$REL" == "" ] && REL="v6.2.0" && echo "Assuming ENTANDO_RELEASE=\"$REL\""
-
-$CURR_DIR || cd "$HOME"
-
-TGT_DIR="$PWD"
-BASE_PREFIX='.entando'
-PREFIX="$BASE_PREFIX/ent"
-
-git --version
-[ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
-
-set -e
-
-mkdir -p "$PREFIX"
-cd "$PREFIX"
-
-clone() {
+ent_clone_repo() {
   local URL="$1" # URL TO CLONE
   local TAG="$2" # TAG TO CHECKOUT
   local FLD="$3" # local folder name
@@ -35,75 +11,143 @@ clone() {
     (
       git clone "$URL" "$FLD"
       if cd "$FLD"; then
-        if [ "$TAG" == "master" ]; then
+        if [ "$TAG" = "master" ]; then
           echo "Please specify a release tag or a release branch" 1>&2
           git pull
         else
           git fetch --tags
-          if ! git checkout -b "$TAG" "$TAG" 1> /dev/null; then
-            echo "Retrying to checkout as branch.."
-            if ! git checkout -b "$TAG" origin/"$TAG" 1> /dev/null; then
-              echo "Unable to checkout the provided $DSC \"$TAG\"" 1>&2
-              exit 92
-            fi
+          git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
+          if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
+            echo "> Unable to checkout the tag or branch of $DSC \"$TAG\"" 1>&2
+            exit 92
           fi
         fi
 
         if [ $? ]; then
-          cd -
+          cd - > /dev/null
         else
-          cd -
+          cd - > /dev/null
           rm -rf "./$FLD"
           exit "$?"
         fi
       fi
-    )
+    ) || return "$?"
   else
-    echo "Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.." 1>&2
+    echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.." 1>&2
   fi
 }
 
-clone "https://github.com/entando/entando-releases.git" "$REL" "$REL" "release"
-[[ -z "$ENTANDO_CLI_VERSION" ]] && source "./$REL/dist/manifest"
-[[ -z "$ENTANDO_CLI_VERSION" ]] && echo "Unable to determine the proper entando cli version, please provide it via environment variable \"ENTANDO_CLI_VERSION\"" 1>&2 && exit 1
-cd "$REL"
-mkdir -p "./cli"
+ENT_RUNNER() {
+  local CURR_DIR=false
+  [ "${1:-}" = "--curr-dir" ] && {
+    CURR_DIR=true
+    shift
+  }
 
-clone "https://github.com/entando/entando-cli" "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version"
-cd "cli/$ENTANDO_CLI_VERSION"
-ln -sf "../../dist" ./
-echo "$TGT_DIR/activate-ent-$ENTANDO_CLI_VERSION"
-ln -sf "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$REL"
-echo "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate-$REL.ln"
-ln -sf "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
-echo "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
+  local AUTO_ACTIVATION=true
+  while [ "${1:-}" != "" ]; do
+    case "$1" in
+      "--no-auto-activation")
+      AUTO_ACTIVATION=false
+      shift;;
+      "--release")
+        shift
+        local ENTANDO_RELEASE="$1"
+        shift
+        ;;
+      "--cli-version")
+        shift
+        local ENTANDO_CLI_VERSION="$1"
+        shift
+        ;;
+      *)
+        echo "> Unknown or misplaced argument $1" 1>&2 && return 99
+        ;;
+    esac
+  done
 
-. "$TGT_DIR/$PREFIX/$REL/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
+  [ "$ENTANDO_RELEASE" = "" ] && local ENTANDO_RELEASE="v6.2.0" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 
-R='\033[101m'
-W='\033[0;37m'
+  $CURR_DIR || cd "$HOME"
 
-echo "."
-echo ".."
-print_entando_banner || true
-echo "═════════════════════════════════════════════════════════════════════════════"
-echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
-echo ""
-if "$CURR_DIR"; then
-  echo -e "${R}ACTIVATE USING:${W}\n"
-  echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate-$REL\""
-  echo -e "\n${R}OR:${W}\n"
-  echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate\""
-else
-  echo -e "${R}ACTIVATE USING:${W}\n"
-  echo -e "    source \"\$HOME/$BASE_PREFIX/activate-$REL\""
-  echo -e "\n${R}OR:${W}\n"
-  echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
-fi
-echo ""
-echo -e "then get help using this command: ent-help.sh"
-echo ""
-echo "═════════════════════════════════════════════════════════════════════════════"
-echo ".."
-echo "."
-echo ""
+  local TGT_DIR="$PWD"
+  local BASE_PREFIX='.entando'
+  local PREFIX="$BASE_PREFIX/ent"
+
+  (
+    git --version
+    [ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
+
+    set -e
+
+    # RELEASE
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo "> Downloading the ENTANDO RELEASE $ENTANDO_RELEASE"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    mkdir -p "$PREFIX"
+    cd "$PREFIX"
+    ent_clone_repo "https://github.com/entando/entando-releases.git" "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" || exit "$?"
+    [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "./$ENTANDO_RELEASE/dist/manifest"
+    [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
+
+    # CLI
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo "> Downloading the ENTANDO CLI $ENTANDO_CLI_VERSION"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    cd "$ENTANDO_RELEASE"
+    mkdir -p "./cli"
+    ent_clone_repo "https://github.com/entando/entando-cli" "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version" || exit "$?"
+    cd "cli/$ENTANDO_CLI_VERSION"
+    ln -sf "../../dist" ./
+
+    # Shortcuts generation
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo "> Finalizing"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
+    echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE.ln"
+    ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
+    echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
+  ) || return "$?"
+
+  . "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
+
+  local R='\033[101m'
+  local W='\033[0;37m'
+
+  echo "."
+  echo ".."
+  print_entando_banner || true
+  echo "═════════════════════════════════════════════════════════════════════════════"
+  echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
+  echo ""
+  if "$CURR_DIR"; then
+    echo -e "${R}ACTIVATE USING:${W}\n"
+    echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE\""
+    echo -e "\n${R}OR:${W}\n"
+    echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate\""
+  else
+    echo -e "${R}ACTIVATE USING:${W}\n"
+    echo -e "    source \"\$HOME/$BASE_PREFIX/activate-$ENTANDO_RELEASE\""
+    echo -e "\n${R}OR:${W}\n"
+    echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
+  fi
+  echo ""
+  echo -e "then get help using this command: ent-help.sh"
+  echo ""
+  echo "═════════════════════════════════════════════════════════════════════════════"
+  echo ".."
+  echo "."
+  echo ""
+
+  $AUTO_ACTIVATION && {
+    source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
+      echo ""
+      echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+      echo "Entando automatically activated"
+      echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    }
+  }
+}
+
+ENT_RUNNER "$@"
