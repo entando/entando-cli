@@ -1,6 +1,22 @@
 #!/bin/bash
 [ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
 
+ent_cli_register_rc() {
+  F="$1"
+  C="$2"
+  local SIGN="#ENTANDO-CLI-SIGN-d567d439#"
+  if [ -f "$F" ] && ! grep -F "${SIGN}" "$F" > /dev/null; then
+    {
+      echo ""
+      echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+      echo "# ${SIGN}"
+      echo "${C}"
+      echo ""
+    } >> "${F}"
+    echo "> Entando CLI added to \"${F}\""
+  fi
+}
+
 ent_clone_repo() {
   local URL="$1" # URL TO CLONE
   local TAG="$2" # TAG TO CHECKOUT
@@ -48,8 +64,9 @@ ENT_RUNNER() {
   while [ "${1:-}" != "" ]; do
     case "$1" in
       "--no-auto-activation")
-      AUTO_ACTIVATION=false
-      shift;;
+        AUTO_ACTIVATION=false
+        shift
+        ;;
       "--release")
         shift
         local ENTANDO_RELEASE="$1"
@@ -121,33 +138,34 @@ ENT_RUNNER() {
   echo "═════════════════════════════════════════════════════════════════════════════"
   echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
   echo ""
+  $AUTO_ACTIVATION && {
+    source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
+      echo ""
+      echo -e "${R}ENTANDO-CLI AUTOMATICALLY ACTIVATED${W}"
+    }
+  }
+  echo ""
   if "$CURR_DIR"; then
-    echo -e "${R}ACTIVATE USING:${W}\n"
-    echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE\""
-    echo -e "\n${R}OR:${W}\n"
+    echo -e "FOR MANUAL ACTIVATION USE: \n"
     echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate\""
   else
-    echo -e "${R}ACTIVATE USING:${W}\n"
-    echo -e "    source \"\$HOME/$BASE_PREFIX/activate-$ENTANDO_RELEASE\""
-    echo -e "\n${R}OR:${W}\n"
+    echo -e "FOR MANUAL ACTIVATION USE:\n"
     echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
   fi
   echo ""
-  echo -e "then get help using this command: ent-help.sh"
+  echo "get help using: ent-help.sh"
   echo ""
   echo "═════════════════════════════════════════════════════════════════════════════"
   echo ".."
   echo "."
   echo ""
 
-  $AUTO_ACTIVATION && {
-    source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
-      echo ""
-      echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-      echo "Entando automatically activated"
-      echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    }
-  }
+  if ! "$CURR_DIR"; then
+    local CMD="source $TGT_DIR/$BASE_PREFIX/activate --force --quiet"
+    ent_cli_register_rc "$HOME/.bashrc" "$CMD"
+    ent_cli_register_rc "$HOME/.zshrc" "$CMD"
+    ent_cli_register_rc "$HOME/.fizsh/fizsh-miscellaneous.zsh" "$CMD"
+  fi
 }
 
 ENT_RUNNER "$@"

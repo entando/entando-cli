@@ -31,8 +31,13 @@ fi
 [ "$ENTANDO_ENT_ACTIVE" != "" ] && {
   echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
   if [ "$1" = "--force" ]; then
-    echo "FORCING ACTIVATION AS REQUESTED"
-    . "$DIR/deactivate" --force
+    shift
+    [ "$1" != "--quiet" ] && echo "FORCING ACTIVATION AS REQUESTED"
+    if [ "$1" != "--quiet" ]; then
+      . "$DIR/deactivate" --force
+    else
+      . "$DIR/deactivate" --force > /dev/null
+    fi
   else
     echo "Quitting"
     return 91
@@ -44,4 +49,6 @@ export ENTANDO_ENT_ACTIVE
 PATH="$DIR/bin:$PATH"
 export PATH
 
-echo "Version \"$ENTANDO_ENT_ACTIVE\" activated"
+[ "$1" != "--quiet" ] && {
+  echo "Version \"$ENTANDO_ENT_ACTIVE\" activated"
+}
