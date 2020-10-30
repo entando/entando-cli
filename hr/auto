@@ -18,6 +18,8 @@ curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERS
 . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
 . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
 
+. ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/sys-utils.sh
+
 (
   if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
     export ENTANDO_RELEASE

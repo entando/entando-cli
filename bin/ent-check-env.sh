@@ -53,6 +53,13 @@ case $1 in
 esac
 shift
 
+# PRE
+$M_DEVL && {
+  cd "$ENTANDO_ENT_ACTIVE" || FATAL "Unable to switch to dir \"$ENTANDO_ENT_ACTIVE\""
+  mkdir -p "lib/node"
+}
+
+
 # MISC
 
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
@@ -124,10 +131,9 @@ $M_KUBE && {
 
 # NVM
 $M_DEVL && {
-  $OS_WIN && FATAL "Please install nvm for windows (nvm-windows)"
-
   nvm_activate
-  check_ver "nvm" "$VER_NVM_REQ" "--version" verbose || {
+  check_ver "nvm" "$VER_NVM_REQ" "--version | grep -v '^$' | head -1" verbose || {
+    $OS_WIN && FATAL "Please install nvm for windows (nvm-windows)"
     ask "Should I try to install it?" && {
       curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$VER_NVM_DEF/install.sh" | bash
     } || {
@@ -137,21 +143,18 @@ $M_DEVL && {
   nvm_activate
 }
 
+rescan-sys-env force
+
 # NODE
 $M_DEVL && {
   check_ver "node" "$VER_NODE_REQ" "--version" verbose || {
     if ask "Should I try to install it?"; then
-      nvm install "$VER_NODE_DEF"
-      nvm use "$VER_NODE_DEF"
+      _nvm install "$VER_NODE_DEF"
+      _nvm use "$VER_NODE_DEF"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
   }
-}
-
-$M_DEVL && {
-  cd "$ENTANDO_ENT_ACTIVE" || FATAL "Unable to switch to dir \"$ENTANDO_ENT_ACTIVE\""
-  mkdir -p "lib/node"
 }
 
 # ENT-LOCAL-JHIPSTER installation
@@ -182,7 +185,7 @@ $M_DEVL && {
       git clone "$C_ENTANDO_BLUEPRINT_REPO" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
       cd "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
       git checkout -b "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
-      npm install
+      _npm install
       ent-npm install .
     else
       MAYBE_FATAL "Mandatory dependency not available"

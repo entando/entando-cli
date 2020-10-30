@@ -172,7 +172,7 @@ make_safe_resolv_conf() {
 
 $OS_WIN && {
   watch() {
-    if [  "$1" == "-v" ]; then
+    if [ "$1" == "-v" ]; then
       echo "ent fake watch UNKNOWN"
       return 0
     fi
@@ -197,14 +197,18 @@ $OS_WIN && {
 # Runs npm from the private npm modules
 function ent-npm() {
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
+  [ ! -d "$ENTANDO_ENT_ACTIVE/lib/node" ] && mkdir -p "$ENTANDO_ENT_ACTIVE/lib/node"
   if [ ! -f "$P/package.json" ]; then
     (
       echo "Ent node dir not initialized => INITIALIZING.." 2>&1
       cd "$P"
-      npm init -y 1> /dev/null
+      _npm init -y 1> /dev/null
     ) || return $?
   fi
-  $SYS_CLI_PRE npm --prefix "$P" "$@"
+  (
+    cd "$P" || FATAL "Unable to switch to dir \"$P\""
+    _npm "$@"
+  ) || return $?
 }
 
 # Imports a module from the entando private npm modules
@@ -212,12 +216,11 @@ function ent-npm() {
 function ent-npm--import-module-to-current-dir() {
   local BP="$ENTANDO_ENT_ACTIVE/lib/"
   #[ ! -f package.json ] && echo "{}" > package.json
-  $SYS_CLI_PRE npm install "$BP/$1/$2"
+  _npm install "$BP/$1/$2"
 }
 
 # Run the ent private installation of jhipster
 function ent-jhipster() {
-  local P="$ENTANDO_ENT_ACTIVE/lib/node"
   if [ "$1" == "--ent-no-envcheck" ]; then
     shift
   else
@@ -233,7 +236,11 @@ function ent-jhipster() {
     }
   fi
   # RUN
-  $SYS_CLI_PRE "$P/node_modules/.bin/jhipster" --blueprints entando "$@"
+  if $OS_WIN; then
+    $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
+  else
+    "$ENT_NPM_BIN_DIR/jhipster" "$@"
+  fi
 }
 
 function ent-init-project-dir() {
@@ -248,8 +255,47 @@ generate_ent_project_file() {
   #  }
 
   [ -f ".ent-prj" ] && return 0
-  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" >".ent-prj"
+  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > ".ent-prj"
 }
 
+rescan-sys-env() {
+  if $OS_WIN; then
+    [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
+      NVM_CMD="$(command -v nvm | head -n 1)"
+      save_cfg_value "NVM_CMD" "$NVM_CMD"
+    }
+    [[ -z "$NPM_CMD" || "$1" == "force" ]] && {
+      NPM_CMD="$(command -v npm | head -n 1)"
+      save_cfg_value "NPM_CMD" "$NPM_CMD"
+    }
+    [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
+      ENT_NPM_BIN_DIR="$(ent-npm bin)"
+      mkdir -p "$ENT_NPM_BIN_DIR"
+      ENT_NPM_BIN_DIR="$(win_convert_existing_path_to_posix_path "$ENT_NPM_BIN_DIR")"
+      save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+    }
+  else
+    [[ -z "$NVM_CMD" || "$1" == "force" ]] && NVM_CMD="nvm"
+    save_cfg_value "NVM_CMD" "$NVM_CMD"
+    [[ -z "$NPM_CMD" || "$1" == "force" ]] && NPM_CMD="npm"
+    save_cfg_value "NPM_CMD" "$NPM_CMD"
+    [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
+      ENT_NPM_BIN_DIR="$(ent-npm bin)"
+      save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+    }
+  fi
+}
+
+_nvm() {
+  "$NVM_CMD" "$@"
+}
+
+_npm() {
+  "$NPM_CMD" "$@"
+}
+
+win_convert_existing_path_to_posix_path() {
+  powershell "cd \"$1\" > \$null; bash -c 'pwd'"
+}
 
 return 0
