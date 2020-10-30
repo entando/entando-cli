@@ -20,7 +20,7 @@ fi
 
 if [ "$1" == "--with-vm" ]; then
   WITH_VM=true
-  [ -z "$ENTANDO_VM_NAME" ] && ENTANDO_VM_NAME="entando-test"
+  [ -z "$ENTANDO_VM_NAME" ] && ENTANDO_VM_NAME="entando"
   shift
 else
   WITH_VM=false
