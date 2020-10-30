@@ -132,3 +132,16 @@ nvm_activate() {
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || return
   export NVM_DIR
 }
+
+activate_designated_node() {
+  [ -z "$ACTIVATED_NODE_VERSION" ] && {
+    check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
+      nvm_activate
+      nvm use "$DESIGNATED_NODE_VERSION" || {
+        _log_w 1 "Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\")"
+        return 1
+      }
+    }
+    ACTIVATED_NODE_VERSION="$DESIGNATED_NODE_VERSION"
+  }
+}
