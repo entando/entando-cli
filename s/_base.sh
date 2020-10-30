@@ -39,64 +39,66 @@ function trace_position() {
   echo "> CODE-POSITION: $fl, line $ln -- $fn()${pre}$*" 2>&1
 }
 
-function error-trap() {
-  trap - ERR
-  xu_get_status
-  exec >&2
-  XU_BACKTRACE=""
-  case "$XU_RES" in
-    "FATAL" | "USER-ERROR" | "EXIT")
-      ;;
-    *)
-      ind="  "
-      i=0
-      while true; do
-        c="$(caller $i)"
-        i="$((i + 1))"
-        [ -z "$c" ] && break
-        IFS=' ' read -r -a arr <<< "$c"
-        XU_BACKTRACE+="${ind}at: ${arr[2]}, line ${arr[0]} -- ${arr[1]}()\n"
-      done
-
-      xu_set_status "EXIT-ERR"
-      ;;
-  esac
-}
-trap error-trap ERR
-set -o errtrace
-
-exit-trap() {
-  [ "$?" == 0 ] && return $?
-  trap - ERR EXIT
-
-  xu_get_status
-  sz=$(stat -c "%s" "$ENT_RUN_TMP_DIR")
-
-  if [[ "$sz" -eq 0 ]] || [[ "$XU_RES" != "FATAL" && "$XU_RES" != "USER-ERROR" ]]; then
-    [ -n "$XU_BACKTRACE" ] && {
-      echo ""
-      echo "> Callers:"
-      echo -e "$XU_BACKTRACE"
-    }
-
-    [[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {
-      # keep this as simple as possible, only native commands
-      echo "Internal Error: Detected invalid tmp dir" 2>&1
-      exit 99
-    }
-
-    rm -rf "$ENT_RUN_TMP_DIR"
-  else
-    echo "---"
-    echo "[EXIT-TRAP] Execution info are available under: \"$ENT_RUN_TMP_DIR\""
-    echo ""
-  fi
-}
-trap exit-trap EXIT
+#function error-trap() {
+#  trap - ERR
+#  xu_get_status
+#  exec >&2
+#  XU_BACKTRACE=""
+#  case "$XU_RES" in
+#    "FATAL" | "USER-ERROR" | "EXIT")
+#      ;;
+#    *)
+#      ind="  "
+#      i=0
+#      while true; do
+#        c="$(caller $i)"
+#        i="$((i + 1))"
+#        [ -z "$c" ] && break
+#        IFS=' ' read -r -a arr <<< "$c"
+#        XU_BACKTRACE+="${ind}at: ${arr[2]}, line ${arr[0]} -- ${arr[1]}()\n"
+#      done
+#
+#      xu_set_status "EXIT-ERR"
+#      ;;
+#  esac
+#
+#  echo -e "~~~\n"
+#  return 1
+#}
+#trap error-trap ERR
+#set -o errtrace
+#
+#exit-trap() {
+#  [ "$?" == 0 ] && return $?
+#  trap - ERR EXIT
+#
+#  xu_get_status
+#  sz=$(stat -c "%s" "$ENT_RUN_TMP_DIR")
+#
+#  if [[ "$sz" -eq 0 ]] || [[ "$XU_RES" != "FATAL" && "$XU_RES" != "USER-ERROR" ]]; then
+#    [ -n "$XU_BACKTRACE" ] && {
+#      echo ""
+#      echo "> Callers:"
+#      echo -e "$XU_BACKTRACE"
+#    }
+#
+#    [[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {
+#      # keep this as simple as possible, only native commands
+#      echo "Internal Error: Detected invalid tmp dir" 2>&1
+#      exit 99
+#    }
+#
+#    rm -rf "$ENT_RUN_TMP_DIR"
+#  else
+#    echo "---"
+#    echo "[EXIT-TRAP] Execution info are available under: \"$ENT_RUN_TMP_DIR\""
+#    echo ""
+#  fi
+#}
+#trap exit-trap EXIT
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ENVIRONMENT
-
 . s/sys-utils.sh
 
 $SYS_OS_UNKNOWN && { echo "Unsupported operating system" 1>&2; exit 99; }
@@ -104,7 +106,6 @@ $SYS_OS_UNKNOWN && { echo "Unsupported operating system" 1>&2; exit 99; }
 mkdir -p "$ENTANDO_ENT_ACTIVE/w"
 mkdir -p "$ENTANDO_ENT_ACTIVE/d"
 mkdir -p "$ENTANDO_ENT_ACTIVE/lib"
-
 . s/_conf.sh
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -113,6 +114,9 @@ mkdir -p "$ENTANDO_ENT_ACTIVE/lib"
 . s/utils.sh
 . s/var-utils.sh
 . s/logger.sh
+reload_cfg
+rescan-sys-env
+reload_cfg
 
 ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
 [[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {

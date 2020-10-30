@@ -25,6 +25,7 @@ KUBECTL="sudo k3s kubectl"
 #KUBECTL="sudo kubectl"
 
 # More dynamic configurations
+
 [ -f dist/manifest ] && . dist/manifest
 [ -f d/_env ] && . d/_env
 [ -f w/_env ] && . w/_env
