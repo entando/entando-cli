@@ -81,7 +81,7 @@ shift
 _log_i 2 "> Checking environment"
 
 ! $JUST_SET_CFG && ! $WITH_VM && {
-  . bin/ent-check-env.sh runtime
+  . bin/ent-check-env runtime
 }
 
 save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
@@ -111,7 +111,7 @@ $WITH_VM && {
     "cd && . \".entando/ent/$ENTANDO_RELEASE/cli/\"$ENTANDO_CLI_VERSION\"/activate\" && \
     ENTANDO_WITH_VM=\"\" \
     ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\" \
-    ent-quickstart.sh --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
+    ent-quickstart --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
 
   exit 0
 }
@@ -153,7 +153,7 @@ ask "Should I start the deployment?" && {
 }
 
 ask "Should I start the monitor?" && {
-  ent-app-info.sh watch || true
+  ent-app-info watch || true
 } || {
   echo -e "\n~~~\nUse the command:\n  - ent-app-info.sh watch\nto check the status of the app"
 }

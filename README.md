@@ -41,7 +41,7 @@ _clone/download the project and then:_
 # Help
 
 ```
-<ent-path>/bin/ent-help.sh
+<ent-path>/bin/ent-help
 ```
 
 # Activation

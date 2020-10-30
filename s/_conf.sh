@@ -20,9 +20,16 @@ C_DEF_CUSTOM_IP="10.5.14.20"
 C_HOSTS_FILE="/etc/hosts"
 C_BUNDLE_DESCRIPTOR_FILE_NAME="descriptor.yaml"
 
-# K3S
-KUBECTL="sudo k3s kubectl"
-#KUBECTL="sudo kubectl"
+# KUBECTL
+if command -v k3s > /dev/null; then
+  if $OS_WIN; then
+    KUBECTL="${ENT_KUBECTL:-k3s kubectl}"
+  else
+    KUBECTL="${ENT_KUBECTL:-sudo k3s kubectl}"
+  fi
+else
+  KUBECTL="${ENT_KUBECTL:-kubectl}"
+fi
 
 # More dynamic configurations
 

@@ -29,7 +29,7 @@ printf "" 1>/dev/null 2>&1
 [ $? -eq 0 ] && PRINTF_AVAILABLE=true || PRINTF_AVAILABLE=false
 
 cd bin || { echo "Unable to enter directory $PWD/bin"; exit 99; }
-for file in *.sh; do
+for file in ent-*; do
   H=$($file -h --short)
   $PRINTF_AVAILABLE &&
     printf "  - %-20s => %s\n" "$file" "$H" ||
@@ -47,6 +47,6 @@ echo -e "  - https://dev.entando.org/"
 echo ""
 echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"
 
-echo -e "  - Check the dependencies (ent-check-env.sh -h)"
+echo -e "  - Check the dependencies (ent-check-env -h)"
 
 echo ""

@@ -5,8 +5,6 @@ cd "$DIR/.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
-. s/_base.sh
-cd - >/dev/null || FATAL "internal error"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
@@ -156,7 +154,7 @@ generate_project() {
 
   _log_i 1 "Generating the project.."
 
-  ent-jhipster -blueprint entando import-jdl ./prj-generation.jdl || FATAL "Generation failed"
+  _ent-jhipster -blueprint entando import-jdl ./prj-generation.jdl || FATAL "Generation failed"
 
   #  mkdir bundle
   #  echo -e "\n##############" >> .gitignore
@@ -386,5 +384,8 @@ H() {
 if [ "$1" = "-h" ] || [ "$1" == "" ]; then
   { [ "$2" != "--short" ] && H "full" && exit 0; } || { H "short" && exit 0; }
 fi
+
+. s/_base.sh
+cd - >/dev/null || FATAL "internal error"
 
 RUN "$@"

@@ -185,9 +185,9 @@ $M_DEVL && {
 
 # ENT-LOCAL-JHIPSTER installation
 $M_DEVL && {
-  check_ver "ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V 2>/dev/null | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
+  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V 2>/dev/null | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
     if ask "Should I try to install it?"; then
-      ent-npm install generator-jhipster@$VER_JHIPSTER_DEF
+      _ent-npm install generator-jhipster@$VER_JHIPSTER_DEF
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
@@ -214,7 +214,7 @@ $M_DEVL && {
         FATAL "Unable to checkout version $VER_GENERATOR_JHIPSTER_ENTANDO_DEF of generator-jhipster-entando"
       }
       _npm install
-      ent-npm install .
+      _ent-npm install .
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi

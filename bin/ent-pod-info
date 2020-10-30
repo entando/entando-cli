@@ -2,6 +2,14 @@
 
 [ "$1" = "-h" ] && echo -e "Displays infomations related to a set of pods | Syntax: ${0##*/} namespace pod-name-pattern" && exit 0
 
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+. s/_base.sh
+
 ENTANDO_NAMESPACE="$1"
 [ "$ENTANDO_NAMESPACE" == "" ] && echo "please provide the namespace name" 1>&2 && exit 1
 shift
@@ -10,7 +18,6 @@ POD_PATT="$1"
 [ "$POD_PATT" == "" ] && echo "please provide the pod pattern" 1>&2 && exit 1
 shift
 
-KUBECTL="sudo k3s kubectl"
 ensure_sudo
 
 for pod in $($KUBECTL get pods -n "$ENTANDO_NAMESPACE" | awk 'NR>1' | awk '{print $1}' | grep "$POD_PATT"); do

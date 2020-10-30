@@ -24,9 +24,9 @@ curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERS
   if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
     export ENTANDO_RELEASE
     export ENTANDO_OPT_YES_FOR_ALL=true
-    ent-quickstart.sh --with-vm --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+    ent-quickstart --with-vm --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
   else
     export ENTANDO_OPT_YES_FOR_ALL=true
-    ent-quickstart.sh --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+    ent-quickstart --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
   fi
 )<"$DEV_TTY"
