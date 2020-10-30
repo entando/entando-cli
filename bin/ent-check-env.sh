@@ -120,15 +120,6 @@ $M_KUBE && {
   esac
 }
 
-# WINDOWS FIXES
-
-#$OS_WIN {
-#  check_ver "winpty" "*.*.*" "--version" && {
-#    ask "A version of winpty has been found. Winpty ca"
-#
-#  }
-#}
-
 # NVM
 $M_DEVL && {
   nvm_activate
@@ -147,19 +138,54 @@ rescan-sys-env force
 
 # NODE
 $M_DEVL && {
-  check_ver "node" "$VER_NODE_REQ" "--version" verbose || {
+  _log_i 1 "Checking node.."
+  FOUND=""
+  CURRENT="$(node -v)"
+  PREFERRED="$VER_NODE_DEF"
+  #VERSIONS="$(nvm ls --no-colors --no-alias | sed 's/[^v]*\(v\S*\).*/\1/' | grep -v system | grep -v $CURRENT)"
+  if $OS_WIN; then
+    VERSIONS="$(
+      nvm ls | grep '^\s\+v.*$' \
+        | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
+        | sed 's/[^v]*\(v\S*\).*/\1/'
+     )"
+  else
+    VERSIONS="$(
+      nvm ls --no-colors --no-alias | grep '^\s\+v.*$' \
+        | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
+        | sed 's/[^v]*\(v\S*\).*/\1/'
+     )"
+  fi
+
+  VERSIONS="$VERSIONS $CURRENT $PREFERRED"
+
+  for ver in $VERSIONS; do
+    if check_ver "echo" "$VER_NODE_REQ" "\"$ver\"" "quiet"; then
+      FOUND=$ver
+    else
+      _log_d 2 "\t- version \"$ver\" doesn't satisfy the requirements"
+    fi
+  done
+
+  if [ "$FOUND" != "" ]; then
+    _log_i 0 "\tfound suitable node version $FOUND"
+    DESIGNATED_NODE_VERSION="$FOUND"
+    save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION"
+    activate_designated_node
+  else
+    _log_w 0 "No suitable version of node was found"
     if ask "Should I try to install it?"; then
       _nvm install "$VER_NODE_DEF"
       _nvm use "$VER_NODE_DEF"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
-  }
+  fi
 }
 
 # ENT-LOCAL-JHIPSTER installation
 $M_DEVL && {
-  check_ver "ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
+  check_ver "ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V 2>/dev/null | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
     if ask "Should I try to install it?"; then
       ent-npm install generator-jhipster@$VER_JHIPSTER_DEF
     else
@@ -184,7 +210,9 @@ $M_DEVL && {
       cd "lib/generator-jhipster-entando/"
       git clone "$C_ENTANDO_BLUEPRINT_REPO" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
       cd "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
-      git checkout -b "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
+      git checkout -b "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" || {
+        FATAL "Unable to checkout version $VER_GENERATOR_JHIPSTER_ENTANDO_DEF of generator-jhipster-entando"
+      }
       _npm install
       ent-npm install .
     else

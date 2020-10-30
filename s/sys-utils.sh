@@ -88,16 +88,20 @@ ensure_sudo() {
 check_ver() {
   local mode="$4"
   local err_desc="$5"
-  _log_i 3 "Checking $1.."
+  [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
 
   [[ "$mode" =~ "literal" ]] \
     && VER=$(eval "$1 $3") \
     || VER=$(eval "$1 $3 2>/dev/null")
 
   if [ $? -ne 0 ] || [ -z "$VER" ]; then
-    [ -z "$err_desc" ] \
-      && _log_i 2 "Program \"$1\" is not available" \
-      || _log_i 2 "$err_desc"
+    if [[ ! "$mode" =~ "quiet" ]]; then
+      if [ -z "$err_desc" ]; then
+        _log_i 2 "Program \"$1\" is not available"
+      else
+        _log_i 2 "$err_desc"
+      fi
+    fi
     return 1
   fi
 
@@ -124,7 +128,7 @@ check_ver() {
     [[ "$mode" =~ "verbose" ]] && _log_i 3 "\tfound: $check_ver_res => OK"
     return 0
   } || {
-    _log_i 2 "Version \"$2\" of program \"$1\" is not available (found: $VER)"
+    [[ ! "$mode" =~ "quiet" ]] && _log_i 2 "Version \"$2\" of program \"$1\" is not available (found: $VER)"
     return 1
   }
 }
@@ -200,7 +204,7 @@ function ent-npm() {
   [ ! -d "$ENTANDO_ENT_ACTIVE/lib/node" ] && mkdir -p "$ENTANDO_ENT_ACTIVE/lib/node"
   if [ ! -f "$P/package.json" ]; then
     (
-      echo "Ent node dir not initialized => INITIALIZING.." 2>&1
+      echo "Ent node dir not initialized => INITIALIZING.." 1>&2
       cd "$P"
       _npm init -y 1> /dev/null
     ) || return $?
@@ -225,6 +229,7 @@ function ent-jhipster() {
     shift
   else
     require_develop_checked
+    activate_designated_node
     #require_initialized_dir
     # protection against yeoman's reverse recursive lookup
     #[ ! -f ".yo-rc.json" ] && echo "{}" > ".yo-rc.json"
