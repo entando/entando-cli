@@ -13,9 +13,13 @@ save_cfg_value() {
   if [[ -f "$config_file" ]]; then
     sed --in-place='' "/^$1=.*$/d" "$config_file"
   fi
+  if [ "$(echo "$2" | wc -l)" -gt 1 ]; then
+    FATAL "save_cfg_value: Unsupported multiline value"
+  fi
   if [ -n "$2" ]; then
     printf "$1=%s\n" "$2" >> "$config_file"
   fi
+
   return 0
 }
 
