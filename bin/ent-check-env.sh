@@ -207,5 +207,5 @@ $M_KUBE && {
 }
 
 $M_DEVL && {
-  echo "develop-checked.flag" > "$ENTANDO_ENT_ACTIVE/develop-checked.flag"
+  save_cfg_value "WAS_DEVELOP_CHECKED" "true"
 }
