@@ -199,7 +199,7 @@ $OS_WIN && {
 }
 
 # Runs npm from the private npm modules
-function ent-npm() {
+function _ent-npm() {
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
   [ ! -d "$ENTANDO_ENT_ACTIVE/lib/node" ] && mkdir -p "$ENTANDO_ENT_ACTIVE/lib/node"
   if [ ! -f "$P/package.json" ]; then
@@ -217,14 +217,14 @@ function ent-npm() {
 
 # Imports a module from the entando private npm modules
 # the the given mode_modules dir
-function ent-npm--import-module-to-current-dir() {
+function _ent-npm--import-module-to-current-dir() {
   local BP="$ENTANDO_ENT_ACTIVE/lib/"
   #[ ! -f package.json ] && echo "{}" > package.json
   _npm install "$BP/$1/$2"
 }
 
 # Run the ent private installation of jhipster
-function ent-jhipster() {
+function _ent-jhipster() {
   if [ "$1" == "--ent-no-envcheck" ]; then
     shift
   else
@@ -249,7 +249,7 @@ function ent-jhipster() {
 }
 
 function ent-init-project-dir() {
-  ent-npm--import-module-to-current-dir generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+  _ent-npm--import-module-to-current-dir generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
     | grep -v 'No description\|No repository field.\|No license field.'
   generate_ent_project_file
 }
@@ -264,31 +264,33 @@ generate_ent_project_file() {
 }
 
 rescan-sys-env() {
-  if $OS_WIN; then
-    [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
-      NVM_CMD="$(command -v nvm | head -n 1)"
+  [[ "$WAS_DEVELOP_CHECKED" = "true" || "$1" == "force" ]] && {
+    if $OS_WIN; then
+      [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
+        NVM_CMD="$(command -v nvm | head -n 1)"
+        save_cfg_value "NVM_CMD" "$NVM_CMD"
+      }
+      [[ -z "$NPM_CMD" || "$1" == "force" ]] && {
+        NPM_CMD="$(command -v npm | head -n 1)"
+        save_cfg_value "NPM_CMD" "$NPM_CMD"
+      }
+      [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
+        ENT_NPM_BIN_DIR="$(_ent-npm bin)"
+        mkdir -p "$ENT_NPM_BIN_DIR"
+        ENT_NPM_BIN_DIR="$(win_convert_existing_path_to_posix_path "$ENT_NPM_BIN_DIR")"
+        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+      }
+    else
+      [[ -z "$NVM_CMD" || "$1" == "force" ]] && NVM_CMD="nvm"
       save_cfg_value "NVM_CMD" "$NVM_CMD"
-    }
-    [[ -z "$NPM_CMD" || "$1" == "force" ]] && {
-      NPM_CMD="$(command -v npm | head -n 1)"
+      [[ -z "$NPM_CMD" || "$1" == "force" ]] && NPM_CMD="npm"
       save_cfg_value "NPM_CMD" "$NPM_CMD"
-    }
-    [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
-      ENT_NPM_BIN_DIR="$(ent-npm bin)"
-      mkdir -p "$ENT_NPM_BIN_DIR"
-      ENT_NPM_BIN_DIR="$(win_convert_existing_path_to_posix_path "$ENT_NPM_BIN_DIR")"
-      save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
-    }
-  else
-    [[ -z "$NVM_CMD" || "$1" == "force" ]] && NVM_CMD="nvm"
-    save_cfg_value "NVM_CMD" "$NVM_CMD"
-    [[ -z "$NPM_CMD" || "$1" == "force" ]] && NPM_CMD="npm"
-    save_cfg_value "NPM_CMD" "$NPM_CMD"
-    [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
-      ENT_NPM_BIN_DIR="$(ent-npm bin)"
-      save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
-    }
-  fi
+      [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
+        ENT_NPM_BIN_DIR="$(_ent-npm bin)"
+        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+      }
+    fi
+  }
 }
 
 _nvm() {

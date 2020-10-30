@@ -1,4 +1,8 @@
 #!/bin/bash
+
+H() { echo -e "Wrapper for the ENT private installation of npm. This is for internal use."; }
+[[ "$1" = "-h" && "$2" == "--short" ]] && H && exit 0
+
 WD="$PWD"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR/.." || {
@@ -10,4 +14,4 @@ cd "$DIR/.." || {
 cd "$WD" || FATAL "Unable to access the current dir: $WD"
 
 print_entando_banner
-ent-jhipster "$@"
+_ent-jhipster "$@"

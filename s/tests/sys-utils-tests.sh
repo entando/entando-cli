@@ -34,6 +34,7 @@ test_check_ver_num() {
     echo "OpenJDK 64-Bit Server VM (build 25.265-b01, mixed mode)"
   }
 
+  check_ver "tester" "11.*.*" "11" || FATAL "FAILED $LINENO"
   check_ver "tester" "*.*.*" "11.0.0" || FATAL "FAILED $LINENO"
   check_ver "tester" ">11.*.*" "11.0.0" && FATAL "FAILED $LINENO"
   check_ver "tester" ">=11.*.*" "11.0.0" || FATAL "FAILED $LINENO"

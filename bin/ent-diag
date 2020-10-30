@@ -9,10 +9,22 @@ NS="$1"
 
 TT="$PWD/entando-diagdata"
 mkdir -p "$TT"
-cd "$TT"
+cd "$TT" || FATAL "Unable to enter di \"$TT\""
 
-#KUBECTL="sudo kubectl"
-KUBECTL="${ENT_KUBECTL:-kubectl}"
+# KUBECTL
+if command -v k3s > /dev/null; then
+  case "$OSTYPE" in
+    "cygwin" | "msys" | win*)
+      KUBECTL="${ENT_KUBECTL:-k3s kubectl}"
+      ;;
+    *)
+      KUBECTL="${ENT_KUBECTL:-sudo k3s kubectl}"
+      ;;
+  esac
+else
+  KUBECTL="${ENT_KUBECTL:-kubectl}"
+fi
+
 $KUBECTL get nodes
 echo "" >basics.txt
 

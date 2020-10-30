@@ -1,6 +1,13 @@
 #!/bin/bash
 [ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
 
+(
+ [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
+) && sourced=true || sourced=false
+
 ent_cli_register_rc() {
   F="$1"
   C="$2"
@@ -138,7 +145,7 @@ ENT_RUNNER() {
   echo "═════════════════════════════════════════════════════════════════════════════"
   echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
   echo ""
-  $AUTO_ACTIVATION && {
+  $AUTO_ACTIVATION && $sourced && {
     source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
       echo ""
       echo -e "${R}ENTANDO-CLI AUTOMATICALLY ACTIVATED${W}"
@@ -153,7 +160,7 @@ ENT_RUNNER() {
     echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
   fi
   echo ""
-  echo "get help using: ent-help.sh"
+  echo "get help using: ent-help"
   echo ""
   echo "═════════════════════════════════════════════════════════════════════════════"
   echo ".."
