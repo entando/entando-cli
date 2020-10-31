@@ -49,7 +49,7 @@ reload_cfg() {
 # INTERACTION
 
 prompt() {
-  ask "$1" notif
+  ask "$1" "" notif
 }
 
 # set_or_F
@@ -117,8 +117,15 @@ set_or_ask() {
 # $1: text      the text of the question
 #
 ask() {
+  local prompt="$1"
+  local default="$2"
+  local mode="$3"
   while true; do
-    [ "$2" == "notif" ] && echo -ne "$1" || echo -ne "$1 (y/n/q)"
+    local suffix=""
+    if [ "$mode" != "notif" ]; then
+      suffix="$(echo " (y/n/q)" | sed "s/\($default\)/\U\1/i")"
+    fi
+    echo -ne "$prompt$suffix"
     if [ -n "$ENTANDO_OPT_YES_FOR_ALL" ] && "$ENTANDO_OPT_YES_FOR_ALL"; then
       echo " (auto-yes/ok)"
       return 0
@@ -126,7 +133,8 @@ ask() {
 
     # shellcheck disable=SC2162
     read -rep " " res
-    [ "$2" == "notif" ] && return 0
+    [ "$mode" == "notif" ] && return 0
+    [ "$res" == "" ] && res="$default"
 
     case $res in
       [Yy]*) return 0 ;;

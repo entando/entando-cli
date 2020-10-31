@@ -17,4 +17,5 @@ cd "$DIR/.." || {
 test_check_ver_num
 test_index_of_arg
 test_cfg_helper
+test_ask
 test_asserters
