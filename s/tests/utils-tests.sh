@@ -5,7 +5,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 # FIND ARG IDX
 test_index_of_arg() {
-  echo "> test_index_of_arg.."
+  print_current_function_name "> " ".."
 
   index_of_arg "FIND-ME" "A" "B" "C" "FIND-ME" "D"
   [[ $? -eq 4 ]] || FATAL "failed! $LINENO"
@@ -28,7 +28,7 @@ test_index_of_arg() {
 
 # CONFIG HELPER
 test_cfg_helper() {
-  echo "> test_cfg_helper.."
+  print_current_function_name "> " ".."
   CFG_FILE="/tmp/ent-test"
 
   save_cfg_value "XX1" "hey" "$CFG_FILE"
