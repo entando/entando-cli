@@ -59,7 +59,6 @@ $M_DEVL && {
   mkdir -p "lib/node"
 }
 
-
 # MISC
 
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
@@ -125,7 +124,7 @@ $M_DEVL && {
   nvm_activate
   check_ver "nvm" "$VER_NVM_REQ" "--version | grep -v '^$' | head -1" verbose || {
     $OS_WIN && FATAL "Please install nvm for windows (nvm-windows)"
-    ask "Should I try to install it?" && {
+    ask "Should I try to install it?" "y" && {
       curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$VER_NVM_DEF/install.sh" | bash
     } || {
       MAYBE_FATAL "Mandatory dependency not available"
@@ -148,13 +147,13 @@ $M_DEVL && {
       nvm ls | grep '^\s\+v.*$' \
         | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
         | sed 's/[^v]*\(v\S*\).*/\1/'
-     )"
+    )"
   else
     VERSIONS="$(
       nvm ls --no-colors --no-alias | grep '^\s\+v.*$' \
         | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
         | sed 's/[^v]*\(v\S*\).*/\1/'
-     )"
+    )"
   fi
 
   VERSIONS="$VERSIONS $CURRENT $PREFERRED"
@@ -174,7 +173,7 @@ $M_DEVL && {
     activate_designated_node
   else
     _log_w 0 "No suitable version of node was found"
-    if ask "Should I try to install it?"; then
+    if ask "Should I try to install it?" "y"; then
       _nvm install "$VER_NODE_DEF"
       _nvm use "$VER_NODE_DEF"
     else
@@ -186,7 +185,7 @@ $M_DEVL && {
 # ENT-LOCAL-JHIPSTER installation
 $M_DEVL && {
   check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V 2>/dev/null | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
-    if ask "Should I try to install it?"; then
+    if ask "Should I try to install it?" "y"; then
       _ent-npm install generator-jhipster@$VER_JHIPSTER_DEF
     else
       MAYBE_FATAL "Mandatory dependency not available"
@@ -194,39 +193,69 @@ $M_DEVL && {
   }
 }
 
-# ENTANDO-GENERATOR-JHIPSTER (entando blueprint)
-$M_DEVL && {
-  _log_i 3 "Checking ENT installation of generator-jhipster-entando.."
+check_git_package() {
+  local ADDR="$1"
+  local VER_REQ="$2"
+  local VER_DEF="$3"
+  local FLD="$4"
+  local DESC="$5"
 
-  cd "$ENTANDO_ENT_ACTIVE" || FATAL "Unable to switch to dir \"$ENTANDO_ENT_ACTIVE\""
+  _log_i 3 "Checking ENT private installation of $DESC.."
 
-  if [ -d "lib/generator-jhipster-entando/$VER_GENERATOR_JHIPSTER_ENTANDO_REQ/" ]; then
-    _log_i 3 "\tfound: $VER_GENERATOR_JHIPSTER_ENTANDO_REQ => OK"
-  else
-    _log_i 2 "Version \"$VER_GENERATOR_JHIPSTER_ENTANDO_REQ\" of \"generator-jhipster-entando\" was not found"
-
-    if ask "Should I try to install it?"; then
-      mkdir -p "lib/generator-jhipster-entando/"
-      cd "lib/generator-jhipster-entando/"
-      git clone "$C_ENTANDO_BLUEPRINT_REPO" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
-      cd "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF"
-      git checkout -b "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" || {
-        FATAL "Unable to checkout version $VER_GENERATOR_JHIPSTER_ENTANDO_DEF of generator-jhipster-entando"
-      }
-      _npm install
-      _ent-npm install .
+  (
+    __cd "$ENTANDO_ENT_ACTIVE"
+    if [ -d "lib/$FLD/$VER_REQ/" ]; then
+      _log_i 3 "\tfound: $VER_REQ => OK"
     else
-      MAYBE_FATAL "Mandatory dependency not available"
+      _log_i 2 "Version \"$VER_REQ\" of \"$DESC\" was not found"
+
+      if ask "Should I try to install it?" "y"; then
+        __mk-cd "lib/$FLD/"
+
+        local OD="$PWD"
+
+        (
+          git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
+          _npm install
+          _ent-npm install .
+        ) || {
+          _log_e 0 "An error occurred while installing $DESC.. rolling back"
+          local EC="$?"
+          __cd "$OD"
+          rm -rf "${VER_DEF:?}" 2> /dev/null
+          exit $EC
+        }
+      else
+        MAYBE_FATAL "Mandatory dependency not available"
+      fi
     fi
-  fi
-  cd - > /dev/null
+  ) || exit "$?"
 }
 
+$M_DEVL && {
+  # ENTANDO-GENERATOR-JHIPSTER (entando blueprint)
+  check_git_package \
+    "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
+    "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" \
+    "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+    "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
+    "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+
+  # ENTANDO-BUNDLE TOOL (entando blueprint)
+  check_git_package \
+    "$REPO_ENTANDO_BUNDLE_TOOL_ADDR" \
+    "$VER_ENTANDO_BUNDLE_TOOL_REQ" \
+    "$VER_ENTANDO_BUNDLE_TOOL_DEF" \
+    "$C_ENTANDO_BUNDLE_TOOL_NAME" \
+    "$C_ENTANDO_BUNDLE_TOOL_NAME"
+}
+
+#---
 $M_KUBE && {
   if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | sed 's/k3s version \(.*\)+k.*/\1/'"; then
     _log_i 3 "\tfound: $check_ver_res => OK"
   else
-    if ask "Should I try to install it?"; then
+    if ask "Should I try to install it?" "y"; then
       curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$VER_K3S_DEF" sh -
     else
       prompt "Recommended dependency not found, some tool may not work as expected.\nPress enter to continue.."

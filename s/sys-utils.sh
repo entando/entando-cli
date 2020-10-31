@@ -253,13 +253,14 @@ function _ent-jhipster() {
 }
 
 function ent-init-project-dir() {
-  [ -f ".ent-prj" ] && {
+  [ -f "$C_ENT_PRJ_FILE" ] && {
     _log_w 0 "The project seems to be already initialized"
     ask "Do you want to init it again?" "n" || return 1
   }
-
   require_develop_checked
-  _ent-npm--import-module-to-current-dir generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+  _ent-npm--import-module-to-current-dir "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+    | grep -v 'No description\|No repository field.\|No license field.'
+  _ent-npm--import-module-to-current-dir "$C_ENTANDO_BUNDLE_TOOL_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
     | grep -v 'No description\|No repository field.\|No license field.'
   generate_ent_project_file
 }
@@ -269,12 +270,12 @@ generate_ent_project_file() {
   #    echo -e "\n########\n.ent\n" >> ".gitignore"
   #  }
 
-  [ -f ".ent-prj" ] && return 0
-  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > ".ent-prj"
+  [ -f "$C_ENT_PRJ_FILE" ] && return 0
+  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > "$C_ENT_PRJ_FILE"
 }
 
 rescan-sys-env() {
-  [[ "$WAS_DEVELOP_CHECKED" = "true" || "$1" == "force" ]] && {
+  [[ "$WAS_DEVELOP_CHECKED" == "true" || "$1" == "force" ]] && {
     if $OS_WIN; then
       [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
         NVM_CMD="$(command -v nvm | head -n 1)"
@@ -317,7 +318,7 @@ win_convert_existing_path_to_posix_path() {
 
 # KUBECTL
 if [ -n "$ENTANDO_KUBECTL" ]; then
-    _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
+  _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
 else
   if command -v "k3s" > /dev/null; then
     if $OS_WIN; then
@@ -329,5 +330,75 @@ else
     _kubectl() { kubectl "$@"; }
   fi
 fi
+
+nop() {
+  :
+}
+
+git_clone_repo() {
+  local URL="$1" # URL TO CLONE
+  local TAG="$2" # TAG TO CHECKOUT
+  local FLD="$3" # local folder name
+  local DSC="$4" # human description of the cloned repository
+  local OPT="$5" # options
+
+  local ENTER=false
+  local FORCE=false
+  local ERRC="nop"
+  case "$OPT" in
+    FATAL*) ERRC="FATAL" ;;&
+    LOGW*) ERRC="_log_w 0" ;;&
+    FORCE*) FORCE=true ;;&
+    ENTER*) ENTER=true ;;&
+  esac
+
+  [ -z "$FLD" ] && FLD="$(basename "$URL")"
+  [ -z "$DSC" ] && DSC="$FLD/$TAG"
+
+  if [[ -d "$FLD" ]]; then
+    if $FORCE; then
+      echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.." 1>&2
+      return 99
+    else
+      rm -rf "./${FLD:?}"
+    fi
+  fi
+
+  git clone "$URL" "$FLD"
+  if cd "$FLD"; then
+    (
+      git fetch --tags
+      git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
+      if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
+        $ERRC "> Unable to checkout the tag or branch of $DSC \"$TAG\""
+        exit 92
+      fi
+    )
+
+    if [ $? ]; then
+      ! $ENTER && {
+        cd - > /dev/null || $ERRC "Unable to return back to the original path"
+      }
+    else
+      cd - > /dev/null && {
+        rm -rf "./${FLD:?}" 2> /dev/null
+        return "$?"
+      }
+    fi
+  fi
+}
+
+__mk-cd() {
+  mkdir -p "$1"
+  __cd "$1"
+}
+
+__cd() {
+  cd "$1" || {
+    echo "~~~" 1>&2
+    trace_position "CALLER:" "" 2
+    FATAL "Unable to enter dir \"$1\""
+  }
+}
 
 return 0
