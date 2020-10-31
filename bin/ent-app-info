@@ -40,13 +40,13 @@ $STATUS && {
 ensure_sudo
 
 _log_i 1 "NODES:"
-$KUBECTL get nodes
+_kubectl get nodes
 
 _log_i 1 "PODS:"
-$KUBECTL get pods -A
+_kubectl get pods -A
 
 _log_i 1 "Ingress path:"
-$KUBECTL get ingress -n "$ENTANDO_NAMESPACE" \
+_kubectl get ingress -n "$ENTANDO_NAMESPACE" \
   -o jsonpath='{.items[2].spec.rules[*].host}{.items[2].spec.rules[*].http.paths[2].path}{"\n"}' \
   2>>"$ENT_RUN_TMP_DIR" || {
   FATAL "Error determining the ingress location"
