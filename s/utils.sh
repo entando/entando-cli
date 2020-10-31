@@ -36,8 +36,12 @@ reload_cfg() {
   # shellcheck disable=SC1097
   while IFS== read -r var value; do
     [[ "$var" =~ ^# ]] && continue
-    printf -v sanitized "%q" "$value"
-    eval "$var"="$sanitized"
+    if assert_ic_id "CFGVAR" "$var" "silent"; then
+      printf -v sanitized "%q" "$value"
+      eval "$var"="$sanitized"
+     else
+      _log_e 0 "Skipped illegal var name $var"
+    fi
   done < "$config_file"
   return 0
 }

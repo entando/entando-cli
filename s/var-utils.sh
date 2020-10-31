@@ -79,6 +79,11 @@ assert_id() {
   _assert_regex_nn "$1" "$2" "^[a-z][a-zA-Z0-9_]*$" "" "identifier" "$3"
 }
 
+# Like assert_id but case is ignored
+assert_ic_id() {
+  _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_]*$" "" "identifier" "$3"
+}
+
 assert_spc_id() {
   _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_ ]*$" "" "identifier with spaces" "$3"
 }
