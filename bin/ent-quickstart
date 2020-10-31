@@ -13,7 +13,7 @@ if [ "$1" == "--destroy" ]; then
   reload_cfg
   ensure_sudo
   ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {
-    $KUBECTL delete namespace "$ENTANDO_NAMESPACE"
+    _kubectl delete namespace "$ENTANDO_NAMESPACE"
   }
   exit
 fi
@@ -144,12 +144,12 @@ cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
 _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
 
 ask "Should I register the CRDs?" && {
-  $KUBECTL apply -f "dist/crd"
+  _kubectl apply -f "dist/crd"
 }
 
 ask "Should I start the deployment?" && {
-  $KUBECTL create namespace "$ENTANDO_NAMESPACE"
-  $KUBECTL create -f "w/$DEPL_SPEC_YAML_FILE"
+  _kubectl create namespace "$ENTANDO_NAMESPACE"
+  _kubectl create -f "w/$DEPL_SPEC_YAML_FILE"
 }
 
 ask "Should I start the monitor?" && {

@@ -16,24 +16,28 @@ case "$OSTYPE" in
     SYS_GNU_LIKE=true
     OS_LINUX=true
     DEV_TTY="/dev/tty"
+    C_HOSTS_FILE="/etc/hosts"
     ;;
   darwin*)
     SYS_OS_TYPE="mac"
     SYS_GNU_LIKE=true
     OS_MAC=true
     DEV_TTY="/dev/ttys000"
+    C_HOSTS_FILE="/private/etc/hosts"
     ;;
-  "cygwin" | "msys" | win*)
+  "cygwin" | "msys")
     SYS_OS_TYPE="win"
     SYS_GNU_LIKE=true
     OS_WIN=true
     DEV_TTY="/dev/tty"
+    C_HOSTS_FILE="/etc/hosts"
     ;;
   win*)
     SYS_OS_TYPE="win"
     SYS_GNU_LIKE=false
     OS_WIN=true
     DEV_TTY="/dev/tty"
+    C_HOSTS_FILE="%SystemRoot%\System32\drivers\etc\hosts"
     ;;
   "freebsd" | "openbsd")
     SYS_OS_TYPE="bsd"
@@ -310,5 +314,20 @@ _npm() {
 win_convert_existing_path_to_posix_path() {
   powershell "cd \"$1\" > \$null; bash -c 'pwd'"
 }
+
+# KUBECTL
+if [ -n "$ENTANDO_KUBECTL" ]; then
+    _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
+else
+  if command -v "k3s" > /dev/null; then
+    if $OS_WIN; then
+      _kubectl() { k3s kubectl "$@"; }
+    else
+      _kubectl() { sudo k3s kubectl "$@"; }
+    fi
+  else
+    _kubectl() { kubectl "$@"; }
+  fi
+fi
 
 return 0

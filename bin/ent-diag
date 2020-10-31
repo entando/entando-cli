@@ -12,20 +12,21 @@ mkdir -p "$TT"
 cd "$TT" || FATAL "Unable to enter di \"$TT\""
 
 # KUBECTL
-if command -v k3s > /dev/null; then
-  case "$OSTYPE" in
-    "cygwin" | "msys" | win*)
-      KUBECTL="${ENT_KUBECTL:-k3s kubectl}"
-      ;;
-    *)
-      KUBECTL="${ENT_KUBECTL:-sudo k3s kubectl}"
-      ;;
-  esac
+if [ -n "$ENTANDO_KUBECTL" ]; then
+    _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
 else
-  KUBECTL="${ENT_KUBECTL:-kubectl}"
+  if command -v "k3s" > /dev/null; then
+    if $OS_WIN; then
+      _kubectl() { k3s kubectl "$@"; }
+    else
+      _kubectl() { sudo k3s kubectl "$@"; }
+    fi
+  else
+    _kubectl() { kubectl "$@"; }
+  fi
 fi
 
-$KUBECTL get nodes
+_kubectl get nodes
 echo "" >basics.txt
 
 # DNS rebinding protection TEST
@@ -51,12 +52,12 @@ ip r s >>basics.txt 2>&1
 # PODs information collection
 echo "## K8S INFO"
 
-for pod in $($KUBECTL get pods -n "$NS" | awk 'NR>1' | awk '{print $1}'); do
+for pod in $(_kubectl get pods -n "$NS" | awk 'NR>1' | awk '{print $1}'); do
   echo "> POD: $pod"
-  $KUBECTL describe pods/"$pod" -n "$NS" 1>"$pod.describe.txt" 2>&1
-  for co in $($KUBECTL get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}' -n "$NS"); do
+  _kubectl describe pods/"$pod" -n "$NS" 1>"$pod.describe.txt" 2>&1
+  for co in $(_kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}' -n "$NS"); do
     echo -e ">\tCONTAINER: $co"
-    $KUBECTL logs pods/"$pod" -c "$co" -n "$NS" 1>"$pod-$co.logs.txt" 2>&1
+    _kubectl logs pods/"$pod" -c "$co" -n "$NS" 1>"$pod-$co.logs.txt" 2>&1
   done
 done
 
