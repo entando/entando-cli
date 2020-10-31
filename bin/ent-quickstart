@@ -51,7 +51,7 @@ fi
         if [[ $1 =~ --dedicated=(.*) ]]; then
           set_nn_dn ADDR "${BASH_REMATCH[1]}"
         else
-          ADDR=$C_DEF_CUSTOM_IP
+          set_or_ask "ADDR" "Please provide the custom ip address" "assert_ip" || FATAL "Custom ip address is mandatory"
         fi
       fi
       shift
