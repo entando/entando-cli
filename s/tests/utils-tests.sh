@@ -46,4 +46,17 @@ test_cfg_helper() {
   [ "$XX5" = "\\\" && echo \"**INJECTION ATTEMPT2**\"\\ / && \\\"" ] || FATAL "failed! $LINENO"
 }
 
+test_ask() {
+  print_current_function_name "> " ".."
+
+  {
+    (echo "y" | ask "Do you want to continue?") || FATAL "failed! $LINENO"
+    (echo "n" | ask "Do you want to continue?") && FATAL "failed! $LINENO"
+    (echo "" | ask "Do you want to continue?" "Y") || FATAL "failed! $LINENO"
+    echo ""
+    (echo "n" | ask "Do you want to continue?" "Y") && FATAL "failed! $LINENO"
+    echo ""
+  } > /dev/null
+}
+
 true
