@@ -4,7 +4,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 "$OPT" && pwd)"
 
 
 test_asserters() {
-  echo "> test_asserters.."
+  print_current_function_name "> " ".."
 
   OPT="silent"
 

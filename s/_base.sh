@@ -39,6 +39,10 @@ function trace_position() {
   echo "> CODE-POSITION: $fl, line $ln -- $fn()${pre}$*" 2>&1
 }
 
+function print_current_function_name() {
+  echo "${1}${FUNCNAME[1]}${2}"
+}
+
 #function error-trap() {
 #  trap - ERR
 #  xu_get_status
