@@ -16,7 +16,6 @@ XU_LOG_LEVEL=9
 # CONSTS
 C_ENTANDO_BLUEPRINT_REPO="https://github.com/entando/entando-blueprint"
 CFG_FILE="$ENTANDO_ENT_ACTIVE/w/.cfg"
-C_DEF_CUSTOM_IP="10.5.14.20"
 C_HOSTS_FILE="/etc/hosts"
 C_BUNDLE_DESCRIPTOR_FILE_NAME="descriptor.yaml"
 
