@@ -254,6 +254,7 @@ function ent-init-project-dir() {
     ask "Do you want to init it again?" "n" || return 1
   }
 
+  require_develop_checked
   _ent-npm--import-module-to-current-dir generator-jhipster-entando "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
     | grep -v 'No description\|No repository field.\|No license field.'
   generate_ent_project_file
