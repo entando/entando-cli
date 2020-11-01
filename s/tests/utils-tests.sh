@@ -1,7 +1,6 @@
 #!/bin/bash
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 
 # FIND ARG IDX
 test_index_of_arg() {
@@ -57,6 +56,19 @@ test_ask() {
     (echo "n" | ask "Do you want to continue?" "Y") && FATAL "failed! $LINENO"
     echo ""
   } > /dev/null
+}
+
+# HELPER "SELECT ONE"
+test_select_one() {
+  print_current_function_name "> " ".."
+
+  declare -a arr
+  arr[0]="test1"
+  arr[1]="test2"
+  echo "2" | (
+    select_one "TestValue" "${arr[@]}" >/dev/null
+    [ "$select_one_res:$select_one_res_alt" = "2:test2" ] || FATAL "failed! $LINENO"
+  ) || return "$?"
 }
 
 true

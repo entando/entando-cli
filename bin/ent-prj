@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# FLAGS
+#H:% OPTPAR CHAINED SHORTS
+
+# HELP HEADER
+#H::
+#H:: Helps managing Entando bundle projects
+#H::
+#H:: Syntax:
+#H::  - {{TOOL-NAME}} {sub-command}
+#H::
+#H:: SubCommands:
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
@@ -10,48 +22,105 @@ cd "$DIR/.." || {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 RUN() {
-  require_develop_checked
+  reload_cfg "$C_ENT_PRJ_FILE"
 
   while true; do
     cmd="$1"
     shift
     case "$cmd" in
+      # ~~~~~~~~~~~~~~~~~~~~
+      #H:> GLOBAL:
+      # ~~~~~~~~~~~~~~~~~~~~
       "init") #H: initializes a project dir
+        require_develop_checked
         print_entando_banner
         init_project
         ;;
-      "fe-build") #H: builds and package the frontend
+      "build" | "ba") #H: builds both frontend and backend
+        require_develop_checked
+        require_ent_project_dir
         print_entando_banner
-        fe_build "$@"
+        _log_i 0 "Building the frontend"
+        fe_build
+        _log_i 0 "Building the backend"
+        be_build
         ;;
-      "be-build") #H: builds and package the backend
-        print_entando_banner
-        be_build "$@"
-        ;;
-      "be-info") #H: print information about the backend
-        be_info "$@"
-        ;;
-      "gen") #H: generates the project contents
+      "gen") #H: generates project contents
+        require_develop_checked
+        require_ent_project_dir
         print_entando_banner
         generate_project "$@"
         ;;
-      "init-pub") #H: initializes the publication system
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> PUB SYSTEM:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "pbs-init") #H: (url, username, email) initializes the publication system
+        require_develop_checked
         require_initialized_dir
+        print_entando_banner
         init_pub "$@"
         ;;
-      "publish-version") #H: bumps a new version given the VERSION_NUMBER
-        require_initialized_dir
+      "pbs-publish" | "pub") #H: [--force] (VERSION_NUMBER, VERSION_COMMENT) bumps and publishes a new version
+        require_develop_checked
+        require_ent_project_dir
         publish_version "$@"
         ;;
-      "be-push") #H: push the be to the repo
-        require_initialized_dir
-        be_push "$@"
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> FRONTEND:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "fe-build" | "fb") #H: [--all|-a] builds and package the frontend
+        require_develop_checked
+        require_ent_project_dir
+        print_entando_banner
+        activate_designated_node
+        fe_build "$@"
         ;;
-      "test-run") #H: bumps a new version given the VERSION_NUMBER
-
+      "fe-push" | "fp") #H: [--force] pushes the frontend to the repo
+        require_develop_checked
+        require_ent_project_dir
+        activate_designated_node
+        fe_push "$@"
+        ;;
+      "fe-test-run" | "fr") #H: runs the one of the frontend components
+        require_develop_checked
+        require_ent_project_dir
+        activate_designated_node
+        fe_test_run "$@"
+        ;;
+      "fe-list" | "fls") #H: lists the frontend components
+        require_develop_checked
+        require_ent_project_dir
+        fe_list_widgets
+        ;;
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> BACKEND:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "be-build" | "bb") #H: (mvn-params) builds and package the backend
+        require_develop_checked
+        require_ent_project_dir
+        be_build "$@"
+        ;;
+      "be-info") #H: prints information about the backend
+        require_ent_project_dir
+        be_info
+        ;;
+      "be-push" | "bp") #H: pushes the backend to the repo
+        require_ent_project_dir
+        be_push
+        ;;
+      "be-test-run" | "br") #H: locally executes the backend
+        require_ent_project_dir
+        be_test_run
+        ;;
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> EXTERNALS:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "ext-keycloak" | "xk") #H: manage the tests keycloak instance
+        require_ent_project_dir
+        ext_keycloak "$@"
         ;;
       *)
-        H
+        print_ent_tool_help
         break
         ;;
     esac
@@ -62,36 +131,118 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ext_keycloak() {
+  cmd="$1"
+  shift
+  case "$cmd" in
+    start | up | u)
+      docker-compose -f src/main/docker/keycloak.yml up -d "$@"
+      ;;
+    stop | down | d)
+      docker-compose -f src/main/docker/keycloak.yml down "$@"
+      ;;
+    logs | l)
+      docker-compose -f src/main/docker/keycloak.yml logs "$@"
+      ;;
+    *)
+      _log_w 0 "Please provide a valid action: start|stop|logs"
+      ;;
+  esac
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 fe_build() {
-  require_ent_project_dir
-  activate_designated_node
-  ./prepareMicrofrontends.sh
+  if [[ "$1" == "--all" || "$1" == "-a" ]]; then
+    shift
+    require_ent_project_dir
+    activate_designated_node
+    ./prepareMicrofrontends.sh
+  else
+    fe_select_widget && (
+      __cd "$SELECTED_WIDGET"
+      _npm install
+    )
+  fi
+}
+
+fe_select_widget() {
+  fe_widget_do :select
+}
+
+fe_list_widgets() {
+  fe_widget_do :print
+}
+
+fe_widget_do() {
+  local action="$1"
+  local i=0
+  declare -a arr
+
+  while IFS= read -r widgetPackageFiles; do
+    widgetDir="$(dirname "$widgetPackageFiles")"
+    i=$((i + 1))
+    arr[$i]="$widgetDir"
+    [[ "$action" =~ :print ]] && echo "$i) $widgetDir"
+  done < <(find ui/widgets/ -iname package.json -not -path "*/node_modules/*")
+
+  [[ "$action" =~ :select ]] && {
+    _log_i 0 "Select the Widget to $action"
+    select_one "" "${arr[@]}"
+    _log_i 0 "Widget \"$select_one_res_alt\" selected"
+
+    SELECTED_WIDGET="$select_one_res_alt"
+  }
+  true
+}
+
+fe_test_run() {
+  fe_select_widget && (
+    __cd "$SELECTED_WIDGET"
+    _npm install && _npm start
+  )
+}
+
+be_test_run() {
+  ./mvnw
 }
 
 # shellcheck disable=SC2155
 get_be_info() {
-  local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | sed 's/<image>\([^<]*\).*/\1/')"
-  IMAGE_FQNAME="$(
-    ./mvnw -q --non-recursive exec:exec \
-      -Dexec.executable="echo" \
-      -Dexec.args="'$IMAGE_FQNAME_expr'"
-  )"
+  local ver=$(sha256sum pom.xml | awk '{print $1}')
+  if [ "$ver" != "$PARSED_POM_CHECKSUM" ]; then
+    local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | sed 's/<image>\([^<]*\).*/\1/')"
+
+    IMAGE_FQNAME="$(
+      ./mvnw -q --non-recursive exec:exec \
+        -Dexec.executable="echo" \
+        -Dexec.args="'$IMAGE_FQNAME_expr'" 2> /dev/null
+    )"
+    if grep -F "[ERROR]" <($IMAGE_FQNAME); then
+      IMAGE_FQNAME=""
+    fi
+  fi
+
   [ -z "$IMAGE_FQNAME" ] && {
     _log_w 0 "Unable to determine the image name"
     set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
   }
+
+  [ -z "$IMAGE_FQNAME" ] && FATAL "Unable to determine the image name"
   IMAGE_FQNAME_ORG="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[1]}')"
   local tmp="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[2]}')"
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
   IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
+
+  save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_PRJ_FILE"
+  save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_PRJ_FILE"
 }
 
 be_info() {
   get_be_info
   _log_i 0 "Docker image info:\n\
-  - IMAGE ORG:  \"$IMAGE_FQNAME_ORG\"\n\
-  - IMAGE NAME: \"$IMAGE_FQNAME_NAME\"\n\
-  - IMAGE TAG:  \"$IMAGE_FQNAME_TAG\"\n"
+  - IMAGE ORG:    \"$IMAGE_FQNAME_ORG\"\n\
+  - IMAGE NAME:   \"$IMAGE_FQNAME_NAME\"\n\
+  - IMAGE TAG:    \"$IMAGE_FQNAME_TAG\"\n\
+  - IMAGE FQNAME: \"$IMAGE_FQNAME\"\n"
 }
 
 be_build() {
@@ -111,8 +262,10 @@ be_build() {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
+  echo "~~~"
   _log_i 0 "Publishing the frontend to git"
   fe_push "$@"
+  echo "~~~"
   _log_i 0 "Publishing the backend to the docker registry"
   be_push
 }
@@ -148,10 +301,13 @@ push_git() {
     FORCE=true
   } || FORCE=false
 
-  set_or_ask "VERSION_NUMBER" "$1" "%sp %var" "" "assert_fdn"
-  set_or_ask "VERSION_COMMENT" "$2" "%sp %var" "$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')" "assert_nn"
+  set_or_ask "VERSION_NUMBER" "$1" "Please provide the bundle version number" \
+    "$LATEST_VERSION_NUMBER" "assert_ver"
+  set_or_ask "VERSION_COMMENT" "$2" "Please provide the bundle version comment" \
+    "$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')" "assert_nn"
+  save_cfg_value "LATEST_VERSION_NUMBER" "$VERSION_NUMBER" "$C_ENT_PRJ_FILE"
 
-  cd bundle > /dev/null || FATAL "internal error"
+  __cd bundle
 
   if [ ! "$(git status --porcelain)" ]; then
     ask "No change detected; Should I proceed anyway?" || EXIT_UE "User interrupted"
@@ -193,12 +349,14 @@ push_git() {
     fi
   fi
 
+  local show_version_tag_msg=false
   if [ $RV -ne 0 ]; then
     _log_e 1 "Unable to push to the remote repository, reason; $RES"
     FATAL "Manual intervention required"
   else
     if echo "$RES" | head -n 2 | grep -q -F 'up-to-date'; then
-      _log_w 1 "Nothing was published: The remote repository is already up to date"
+      _log_w 1 "No new content was published: The remote repository is already up to date"
+      show_version_tag_msg=true
     else
       _log_i 1 "Version $VERSION_NUMBER published"
     fi
@@ -207,7 +365,9 @@ push_git() {
   git push --tags --force 2> /dev/null
   RV=$?
   if [ $RV -ne 0 ]; then
-    _log_e 1 "Error pushing the version tag"
+    _log_e 1 "Error publishing the version tag"
+  else
+    $show_version_tag_msg && _log_i 1 "Version tags published"
   fi
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -363,20 +523,33 @@ initialize_publication_git_repository() {
   git config user.name "$PUB_USER_NAME"
   git config user.email "$PUB_USER_EMAIL"
 
+  pbs_fe_propose_credentials_cache
+
   cd - > /dev/null || FATAL "internal error"
 
   # Project: gitignore
-  grep -sq "^bundle/$" .gitignore || {
+  local UP=false
+  grep -sq "^bundle/\$" .gitignore || {
     echo -e "\n####\nbundle/" >> .gitignore
-    _log_d 1 "bundle project .gitignore updated"
+    UP=true
   }
+  grep -sq "^$C_ENT_PRJ_FILE\$" .gitignore || {
+    echo -e "\n$C_ENT_PRJ_FILE" >> .gitignore
+    UP=true
+  }
+  $UP && _log_d 1 "bundle project .gitignore updated"
 }
 
 require_ent_project_dir() {
+  [ "$(basename "$PWD")" == "bundle" ] && {
+    COMMENT=". If you are in the project's bundle-publication folder go back to the project's root dir"
+  }
+
   [ ! -f "$C_ENT_PRJ_FILE" ] \
-    && FATAL "The current dir (\"$PWD\") doesn't seem to be a valid bundle project (no project file)"
+    && FATAL "The current dir doesn't seem to contain a valid bundle project (no project file)$COMMENT"
   [ ! -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] \
-    && FATAL "The current dir (\"$PWD\") doesn't seem to be a valid bundle project (not bundle dir)"
+    && FATAL "The current dir  doesn't seem to contain a valid bundle project (not bundle dir)$COMMENT"
+
 }
 
 ensure_valid_location_for_git_publication() {
@@ -385,7 +558,7 @@ ensure_valid_location_for_git_publication() {
     if [ -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ]; then
       generate_ent_project_file
     else
-      FATAL "The current dir (\"$PWD\") doesn't seem to be a valid bundle project"
+      FATAL "The current dir doesn't seem to contain a valid bundle project"
     fi
   fi
 
@@ -417,8 +590,11 @@ ensure_valid_location_for_git_publication() {
       fi
 
       _log_d 1 "Checking out the remote master"
+      git branch -m master master_old 1> /dev/null 2>&1
+      git branch -D master 1> /dev/null 2>&1
       git fetch origin master
       git checkout -b master origin/master
+      git branch -D master_old 1> /dev/null 2>&1
     else
       echo "" > .gitignore
       git add -A
@@ -450,24 +626,23 @@ read_missing_pub_info_from_project_sources_git() {
   cd - > /dev/null || FATAL "internal error"
 }
 
-# ######################################################################################################################
-# ######################################################################################################################
-# ######################################################################################################################
-H() {
-  case $1 in
-    short)
-      echo -e "Helps managing Entando bundle projects | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
-      ;;
-    *)
-      echo -e "Helps managing Entando bundle projects | Syntax: (run ${0##*/} [-i|-m] <sub-command>)"
-      echo "sub-commands:"
-      grep '#''H:' "$0" | sed 's/[[:space:]]*\(.*\))[[:space:]]*#''H:\(.*\)/  - \1: \2/'
-      ;;
-  esac
+pbs_fe_propose_credentials_cache() {
+  local TIMEOUT=""
+  ask "Do you want to enable to credentials cache for the publication of the frontend?" && {
+    set_or_ask TIMEOUT "" "Expiration in seconds?" "$((3600 * 24))" && {
+      git_enable_credentials_cache "$TIMEOUT"
+    }
+  }
 }
 
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+
 if [ "$1" = "-h" ] || [ "$1" == "" ]; then
-  { [ "$2" != "--short" ] && H "full" && exit 0; } || { H "short" && exit 0; }
+  . s/essentials.sh
+  print_ent_tool_help "$2"
+  exit 0
 fi
 
 . s/_base.sh

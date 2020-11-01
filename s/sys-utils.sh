@@ -3,53 +3,6 @@
 SYS_UTILS_BASE_DIR=$PWD
 SYS_CLI_PRE=""
 
-# OS DETECT
-OS_LINUX=false
-OS_MAC=false
-OS_WIN=false
-OS_BSD=false
-SYS_GNU_LIKE=false
-SYS_OS_UNKNOWN=false
-case "$OSTYPE" in
-  linux*)
-    SYS_OS_TYPE="linux"
-    SYS_GNU_LIKE=true
-    OS_LINUX=true
-    DEV_TTY="/dev/tty"
-    C_HOSTS_FILE="/etc/hosts"
-    ;;
-  darwin*)
-    SYS_OS_TYPE="mac"
-    SYS_GNU_LIKE=true
-    OS_MAC=true
-    DEV_TTY="/dev/ttys000"
-    C_HOSTS_FILE="/private/etc/hosts"
-    ;;
-  "cygwin" | "msys")
-    SYS_OS_TYPE="win"
-    SYS_GNU_LIKE=true
-    OS_WIN=true
-    DEV_TTY="/dev/tty"
-    C_HOSTS_FILE="/etc/hosts"
-    ;;
-  win*)
-    SYS_OS_TYPE="win"
-    SYS_GNU_LIKE=false
-    OS_WIN=true
-    DEV_TTY="/dev/tty"
-    C_HOSTS_FILE="%SystemRoot%\System32\drivers\etc\hosts"
-    ;;
-  "freebsd" | "openbsd")
-    SYS_OS_TYPE="bsd"
-    SYS_GNU_LIKE=true
-    OS_BSD=true
-    ;;
-  *)
-    SYS_OS_TYPE="UNKNOWN"
-    SYS_OS_UNKNOWN=true
-    ;;
-esac
-
 netplan_add_custom_ip() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
@@ -83,9 +36,6 @@ hostsfile_add_dns() {
   sudo echo "$1 $2    ##ENT-CUSTOM-VALUE##$3" | sudo tee -a "$C_HOSTS_FILE" > /dev/null
 }
 
-ensure_sudo() {
-  sudo true # NB: not using "sudo -v" because misbehaves with password-less sudoers
-}
 
 # Checks the SemVer of a program
 # > check_ver <program> <expected-semver-pattern> <program-params-for-showing-version\> <mode>
@@ -314,25 +264,6 @@ _npm() {
 
 win_convert_existing_path_to_posix_path() {
   powershell "cd \"$1\" > \$null; bash -c 'pwd'"
-}
-
-# KUBECTL
-if [ -n "$ENTANDO_KUBECTL" ]; then
-  _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
-else
-  if command -v "k3s" > /dev/null; then
-    if $OS_WIN; then
-      _kubectl() { k3s kubectl "$@"; }
-    else
-      _kubectl() { sudo k3s kubectl "$@"; }
-    fi
-  else
-    _kubectl() { kubectl "$@"; }
-  fi
-fi
-
-nop() {
-  :
 }
 
 git_clone_repo() {

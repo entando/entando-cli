@@ -76,6 +76,15 @@ test_asserters() {
   assert_ip "IP" "192.168.0" "$OPT" && FATAL "failed! $LINENO"
   assert_ip "IP" "192.168.0.a1" "$OPT" && FATAL "failed! $LINENO"
   assert_ip "IP" "192.168a.0.1" "$OPT" && FATAL "failed! $LINENO"
+
+  assert_ver "VER" "0.0.1" "$OPT" || FATAL "failed! $LINENO"
+  assert_ver "VER" "0.0.1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
+  assert_ver "VER" "0.0.1-SNAPSHOT-2" "$OPT" || FATAL "failed! $LINENO"
+  assert_ver "VER" "0.1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
+  assert_ver "VER" "1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
+  assert_ver "VER" "0.0.1+SNAPSHOT" "$OPT" && FATAL "failed! $LINENO"
+  assert_ver "VER" "0.0.1:2" "$OPT" && FATAL "failed! $LINENO"
+  assert_ver "VER" "0.0.1_3" "$OPT" && FATAL "failed! $LINENO"
 }
 
 true
