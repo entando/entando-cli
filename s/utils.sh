@@ -39,7 +39,7 @@ reload_cfg() {
     if assert_ic_id "CFGVAR" "$var" "silent"; then
       printf -v sanitized "%q" "$value"
       eval "$var"="$sanitized"
-     else
+    else
       _log_e 0 "Skipped illegal var name $var"
     fi
   done < "$config_file"
@@ -100,7 +100,7 @@ set_or_ask() {
 
     if [ -n "$asserter" ]; then
       if [ -n "$res" ] || ! $nullable; then
-        ( "$asserter" "$dvar" "$res" ) || {
+        ("$asserter" "$dvar" "$res") || {
           res=""
           continue
         }
@@ -141,8 +141,12 @@ ask() {
       [Nn]*) return 1 ;;
       [Qq]*)
         EXIT_UE "User stopped the execution"
-        exit 99 ;;
-      *) echo "Please answer yes, no or quit."; sleep 0.5;;
+        exit 99
+        ;;
+      *)
+        echo "Please answer yes, no or quit."
+        sleep 0.5
+        ;;
     esac
   done
 }
@@ -239,4 +243,44 @@ require_initialized_dir() {
 pre_parse_jdlt() {
   FILE="$1" # the file to parse
   grep "{{[a-zA-Z][.-_a-zA-Z0-9]*}}," "$FILE" | sed 's/\s\+[^{]*{{\([^}]*\).*/\1/'
+}
+
+git_enable_credentials_cache() {
+  if [ -n "$1" ]; then
+    git config credential.helper "cache --timeout='$1'"
+  else
+    git config credential.helper
+  fi
+}
+
+select_one() {
+  local i=1
+  local SELECTED=""
+  [ "$1" == "-a" ] && ALL=true && shift
+  P="$1"
+  shift
+  select_one_res=""
+  select_one_res_alt=""
+
+  for item in "$@"; do
+    echo "$i) $item"
+    i=$((i + 1))
+  done
+  ${ALL:-false} && echo "a) all"
+  echo "q) to quit"
+
+  while true; do
+    printf "%s" "$P"
+    set_or_ask "SELECTED" "" ""
+    [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
+    [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
+    [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
+    [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
+  done
+
+  # shellcheck disable=SC2034
+  {
+    select_one_res="$SELECTED"
+    select_one_res_alt="${!SELECTED}"
+  }
 }

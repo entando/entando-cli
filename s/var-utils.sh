@@ -79,9 +79,17 @@ assert_id() {
   _assert_regex_nn "$1" "$2" "^[a-z][a-zA-Z0-9_]*$" "" "identifier" "$3"
 }
 
+assert_ext_id() {
+  _assert_regex_nn "$1" "$2" "^[a-z][a-zA-Z0-9_-]*$" "" "identifier" "$3"
+}
+
 # Like assert_id but case is ignored
 assert_ic_id() {
   _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_]*$" "" "identifier" "$3"
+}
+
+assert_ext_ic_id() {
+  _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_-]*$" "" "identifier" "$3"
 }
 
 assert_spc_id() {
@@ -118,6 +126,10 @@ assert_fdn() {
   _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "full domain" "$3"
 }
 
+assert_ver() {
+  _assert_regex_nn "$1" "$2" "^[0-9.]+-?[a-zA-Z0-9-]+$" "" "version" "$3"
+}
+
 assert_ip() {
   _assert_regex_nn "$1" "$2" "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$" "" "ip address" "$3"
 }
@@ -133,10 +145,11 @@ _assert_regex_nn() {
   [ "$7" != "" ] && FATAL "[_assert_regex_nn] Internal Error: Invalid function call "
   assert_nn "$1" "$2" "$6"
   if [[ "$2" =~ $3 ]]; then
+    return 0
+  else
     if [[ -n "$4" && "$2" =~ $4 ]]; then
       return 0
     fi
-  else
     if [ "$6" != "silent" ]; then
       local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
       _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"

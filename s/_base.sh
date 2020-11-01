@@ -110,6 +110,7 @@ function print_current_function_name() {
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ENVIRONMENT
+. s/essentials.sh
 . s/sys-utils.sh
 
 $SYS_OS_UNKNOWN && { echo "Unsupported operating system" 1>&2; exit 99; }
@@ -145,7 +146,8 @@ nvm_activate() {
 }
 
 activate_designated_node() {
-  [ -z "$ACTIVATED_NODE_VERSION" ] && {
+  [ -z "$ACTIVATED_NODE_VERSION" ] && ACTIVATED_NODE_VERSION="$(node -v)  "
+  [[ -z "$ACTIVATED_NODE_VERSION" || "$ACTIVATED_NODE_VERSION" != "$DESIGNATED_NODE_VERSION" ]] && {
     check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
       nvm_activate
       nvm use "$DESIGNATED_NODE_VERSION" || {
