@@ -7,15 +7,137 @@ cd "$DIR/.." || {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  require_develop_checked
+
+  while true; do
+    cmd="$1"
+    shift
+    case "$cmd" in
+      "init") #H: initializes a project dir
+        print_entando_banner
+        init_project
+        ;;
+      "fe-build") #H: builds and package the frontend
+        print_entando_banner
+        fe_build "$@"
+        ;;
+      "be-build") #H: builds and package the backend
+        print_entando_banner
+        be_build "$@"
+        ;;
+      "be-info") #H: print information about the backend
+        be_info "$@"
+        ;;
+      "gen") #H: generates the project contents
+        print_entando_banner
+        generate_project "$@"
+        ;;
+      "init-pub") #H: initializes the publication system
+        require_initialized_dir
+        init_pub "$@"
+        ;;
+      "publish-version") #H: bumps a new version given the VERSION_NUMBER
+        require_initialized_dir
+        publish_version "$@"
+        ;;
+      "be-push") #H: push the be to the repo
+        require_initialized_dir
+        be_push "$@"
+        ;;
+      "test-run") #H: bumps a new version given the VERSION_NUMBER
+
+        ;;
+      *)
+        H
+        break
+        ;;
+    esac
+    index_of_arg "--AND" "$@"
+    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
+    [ -z "$1" ] && break
+  done
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+fe_build() {
+  require_ent_project_dir
+  activate_designated_node
+  ./prepareMicrofrontends.sh
+}
+
+# shellcheck disable=SC2155
+get_be_info() {
+  local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | sed 's/<image>\([^<]*\).*/\1/')"
+  IMAGE_FQNAME="$(
+    ./mvnw -q --non-recursive exec:exec \
+      -Dexec.executable="echo" \
+      -Dexec.args="'$IMAGE_FQNAME_expr'"
+  )"
+  [ -z "$IMAGE_FQNAME" ] && {
+    _log_w 0 "Unable to determine the image name"
+    set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
+  }
+  IMAGE_FQNAME_ORG="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[1]}')"
+  local tmp="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[2]}')"
+  IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
+  IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
+}
+
+be_info() {
+  get_be_info
+  _log_i 0 "Docker image info:\n\
+  - IMAGE ORG:  \"$IMAGE_FQNAME_ORG\"\n\
+  - IMAGE NAME: \"$IMAGE_FQNAME_NAME\"\n\
+  - IMAGE TAG:  \"$IMAGE_FQNAME_TAG\"\n"
+}
+
+be_build() {
+  require_ent_project_dir
+  activate_designated_node
+
+  get_be_info
+
+  ./mvnw -Pprod clean package jib:dockerBuild "$@" && {
+    echo ""
+    _log_i 0 "Built image \"$IMAGE_FQNAME\""
+    true
+  } || {
+    _log_e 0 "Error building image \"$IMAGE_FQNAME\""
+  }
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
+  _log_i 0 "Publishing the frontend to git"
+  fe_push "$@"
+  _log_i 0 "Publishing the backend to the docker registry"
+  be_push
+}
+
+fe_push() {
+  local PPWD="$PWD"
   push_git "$@"
-  push_docker "$@"
+  local R=$?
+  __cd "$PPWD"
+  return $R
+}
+
+be_push() {
+  local PPWD="$PWD"
+  get_be_info
+  push_docker "$IMAGE_FQNAME"
+  local R=$?
+  __cd "$PPWD"
+  return $R
 }
 
 push_docker() {
   [ -z "$DOCKER_REGISTRY_URL" ] && _log_d 1 "No docker registry configured, using default"
   docker login "$DOCKER_REGISTRY_URL"
-  docker push
+  docker push "$@"
 }
 
 push_git() {
@@ -247,42 +369,11 @@ initialize_publication_repository() {
   }
 }
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-RUN() {
-  while true; do
-    cmd="$1"
-    shift
-    case "$cmd" in
-    "init") #H: initializes a project dir
-      print_entando_banner
-      init_project
-      ;;
-    "gen") #H: generates the project contents
-      print_entando_banner
-      generate_project "$@"
-      ;;
-    "init-pub") #H: initializes the publication
-      require_initialized_dir
-      init_pub "$@"
-      ;;
-    "publish-version") #H: bumps a new version given the VERSION_NUMBER
-      require_initialized_dir
-      publish_version "$@"
-      ;;
-    "test-run") #H: bumps a new version given the VERSION_NUMBER
-
-      ;;
-    *)
-      H
-      break
-      ;;
-    esac
-    index_of_arg "--AND" "$@"
-    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
-    [ -z "$1" ] && break
-  done
+require_ent_project_dir() {
+  [ ! -f "$C_ENT_PRJ_FILE" ] \
+    && FATAL "The current dir (\"$PWD\") doesn't seem to be a valid bundle project (no project file)"
+  [ ! -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] \
+    && FATAL "The current dir (\"$PWD\") doesn't seem to be a valid bundle project (not bundle dir)"
 }
 
 ensure_valid_location() {
