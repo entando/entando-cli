@@ -31,12 +31,19 @@ xu_get_status() {
 xu_set_status "-"
 
 function trace_position() {
-  local fn="${FUNCNAME[1]}"
-  local ln="${BASH_LINENO[0]}"
-  local fl="${BASH_SOURCE[0]}"
   local pre=""
-  [ -n "$1" ] && pre=" -- "
-  echo "> CODE-POSITION: $fl, line $ln -- $fn()${pre}$*" 2>&1
+  local title=""
+  [ -n "$1" ] && title=" $1 "
+  [ -n "$2" ] && pre=" -- "
+  local n1="${3:-1}"
+  local n0="$((n1-1))"
+  shift 3
+
+  local fn="${FUNCNAME[n1]}"
+  local ln="${BASH_LINENO[n0]}"
+  local fl="${BASH_SOURCE[n0]}"
+
+  echo ">${title}$fl, line $ln -- $fn()${pre}$*" 2>&1
 }
 
 function print_current_function_name() {
