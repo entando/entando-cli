@@ -1,6 +1,6 @@
 #!/bin/bash
 
-H() { echo -e "Wrapper for the ENT private installation of jhipster..."; }
+H() { echo -e "Wrapper for the ENT private installation of npm..."; }
 [[ "$1" = "-h" && "$2" == "--short" ]] && H && exit 0
 
 
