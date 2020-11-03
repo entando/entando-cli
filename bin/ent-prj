@@ -628,7 +628,7 @@ read_missing_pub_info_from_project_sources_git() {
 
 pbs_fe_propose_credentials_cache() {
   local TIMEOUT=""
-  ask "Do you want to enable to credentials cache for the publication of the frontend?" && {
+  ask "Do you want to enable the credentials cache for the publication of the frontend?" && {
     set_or_ask TIMEOUT "" "Expiration in seconds?" "$((3600 * 24))" && {
       git_enable_credentials_cache "$TIMEOUT"
     }
