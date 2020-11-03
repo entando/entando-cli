@@ -18,17 +18,26 @@ _be sure the bash executable is in path_
 
 ## Other requirement
 
-_run the dependencies checker_
+_run the environment dependencies checker_
+
+```
+ent-check-env {mode}
+```
 
 # Installation
 
 ## On the fly:
 
 ```
-curl https://<ent-url>/auto-install | ENTANDO_RELEASE=[entando-release-tag] bash
+curl https://<ent-url>/auto-install | ENTANDO_RELEASE={entando-release-tag} bash
+```
+or
+```
+source <(curl "https://<ent-url>/entando/entando-cli/develop/auto-install") --release "{entando-release-tag}" [--cli-version "{entando-release-tag}"]
 ```
 
-please note that the ENTANDO_RELEASE is the tag of the Entando release under:  
+
+please note that the {entando-release-tag} is the tag of the Entando release under:  
 `https://github.com/entando/entando-releases/`
 
 ## Manual download:
