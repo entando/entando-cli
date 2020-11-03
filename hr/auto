@@ -20,6 +20,28 @@ curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERS
 
 . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/sys-utils.sh
 
+# shellcheck disable=SC2034
+case "$OSTYPE" in
+  linux*)
+    DEV_TTY="/dev/tty"
+    ;;
+  darwin*)
+    DEV_TTY="/dev/ttys000"
+    ;;
+  "cygwin" | "msys")
+    DEV_TTY="/dev/tty"
+    ;;
+  win*)
+    DEV_TTY="/dev/tty"
+    ;;
+  "freebsd" | "openbsd")
+    DEV_TTY="/dev/tty"
+    ;;
+  *)
+    DEV_TTY="/dev/tty"
+    ;;
+esac
+
 (
   if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
     export ENTANDO_RELEASE
@@ -29,4 +51,4 @@ curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERS
     export ENTANDO_OPT_YES_FOR_ALL=true
     ent-quickstart --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
   fi
-)<"$DEV_TTY"
+) < "$DEV_TTY"

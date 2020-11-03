@@ -127,7 +127,7 @@ assert_fdn() {
 }
 
 assert_ver() {
-  _assert_regex_nn "$1" "$2" "^[0-9.]+-?[a-zA-Z0-9-]+$" "" "version" "$3"
+  _assert_regex_nn "$1" "$2" "^v?[0-9.]+-?[a-zA-Z0-9-]+$" "" "version" "$3"
 }
 
 assert_ip() {

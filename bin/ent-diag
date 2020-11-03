@@ -12,6 +12,7 @@ mkdir -p "$TT"
 cd "$TT" || FATAL "Unable to enter di \"$TT\""
 
 # KUBECTL
+
 if [ -n "$ENTANDO_KUBECTL" ]; then
     _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
 else

@@ -3,7 +3,18 @@
 [ "$1" = "-h" ] && echo -e "Automatically execute the quickstart deployment | Syntax: ${0##*/} --destroy | --config | addr-mode namespace appname" && exit 0
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || { echo "Internal error: unable to find the script source dir" 1>&2; exit; }
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+print_entando_banner
+
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+echo "~ STARTING QUICKSTART"
+echo "~ HOSTNAME: $(hostname)"
+echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
 
 ENTANDO_CLI_VERSION_ARG=$ENTANDO_CLI_VERSION
 . s/_base.sh
@@ -32,34 +43,47 @@ if [ "$1" == "--config" ]; then
   shift
 fi
 
+DOMAIN=false
 ! $JUST_SET_CFG && {
   case "$1" in
-    "--simple" | --simple=*)
-      if ! $WITH_VM; then
-        AUTO_ADD_ADDR=false
-        if [[ $1 =~ --addr=(.*) ]]; then
-          set_nn_ip ADDR "${BASH_REMATCH[1]}"
-        else
-          ADDR="$(hostname -I | awk '{print $1}')"
-        fi
+    --domain=*)
+      AUTO_ADD_ADDR=false
+      if [[ $1 =~ --domain=(.*) ]]; then
+        ADDR="${BASH_REMATCH[1]}"
+        assert_fdn "DOMAIN" "$ADDR"
+        _set_nn "ADDR" "$ADDR"
+        DOMAIN=true
+        VM_OPT="--domain=\"$ADDR\""
+      else
+        FATAL "Please provide a domain name"
       fi
       shift
       ;;
-    "--dedicated" | --dedicated=*)
-      if ! $WITH_VM; then
-        AUTO_ADD_ADDR=true
-        if [[ $1 =~ --dedicated=(.*) ]]; then
-          set_nn_dn ADDR "${BASH_REMATCH[1]}"
-        else
-          set_or_ask "ADDR" "Please provide the custom ip address" "assert_ip" || FATAL "Custom ip address is mandatory"
-        fi
+    "--simple" | --simple=*)
+      AUTO_ADD_ADDR=false
+      if [[ $1 =~ --simple=(.*) ]]; then
+        set_nn_ip ADDR "${BASH_REMATCH[1]}"
+      else
+        ADDR="$(hostname -I | awk '{print $1}')"
       fi
+      VM_OPT="--simple=\"$ADDR\""
+      shift
+      ;;
+    "--dedicated" | --dedicated=*)
+      AUTO_ADD_ADDR=true
+      if [[ $1 =~ --dedicated=(.*) ]]; then
+        set_nn_dn ADDR "${BASH_REMATCH[1]}"
+      else
+        set_or_ask "ADDR" "Please provide the custom ip address" "assert_ip" || FATAL "Custom ip address is mandatory"
+      fi
+      VM_OPT="--dedicated=\"$ADDR\""
       shift
       ;;
     *)
       if ! $WITH_VM; then
         echo -e "Please provide a valid \"addr-mode\" mode option:" 1>&2
         echo "  --simple=[ADDR]   => standard installation with an existing ip" 1>&2
+        echo "  --domain=[FQDN] => standard installation with an existing fully qualfied domain name" 1>&2
         echo "  --dedicated=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
         echo "" 1>&2
         echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
@@ -86,7 +110,12 @@ _log_i 2 "> Checking environment"
 
 save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
 save_cfg_value "ENTANDO_APPNAME" "$ENTANDO_APPNAME"
-save_cfg_value "ENTANDO_SUFFIX" "$ADDR.nip.io"
+
+if $DOMAIN; then
+  save_cfg_value "ENTANDO_SUFFIX" "$ADDR"
+else
+  save_cfg_value "ENTANDO_SUFFIX" "$ADDR.nip.io"
+fi
 
 $JUST_SET_CFG && echo "Config has been written" && exit 0
 
@@ -111,29 +140,37 @@ $WITH_VM && {
     "cd && . \".entando/ent/$ENTANDO_RELEASE/cli/\"$ENTANDO_CLI_VERSION\"/activate\" && \
     ENTANDO_WITH_VM=\"\" \
     ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\" \
-    ent-quickstart --simple \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
+    ent-quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
 
   exit 0
 }
 
 _log_i 2 "> Generating the kubernetes specification file for the deployment"
 
-$AUTO_ADD_ADDR && {
-  net_is_address_present "$ADDR" || {
-    netplan_add_custom_ip "$ADDR/24"
-    sudo netplan generate
-    sudo netplan apply
-    sleep 1
-  }
+! $WITH_VM && {
+  if ! $DOMAIN; then
+    $AUTO_ADD_ADDR && {
+      net_is_address_present "$ADDR" || {
+        netplan_add_custom_ip "$ADDR/24"
+        sudo netplan generate
+        sudo netplan apply
+        sleep 1
+      }
+    }
+
+    net_is_address_present "$ADDR" || {
+      FATAL "The designated ip address is not present on the system"
+    }
+
+    FQADDR="$ADDR.nip.io"
+    _log_d 5 "> Using ip address: $ADDR"
+  else
+    FQADDR="$ADDR"
+    _log_d 5 "> Using domain: $ADDR"
+  fi
+
+
 }
-
-net_is_address_present "$ADDR" || {
-  FATAL "The designated ip address is not present on the system"
-}
-
-_log_d 5 "> Using ip address: $ADDR"
-
-FQADDR="$ADDR.nip.io"
 
 cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
   | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
