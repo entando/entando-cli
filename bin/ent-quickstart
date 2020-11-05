@@ -16,7 +16,7 @@ echo "~ HOSTNAME: $(hostname)"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 
-ENTANDO_CLI_VERSION_ARG=$ENTANDO_CLI_VERSION
+ENTANDO_CLI_VERSION_ARG="$ENTANDO_CLI_VERSION"
 . s/_base.sh
 [ -n "$ENTANDO_CLI_VERSION_ARG" ] && ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION_ARG"
 
@@ -163,9 +163,13 @@ _log_i 2 "> Generating the kubernetes specification file for the deployment"
     }
 
     FQADDR="$ADDR.nip.io"
+    SINGLE_HOST_NAME="~"
+
     _log_d 5 "> Using ip address: $ADDR"
   else
     FQADDR="$ADDR"
+    SINGLE_HOST_NAME="$FQADDR";
+
     _log_d 5 "> Using domain: $ADDR"
   fi
 
@@ -175,6 +179,7 @@ _log_i 2 "> Generating the kubernetes specification file for the deployment"
 cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
   | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
   | sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
+  | sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOST_NAME/$SINGLE_HOST_NAME/" \
   | sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
     > "w/$DEPL_SPEC_YAML_FILE"
 
