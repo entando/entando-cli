@@ -71,4 +71,42 @@ test_select_one() {
   ) || return "$?"
 }
 
+test_args_or_ask() {
+  print_current_function_name "> " ".."
+
+  args_or_ask "RES" "anything" id=1 anything="x!@ adsa" surname=asurname || FATAL "failed! $LINENO"
+  [ "$RES" = 'x!@ adsa' ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "--anything" --id=1 --anything="x!@ adsa" --surname=asurname || FATAL "failed! $LINENO"
+  [ "$RES" = 'x!@ adsa' ] || FATAL "failed! $LINENO"
+  args_or_ask "RES" "name/id//" id=1 name=aname surname=asurname || FATAL "failed! $LINENO"
+  [ "$RES" = "aname" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "name/id//" id=1 name=aname surname=asurname || FATAL "failed! $LINENO"
+  [ "$RES" = "aname" ] || FATAL "failed! $LINENO"
+  echo "" | (
+    args_or_ask "RES" "name/id/defaultname/" || FATAL "failed! $LINENO"
+    [ "$RES" = "defaultname" ] || FATAL "failed! $LINENO"
+  ) || exit $?
+  args_or_ask -n "RES" "name/id/defaultname/" || FATAL "failed! $LINENO"
+  [ "$RES" = "defaultname" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" 'name/id//' && FATAL "failed! $LINENO"
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" 'name/id/not-a-valid-id!/' && FATAL "failed! $LINENO"
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "--name/id//" --id=1 --name=aname --surname=asurname || FATAL "failed! $LINENO"
+  [ "$RES" = "aname" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "--name/id//" id=1 name=aname surname=asurname && FATAL "failed! $LINENO"
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "name/id//" --id=1 --name=aname --surname=asurname && FATAL "failed! $LINENO"
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  args_or_ask -f "--clean" --build --clean || FATAL "failed! $LINENO"
+  args_or_ask -f "--find" --build --clean && FATAL "failed! $LINENO"
+  args_or_ask -F "RES" "--clean" --build --clean || FATAL "failed! $LINENO"
+  [ "$RES" = "true" ] || FATAL "failed! $LINENO"
+  args_or_ask -F "RES" "--find" --build --clean && FATAL "failed! $LINENO"
+  [ "$RES" = "false" ] || FATAL "failed! $LINENO"
+  args_or_ask -F "RES" "--find//true" --build --clean && FATAL "failed! $LINENO"
+  [ "$RES" = "true" ] || FATAL "failed! $LINENO"
+}
+
+
 true

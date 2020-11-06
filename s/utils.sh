@@ -284,3 +284,96 @@ select_one() {
     select_one_res_alt="${!SELECTED}"
   }
 }
+
+# Sets a variable according with the value found in a variable definition and arguments
+# - variable name
+# - variable definition     arg-name/type/default/prompt
+# - arguments
+#
+# Example:
+# - args_or_ask  "NAME" "name/id//Enter the name" "$@"
+# {argument to look for}/{type}/{default}/{prompt message}
+args_or_ask() {
+  local NOASK=false
+  local FLAG=false
+  local FLAGANDVAR=false
+
+  while true; do
+    case "$1" in
+      -n) NOASK=true;shift;;
+      -f) FLAG=true;shift;;
+      -F) FLAGANDVAR=true;shift;;
+      *) break;;
+    esac
+  done
+
+  if $FLAG; then
+    V="$1"; shift
+    val_name="$(echo "$V" | cut -d'/' -f 1)"
+    index_of_arg "${val_name}" "$@"
+    [ "$?" -eq 255 ] && return 1 || return 0;
+  else
+    local var_name="$1"; shift
+    V="$1/"; shift
+    local val_name="$(echo "$V" | cut -d'/' -f 1)"
+    local val_type="$(echo "$V" | cut -d'/' -f 2)"
+    local val_def="$(echo "$V" | cut -d'/' -f 3)"
+    local val_msg="$(echo "$V" | cut -d'/' -f 4)"
+    _set_var "$var_name" ""
+  fi
+
+  # user provided value
+  if $FLAG || $FLAGANDVAR; then
+    index_of_arg "${val_name}" "$@"
+    found_at="$?"
+
+    if [ $found_at -ne 255 ]; then
+      $FLAGANDVAR && _set_var "$var_name" "true"
+      return 0
+    else
+      $FLAGANDVAR &&_set_var "$var_name" "${val_def:-false}"
+      return 1
+    fi
+  else
+    index_of_arg -p "${val_name}=" "$@"
+    found_at="$?"
+
+    if [ $found_at -ne 255 ]; then
+      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+    else
+      val_from_args=""
+    fi
+  fi
+
+  # prompt message processing
+  if [ -z "$val_msg" ]; then
+    val_msg="Please provide the value for \"$val_name\""
+  fi
+
+  # type processing
+  if [ -n "$val_type" ]; then
+    local assertion="assert_$val_type"
+
+    if [ "$(LC_ALL=C type -t "$assertion")" != "function" ]; then
+      echo "undefined type \"$val_type\", falling back to \"strict_id\"" 1>&2
+      val_type="strict_id"
+      assertion="assert_$val_type"
+    fi
+  else
+    local assertion=""
+  fi
+  # set/ask
+  if $NOASK; then
+    if [ -z "$val_from_args" ]; then
+      local val="$val_def"
+    else
+      local val="$val_from_args"
+    fi
+    [ -n "$assertion" ] && { "$assertion" "$var_name" "$val" "silent" || return $?; }
+    _set_var "$var_name" "$val"
+    return 0
+  else
+    set_or_ask "$var_name" "$val_from_args" "$val_msg" "$val_def" "$assertion"
+    return 0
+  fi
+}

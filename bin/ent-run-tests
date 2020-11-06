@@ -19,4 +19,5 @@ test_index_of_arg
 test_cfg_helper
 test_ask
 test_select_one
+test_args_or_ask
 test_asserters
