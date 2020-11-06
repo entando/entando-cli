@@ -8,17 +8,16 @@ cd "$DIR/.." || {
   exit
 }
 
+ENTANDO_CLI_VERSION_ARG="$ENTANDO_CLI_VERSION"
+. s/_base.sh
+[ -n "$ENTANDO_CLI_VERSION_ARG" ] && ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION_ARG"
+
 print_entando_banner
 
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo "~ STARTING QUICKSTART"
 echo "~ HOSTNAME: $(hostname)"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-
-
-ENTANDO_CLI_VERSION_ARG="$ENTANDO_CLI_VERSION"
-. s/_base.sh
-[ -n "$ENTANDO_CLI_VERSION_ARG" ] && ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION_ARG"
 
 if [ "$1" == "--destroy" ]; then
   reload_cfg
@@ -43,19 +42,25 @@ if [ "$1" == "--config" ]; then
   shift
 fi
 
-DOMAIN=false
+WITH_HOSTNAME=false
 ! $JUST_SET_CFG && {
   case "$1" in
-    --domain=*)
+    --hostname | --hostname=*)
       AUTO_ADD_ADDR=false
-      if [[ $1 =~ --domain=(.*) ]]; then
+      if [[ $1 =~ --hostname=(.*) ]]; then
         ADDR="${BASH_REMATCH[1]}"
-        assert_fdn "DOMAIN" "$ADDR"
-        _set_nn "ADDR" "$ADDR"
-        DOMAIN=true
-        VM_OPT="--domain=\"$ADDR\""
+        assert_fdn "WITH_HOSTNAME" "$ADDR"
+        WITH_HOSTNAME=true
+        VM_OPT="--hostname=\"$ADDR\""
       else
-        FATAL "Please provide a domain name"
+        if $OS_WIN && [ -z "$ENTANDO_NAMESPACE" ]; then
+          ADDR="$ENTANDO_NAMESPACE.$C_WIN_VM_HOSTNAME_SUFFIX"
+          _log_i 0 "Assuming hostname name: \"$ADDR\""
+          assert_fdn "WITH_HOSTNAME" "$ADDR"
+          WITH_HOSTNAME=true
+        else
+          FATAL "Please provide a hostname name"
+        fi
       fi
       shift
       ;;
@@ -82,8 +87,8 @@ DOMAIN=false
     *)
       if ! $WITH_VM; then
         echo -e "Please provide a valid \"addr-mode\" mode option:" 1>&2
-        echo "  --simple=[ADDR]   => standard installation with an existing ip" 1>&2
-        echo "  --domain=[FQDN] => standard installation with an existing fully qualfied domain name" 1>&2
+        echo "  --simple=[ADDR]    => standard installation with an existing ip" 1>&2
+        echo "  --hostname=[FQDN]  => standard installation with an existing fully qualfied domain name" 1>&2
         echo "  --dedicated=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
         echo "" 1>&2
         echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
@@ -105,13 +110,17 @@ shift
 _log_i 2 "> Checking environment"
 
 ! $JUST_SET_CFG && ! $WITH_VM && {
-  . bin/ent-check-env runtime
+  if $WITH_HOSTNAME; then
+    . bin/ent-check-env runtime --no-dns-fix
+  else
+    . bin/ent-check-env runtime
+  fi
 }
 
 save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
 save_cfg_value "ENTANDO_APPNAME" "$ENTANDO_APPNAME"
 
-if $DOMAIN; then
+if $WITH_HOSTNAME; then
   save_cfg_value "ENTANDO_SUFFIX" "$ADDR"
 else
   save_cfg_value "ENTANDO_SUFFIX" "$ADDR.nip.io"
@@ -123,7 +132,10 @@ ensure_sudo
 
 $WITH_VM && {
   _log_i 2 "> Generating the base VM"
-  multipass launch --name "$ENTANDO_VM_NAME" --cpus 4 --mem 8G --disk 12G
+  [ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
+  [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="8G"
+  [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="12G"
+  multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
 
   _log_i 2 "> Installing Ent on the VM"
 
@@ -148,7 +160,7 @@ $WITH_VM && {
 _log_i 2 "> Generating the kubernetes specification file for the deployment"
 
 ! $WITH_VM && {
-  if ! $DOMAIN; then
+  if ! $WITH_HOSTNAME; then
     $AUTO_ADD_ADDR && {
       net_is_address_present "$ADDR" || {
         netplan_add_custom_ip "$ADDR/24"
@@ -168,11 +180,10 @@ _log_i 2 "> Generating the kubernetes specification file for the deployment"
     _log_d 5 "> Using ip address: $ADDR"
   else
     FQADDR="$ADDR"
-    SINGLE_HOST_NAME="$FQADDR";
+    SINGLE_HOST_NAME="$FQADDR"
 
     _log_d 5 "> Using domain: $ADDR"
   fi
-
 
 }
 

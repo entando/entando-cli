@@ -43,12 +43,16 @@ case "$OSTYPE" in
 esac
 
 (
+  export ENTANDO_RELEASE
+  export ENTANDO_VM_NAME
+  export ENTANDO_VM_CPU
+  export ENTANDO_VM_MEM
+  export ENTANDO_VM_DISK
+  export ENTANDO_OPT_YES_FOR_ALL=true
+
   if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
-    export ENTANDO_RELEASE
-    export ENTANDO_OPT_YES_FOR_ALL=true
     ent-quickstart --with-vm --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
   else
-    export ENTANDO_OPT_YES_FOR_ALL=true
     ent-quickstart --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
   fi
 ) < "$DEV_TTY"
