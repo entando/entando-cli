@@ -6,12 +6,10 @@
 # - $1: variable to set
 # - $2: value
 _set_var() {
-  local V
   if [ -z "$2" ]; then
-    eval "$1=''"
+    read -r -d '' "$1" <<< ""
   else
-    V=$(printf "%q" "$2")
-    eval "$1=$V"
+    read -r -d '' "$1" <<< "$2"
   fi
   return 0
 }
