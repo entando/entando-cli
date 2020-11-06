@@ -177,28 +177,48 @@ snake_to_camel() {
 
 # Returns the index of the given argument value
 # if "-p" is provided as first argument performs a partial match
+# if "-P" is provided as first argument performs a bash pattern match
+# if "-n X" is provided for first X-1 matches are ignored
 # return 255 if the arguments was not found
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # $1:   the argument value to look for
 # $...: the remaining arguments are the array to be searched
 #
 index_of_arg() {
-  REGEX=false
-  [ "$1" == "-p" ] && REGEX=true && shift
+  local N=1; local REGEX=0
+  if [ "$1" = "--" ]; then
+    REGEX=0;shift;
+  else
+    [ "$1" = "-p" ] && { REGEX=1;shift; }
+    [ "$1" = "-P" ] && { REGEX=2;shift; }
+    [ "$1" = "-n" ] && { N="$2";shift 2; }
+  fi
   par="$1"
   shift
-  i=1
-  if $REGEX; then
-    while [[ ! "$1" == ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
-      i=$((i + 1))
-      shift
-    done
-  else
-    while [[ "$1" != "$par" ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
-      i=$((i + 1))
-      shift
-    done
-  fi
+  local i=0
+  while true; do
+    case "$REGEX" in
+    1)
+      while [[ ! "$1" = ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+        i=$((i + 1))
+        shift
+      done;;
+    2)
+      while [[ ! "$1" =~ ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+        i=$((i + 1))
+        shift
+      done;;
+    *)
+      while [[ ! "$1" = "$par" ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+        i=$((i + 1))
+        shift
+      done;;
+    esac
+    i=$((i + 1))
+    N=$((N - 1))
+    [ "$N" -le 0 ] && break
+    shift
+  done
   [ $i -eq 100 ] && return 255
   [ -n "$1" ] && return $i || return 255
 }

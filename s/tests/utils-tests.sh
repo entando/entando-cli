@@ -23,6 +23,12 @@ test_index_of_arg() {
 
   index_of_arg "FIND-ME=" "A" "B" "C" "FIND-ME=1" "D"
   [[ $? -eq 255 ]] || FATAL "failed! $LINENO"
+
+  index_of_arg -p -n 1 "[^-]" "-A" "-B" "-C" "FIND-ME" "OR-ME" "-D"
+  [[ $? -eq 4 ]] || FATAL "failed! $LINENO"
+
+  index_of_arg -p -n 2 "[^-]" "-A" "-B" "-C" "FIND-ME" "OR-ME" "-D"
+  [[ $? -eq 5 ]] || FATAL "failed! $LINENO"
 }
 
 # CONFIG HELPER
