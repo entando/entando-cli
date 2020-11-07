@@ -139,14 +139,21 @@
 
 var_to_param() {
   FLAG=false; [ "$1" == "-f" ] && FLAG=true && shift
+  [ -z "$2" ] && return
+
   local par_name="$1"
-  local par_value="$2"
-  [ -z "$par_value" ] && return
 
   if $FLAG; then
-    [ "$par_value" = true ] && echo "--${par_name}"
+    local par_value="$2"
+    if [ "$par_value" = "true" ]; then
+      echo "--${par_name}"
+    elif [ "$par_value" = "false" ]; then
+      echo "--${par_name}=false"
+    fi
   else
-    echo "--${par_name}=\"${par_value}\""
+    local par_value="${2//\\/\\\\}"
+    par_value="'${par_value//\'/\'\\\'\'}'"
+    echo "--${par_name}=${par_value}"
   fi
 }
 
