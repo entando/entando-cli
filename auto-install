@@ -61,6 +61,7 @@ ent_clone_repo() {
 }
 
 ENT_RUNNER() {
+  local C_QUICKSTART_DEFAULT_RELEASE="quickstart"
   local CURR_DIR=false
   [ "${1:-}" = "--curr-dir" ] && {
     CURR_DIR=true
@@ -74,14 +75,20 @@ ENT_RUNNER() {
         AUTO_ACTIVATION=false
         shift
         ;;
-      "--release")
-        shift
-        local ENTANDO_RELEASE="$1"
+      --release=*)
+        if [[ "$1" =~ =(.*) ]]; then
+          local ENTANDO_RELEASE="${BASH_REMATCH[1]}"
+        else
+          echo "Please provide the release number" 1>&2 && exit 99
+        fi
         shift
         ;;
-      "--cli-version")
-        shift
-        local ENTANDO_CLI_VERSION="$1"
+      --cli-version=*)
+        if [[ "$1" =~ =(.*) ]]; then
+          local ENTANDO_CLI_VERSION="${BASH_REMATCH[1]}"
+        else
+          echo "Please provide the release number" 1>&2 && exit 99
+        fi
         shift
         ;;
       *)
@@ -90,7 +97,7 @@ ENT_RUNNER() {
     esac
   done
 
-  [ "$ENTANDO_RELEASE" = "" ] && local ENTANDO_RELEASE="v6.2.0" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
+  [ "$ENTANDO_RELEASE" = "" ] && local ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 
   $CURR_DIR || cd "$HOME"
 

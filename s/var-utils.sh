@@ -73,6 +73,10 @@ assert_lit() {
   return 0
 }
 
+assert_any() {
+  :;
+}
+
 assert_id() {
   _assert_regex_nn "$1" "$2" "^[a-z][a-zA-Z0-9_]*$" "" "identifier" "$3"
 }

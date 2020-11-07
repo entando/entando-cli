@@ -82,7 +82,7 @@ test_args_or_ask() {
 
   args_or_ask "RES" "anything" id=1 anything="x!@ adsa" surname=asurname || FATAL "failed! $LINENO"
   [ "$RES" = 'x!@ adsa' ] || FATAL "failed! $LINENO"
-  args_or_ask -n "RES" "--anything" --id=1 --anything="x!@ adsa" --surname=asurname || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "--anything" --pos=1 --anything="x!@ adsa" --surname=asurname || FATAL "failed! $LINENO"
   [ "$RES" = 'x!@ adsa' ] || FATAL "failed! $LINENO"
   args_or_ask "RES" "name/id//" id=1 name=aname surname=asurname || FATAL "failed! $LINENO"
   [ "$RES" = "aname" ] || FATAL "failed! $LINENO"
@@ -98,20 +98,31 @@ test_args_or_ask() {
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
   args_or_ask -n "RES" 'name/id/not-a-valid-id!/' && FATAL "failed! $LINENO"
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
-  args_or_ask -n "RES" "--name/id//" --id=1 --name=aname --surname=asurname || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "--name/id//" --pos=1 --name=aname --surname=asurname || FATAL "failed! $LINENO"
   [ "$RES" = "aname" ] || FATAL "failed! $LINENO"
   args_or_ask -n "RES" "--name/id//" id=1 name=aname surname=asurname && FATAL "failed! $LINENO"
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
-  args_or_ask -n "RES" "name/id//" --id=1 --name=aname --surname=asurname && FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "name/id//" --pos=1 --name=aname --surname=asurname && FATAL "failed! $LINENO"
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  args_or_ask -n "RES" "--name" --pos=1 --name --surname=asurname || FATAL "failed! $LINENO"
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  # Pure Flags
   args_or_ask -f "--clean" --build --clean || FATAL "failed! $LINENO"
   args_or_ask -f "--find" --build --clean && FATAL "failed! $LINENO"
+  # Flags with assigned var (-a)
   args_or_ask -F "RES" "--clean" --build --clean || FATAL "failed! $LINENO"
   [ "$RES" = "true" ] || FATAL "failed! $LINENO"
   args_or_ask -F "RES" "--find" --build --clean && FATAL "failed! $LINENO"
   [ "$RES" = "false" ] || FATAL "failed! $LINENO"
   args_or_ask -F "RES" "--find//true" --build --clean && FATAL "failed! $LINENO"
   [ "$RES" = "true" ] || FATAL "failed! $LINENO"
+  # Positional arguments (-a)
+  args_or_ask -a "RES" "1" --build --clean name surname || FATAL "failed! $LINENO"
+  [ "$RES" = "name" ] || FATAL "failed! $LINENO"
+  args_or_ask -a "RES" "2" --build --clean name surname || FATAL "failed! $LINENO"
+  [ "$RES" = "surname" ] || FATAL "failed! $LINENO"
+  args_or_ask -n -a "RES" "3" --build --clean name surname && FATAL "failed! $LINENO"
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
 }
 
 

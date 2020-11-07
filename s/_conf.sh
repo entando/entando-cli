@@ -13,6 +13,7 @@ C_ENT_PRJ_FILE=".ent-prj"
 C_GENERATOR_JHIPSTER_ENTANDO_NAME="generator-jhipster-entando"
 C_ENTANDO_BUNDLE_TOOL_NAME="entando-bundle-tool"
 C_WIN_VM_HOSTNAME_SUFFIX="mshome.net"
+C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 
 # More dynamic configurations
 

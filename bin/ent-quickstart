@@ -8,113 +8,121 @@ cd "$DIR/.." || {
   exit
 }
 
-ENTANDO_CLI_VERSION_ARG="$ENTANDO_CLI_VERSION"
+# shellcheck disable=SC2120
+debug_trace_vars() {
+  if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
+    trace_vars \
+      AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME \
+      ENTANDO_DEBUG ENTANDO_RELEASE ENTANDO_CLI_VERSION WITH_VM ENTANDO_OPT_YES_FOR_ALL \
+      JUST_SET_CFG ENTANDO_NAMESPACE ENTANDO_APPNAME \
+      ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK
+  fi
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 . s/_base.sh
-[ -n "$ENTANDO_CLI_VERSION_ARG" ] && ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION_ARG"
 
 print_entando_banner
 
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo "~ STARTING QUICKSTART"
-echo "~ HOSTNAME: $(hostname)"
+echo "~ NAME OF THIS HOST: $(hostname)"
+echo "$@"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
-if [ "$1" == "--destroy" ]; then
+#-----------------------------------------------------------------------------------------------------------------------
+
+args_or_ask -f "--destroy" "$@" && {
   reload_cfg
   ensure_sudo
   ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {
     _kubectl delete namespace "$ENTANDO_NAMESPACE"
   }
   exit
-fi
+}
 
-if [ "$1" == "--with-vm" ]; then
-  WITH_VM=true
-  [ -z "$ENTANDO_VM_NAME" ] && ENTANDO_VM_NAME="entando"
-  shift
-else
-  WITH_VM=false
-fi
+#-----------------------------------------------------------------------------------------------------------------------
+args_or_ask -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE" "$@"
+args_or_ask -n -p "ENTANDO_CLI_VERSION" "--cli-version" "$@"
+args_or_ask -n "ENTANDO_DEBUG" "--debug/num" "$@"
+args_or_ask -n -F "WITH_VM" "--with-vm" "$@"
+args_or_ask -n -F "JUST_SET_CFG" "--config" "$@"
+args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes" "$@"
+args_or_ask -n -a "ENTANDO_NAMESPACE" "1/id" "$@" || FATAL "Please provide the namespace"
+args_or_ask -n -a "ENTANDO_APPNAME" "2/id" "$@" || FATAL "Please provide the app name"
+args_or_ask -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE" "$@"
+args_or_ask -n "ENTANDO_VM_CPU" "--vm-cpu" "$@"
+args_or_ask -n "ENTANDO_VM_MEM" "--vm-mem" "$@"
+args_or_ask -n "ENTANDO_VM_DISK" "--vm-disk" "$@"
 
-JUST_SET_CFG=false
-if [ "$1" == "--config" ]; then
-  JUST_SET_CFG=true
-  shift
+debug_trace_vars
+
+if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
+  assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
 fi
 
 WITH_HOSTNAME=false
+FOUND=false
+
 ! $JUST_SET_CFG && {
-  case "$1" in
-    --hostname | --hostname=*)
-      AUTO_ADD_ADDR=false
-      if [[ $1 =~ --hostname=(.*) ]]; then
-        ADDR="${BASH_REMATCH[1]}"
-        assert_fdn "WITH_HOSTNAME" "$ADDR"
-        WITH_HOSTNAME=true
+  # HOSTNAME MODE ----
+  args_or_ask -n -p "ADDR" "--hostname/fdn?" "$@" && {
+    if [ -n "$ADDR" ]; then
+      FOUND=true
+      WITH_HOSTNAME=true
+      if $WITH_VM; then
         VM_OPT="--hostname=\"$ADDR\""
+      fi
+    else
+      if $OS_WIN && $WITH_VM && [ -n "$ENTANDO_VM_NAME" ]; then
+        # OS_WIN: derive the hostname from the
+        ADDR="$ENTANDO_VM_NAME.$C_WIN_VM_HOSTNAME_SUFFIX"
+        _log_i 0 "Assuming hostname name: \"$ADDR\""
+        assert_fdn "HOSTNAME" "$ADDR"
+        WITH_HOSTNAME=true
+        FOUND=true
       else
-        if $OS_WIN && [ -z "$ENTANDO_NAMESPACE" ]; then
-          ADDR="$ENTANDO_NAMESPACE.$C_WIN_VM_HOSTNAME_SUFFIX"
-          _log_i 0 "Assuming hostname name: \"$ADDR\""
-          assert_fdn "WITH_HOSTNAME" "$ADDR"
-          WITH_HOSTNAME=true
-        else
-          FATAL "Please provide a hostname name"
-        fi
+        FATAL "Please provide an hostname"
       fi
-      shift
-      ;;
-    "--simple" | --simple=*)
-      AUTO_ADD_ADDR=false
-      if [[ $1 =~ --simple=(.*) ]]; then
-        set_nn_ip ADDR "${BASH_REMATCH[1]}"
+    fi
+  }
+#-----------------------------------------------------------------------------------------------------------------------
+
+  # SIMPLE MODE ----
+  args_or_ask -n -p "ADDR" "--simple/ip?" "$@" && {
+    FOUND=true
+    AUTO_ADD_ADDR=false
+    if $WITH_VM; then
+      if [ -n "$ADDR" ]; then
+        VM_OPT="--simple=\"$ADDR\""
       else
-        ADDR="$(hostname -I | awk '{print $1}')"
+        VM_OPT="--simple"
       fi
-      VM_OPT="--simple=\"$ADDR\""
-      shift
-      ;;
-    "--dedicated" | --dedicated=*)
-      AUTO_ADD_ADDR=true
-      if [[ $1 =~ --dedicated=(.*) ]]; then
-        set_nn_dn ADDR "${BASH_REMATCH[1]}"
-      else
-        set_or_ask "ADDR" "Please provide the custom ip address" "assert_ip" || FATAL "Custom ip address is mandatory"
-      fi
-      VM_OPT="--dedicated=\"$ADDR\""
-      shift
-      ;;
-    *)
-      if ! $WITH_VM; then
-        echo -e "Please provide a valid \"addr-mode\" mode option:" 1>&2
-        echo "  --simple=[ADDR]    => standard installation with an existing ip" 1>&2
-        echo "  --hostname=[FQDN]  => standard installation with an existing fully qualfied domain name" 1>&2
-        echo "  --dedicated=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
-        echo "" 1>&2
-        echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
-        echo "" 1>&2
-        exit 1
-      fi
-      ;;
-  esac
+    else
+      [[ -z "$ADDR" ]] && ADDR="$(hostname -I | awk '{print $1}')"
+    fi
+  }
+
+  # CUSTOM MODE ----
+  args_or_ask -n -p "ADDR" "--custom/ip?" "$@" && {
+    FOUND=true
+    AUTO_ADD_ADDR=true
+    [[ -z "$ADDR" ]] && {
+      FATAL "Please provide the custom ip address"
+    }
+    VM_OPT="--custom=\"$ADDR\""
+  }
 }
 
-ENTANDO_NAMESPACE="$1"
-[ "$ENTANDO_NAMESPACE" == "" ] && echo "please provide the namespace name" 1>&2 && exit 1
-shift
-
-ENTANDO_APPNAME="$1"
-[ "$ENTANDO_APPNAME" == "" ] && echo "please provide the app name" 1>&2 && exit 1
-shift
-
-_log_i 2 "> Checking environment"
-
-! $JUST_SET_CFG && ! $WITH_VM && {
-  if $WITH_HOSTNAME; then
-    . bin/ent-check-env runtime --no-dns-fix
-  else
-    . bin/ent-check-env runtime
-  fi
+! $FOUND && {
+  echo -e "Please provide a valid address mode option:" 1>&2
+  echo "  --simple=[ADDR]    => standard installation with an existing ip" 1>&2
+  echo "  --hostname=[FQDN]  => standard installation with an existing fully qualified domain name" 1>&2
+  echo "  --custom=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
+  echo "" 1>&2
+  echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
+  echo "" 1>&2
+  exit 1
 }
 
 save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
@@ -128,38 +136,54 @@ fi
 
 $JUST_SET_CFG && echo "Config has been written" && exit 0
 
-ensure_sudo
+#-----------------------------------------------------------------------------------------------------------------------
+# WITH-VM
 
-$WITH_VM && {
-  _log_i 2 "> Generating the base VM"
+RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="8G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="12G"
+
+  [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
+  $ENTANDO_OPT_YES_FOR_ALL && VM_OPT+=" --yes"
+
+  #~
+  _log_i 2 "> Generating the base VM"
   multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
 
+  #~
   _log_i 2 "> Installing Ent on the VM"
+  multipass exec "$ENTANDO_VM_NAME" -- bash -c "
+    bash <(curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\") \
+      --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
+    "
 
-  multipass exec "$ENTANDO_VM_NAME" -- bash -c \
-    "curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\" \
-        | ENTANDO_CLI_VERSION=\"$ENTANDO_CLI_VERSION\" \
-          ENTANDO_RELEASE=\"$ENTANDO_RELEASE\" \
-          ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\" \
-          bash"
-
-  _log_i 2 "> Running the entando quickstart from the VM"
-
-  multipass exec "$ENTANDO_VM_NAME" -- bash -c \
-    "cd && . \".entando/ent/$ENTANDO_RELEASE/cli/\"$ENTANDO_CLI_VERSION\"/activate\" && \
-    ENTANDO_WITH_VM=\"\" \
-    ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\" \
-    ent-quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\""
+  multipass exec "$ENTANDO_VM_NAME" -- bash -c "
+    cd \
+    && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
+    && ent-quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\" \
+         --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
+    "
 
   exit 0
 }
 
-_log_i 2 "> Generating the kubernetes specification file for the deployment"
+#-----------------------------------------------------------------------------------------------------------------------
+# DIRECT
 
-! $WITH_VM && {
+RUN_DIRECT() {
+  _log_i 2 "> Checking environment"
+
+  ! $JUST_SET_CFG && {
+    if $WITH_HOSTNAME; then
+      . bin/ent-check-env runtime --no-dns-fix
+    else
+      . bin/ent-check-env runtime
+    fi
+  }
+
+  _log_i 2 "> Generating the kubernetes specification file for the deployment"
+
   if ! $WITH_HOSTNAME; then
     $AUTO_ADD_ADDR && {
       net_is_address_present "$ADDR" || {
@@ -185,28 +209,37 @@ _log_i 2 "> Generating the kubernetes specification file for the deployment"
     _log_d 5 "> Using domain: $ADDR"
   fi
 
+  cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
+    | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
+    | sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
+    | sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOST_NAME/$SINGLE_HOST_NAME/" \
+    | sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
+      > "w/$DEPL_SPEC_YAML_FILE"
+
+  _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
+
+  ask "Should I register the CRDs?" && {
+    _kubectl apply -f "dist/crd"
+  }
+
+  ask "Should I start the deployment?" && {
+    _kubectl create namespace "$ENTANDO_NAMESPACE"
+    _kubectl create -f "w/$DEPL_SPEC_YAML_FILE"
+  }
+
+  ask "Should I start the monitor?" && {
+    ent-app-info watch || true
+  } || {
+    echo -e "\n~~~\nUse the command:\n  - ent-app-info.sh watch\nto check the status of the app"
+  }
 }
 
-cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
-  | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
-  | sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
-  | sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOST_NAME/$SINGLE_HOST_NAME/" \
-  | sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
-    > "w/$DEPL_SPEC_YAML_FILE"
+#-----------------------------------------------------------------------------------------------------------------------
 
-_log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
+ensure_sudo
 
-ask "Should I register the CRDs?" && {
-  _kubectl apply -f "dist/crd"
-}
-
-ask "Should I start the deployment?" && {
-  _kubectl create namespace "$ENTANDO_NAMESPACE"
-  _kubectl create -f "w/$DEPL_SPEC_YAML_FILE"
-}
-
-ask "Should I start the monitor?" && {
-  ent-app-info watch || true
-} || {
-  echo -e "\n~~~\nUse the command:\n  - ent-app-info.sh watch\nto check the status of the app"
-}
+if $WITH_VM; then
+  RUN_WITH_VM
+else
+  RUN_DIRECT
+fi

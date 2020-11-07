@@ -309,6 +309,12 @@ select_one() {
 # - variable name
 # - variable definition     arg-name/type/default/prompt
 # - arguments
+# Flags:
+# - -n    suppress the "ask" and just fails or returns the default
+# - -f    flag mode, looks for expression with no value and sets the return value
+# - -F    like "-f" but also sets the give var with true or false
+# - -a    looks for the positional arg of given index (that doesn't start with dash)
+# - -p    only set the var is a value was found
 #
 # Example:
 # - args_or_ask  "NAME" "name/id//Enter the name" "$@"
@@ -317,33 +323,48 @@ args_or_ask() {
   local NOASK=false
   local FLAG=false
   local FLAGANDVAR=false
+  local ARG=false
+  local PRESERVE=false
 
   while true; do
     case "$1" in
       -n) NOASK=true;shift;;
       -f) FLAG=true;shift;;
       -F) FLAGANDVAR=true;shift;;
+      -a) ARG=true;shift;;
+      -p) PRESERVE=true;shift;;
       *) break;;
     esac
   done
 
   if $FLAG; then
-    V="$1"; shift
+    local V="$1"; shift
     val_name="$(echo "$V" | cut -d'/' -f 1)"
     index_of_arg "${val_name}" "$@"
     [ "$?" -eq 255 ] && return 1 || return 0;
   else
     local var_name="$1"; shift
-    V="$1/"; shift
+    local V="$1/"; shift
     local val_name="$(echo "$V" | cut -d'/' -f 1)"
     local val_type="$(echo "$V" | cut -d'/' -f 2)"
     local val_def="$(echo "$V" | cut -d'/' -f 3)"
     local val_msg="$(echo "$V" | cut -d'/' -f 4)"
-    _set_var "$var_name" ""
+    ! $PRESERVE && _set_var "$var_name" ""
   fi
 
   # user provided value
-  if $FLAG || $FLAGANDVAR; then
+  if $ARG; then
+    assert_num "POSITIONAL_ARGUMENT_INDEX" "$val_name"
+    index_of_arg -p -n "$val_name" "[^-]" "$@"
+    found_at="$?"
+    val_name="Argument #$val_name"
+
+    if [ $found_at -ne 255 ]; then
+      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+    else
+      val_from_args=""
+    fi
+  elif $FLAG || $FLAGANDVAR; then
     index_of_arg "${val_name}" "$@"
     found_at="$?"
 
@@ -358,12 +379,20 @@ args_or_ask() {
     index_of_arg -p "${val_name}=" "$@"
     found_at="$?"
 
-    if [ $found_at -ne 255 ]; then
-      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
-    else
+    if [ $found_at -eq 255 ]; then
+      index_of_arg "${val_name}" "$@"
+      found_at="$?"
       val_from_args=""
+    else
+      if [ $found_at -ne 255 ]; then
+        val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+      else
+        val_from_args=""
+      fi
     fi
   fi
+
+  [[ "$found_at" -eq 255 && -z "$val_def" ]] && return 255
 
   # prompt message processing
   if [ -z "$val_msg" ]; then
@@ -372,6 +401,13 @@ args_or_ask() {
 
   # type processing
   if [ -n "$val_type" ]; then
+    if [[ "$val_type" =~ (.*)\? ]]; then
+      val_type="${BASH_REMATCH[1]}"
+      local NULLABLE=true
+    else
+      local NULLABLE=false
+    fi
+
     local assertion="assert_$val_type"
 
     if [ "$(LC_ALL=C type -t "$assertion")" != "function" ]; then
@@ -380,8 +416,11 @@ args_or_ask() {
       assertion="assert_$val_type"
     fi
   else
+    local NULLABLE=true
     local assertion=""
   fi
+
+
   # set/ask
   if $NOASK; then
     if [ -z "$val_from_args" ]; then
@@ -389,6 +428,8 @@ args_or_ask() {
     else
       local val="$val_from_args"
     fi
+    $NULLABLE && [ -z "$val" ] && return 0
+
     [ -n "$assertion" ] && { "$assertion" "$var_name" "$val" "silent" || return $?; }
     _set_var "$var_name" "$val"
     return 0
