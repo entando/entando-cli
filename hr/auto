@@ -6,21 +6,26 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 [ -z "$ENTANDO_NAMESPACE" ] && ENTANDO_NAMESPACE="entando" && echo "Assuming ENTANDO_NAMESPACE=\"$ENTANDO_NAMESPACE\""
 [ -z "$ENTANDO_APPNAME" ] && ENTANDO_APPNAME="quickstart" && echo "Assuming ENTANDO_APPNAME=\"$ENTANDO_APPNAME\""
 [ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
-[ "$ENTANDO_RELEASE" == "" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
+[ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 
 if [ "$ENTANDO_CLI_VERSION" = "develop" ] || [[ "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
   rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
 fi
 
-curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install" \
-  | ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION" \
-    ENTANDO_RELEASE="$ENTANDO_RELEASE" \
-    bash
+if [ "$1" != "--local-test" ]; then
+  curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install" \
+    | ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION" \
+      ENTANDO_RELEASE="$ENTANDO_RELEASE" \
+      bash
 
-. ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
-. ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
+  . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
+  . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
 
-. ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/sys-utils.sh
+  . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/essentials.sh
+else
+  shift
+  . s/essentials.sh
+fi
 
 # shellcheck disable=SC2034
 case "$OSTYPE" in
@@ -44,17 +49,50 @@ case "$OSTYPE" in
     ;;
 esac
 
-(
-  export ENTANDO_RELEASE
-  export ENTANDO_VM_NAME
-  export ENTANDO_VM_CPU
-  export ENTANDO_VM_MEM
-  export ENTANDO_VM_DISK
-  export ENTANDO_OPT_YES_FOR_ALL=true
+if [ -n "$ENTANDO_VM_MODE_SIMPLE" ]; then
+  P_ENTANDO_INST_MODE="$(var_to_param "simple" "$ENTANDO_VM_MODE_SIMPLE")"
+elif [ -n "$ENTANDO_VM_MODE_CUSTOM" ]; then
+  P_ENTANDO_INST_MODE="$(var_to_param "custom" "$ENTANDO_VM_MODE_CUSTOM")"
+elif [ -n "$ENTANDO_VM_MODE_HOSTNAME" ]; then
+  P_ENTANDO_INST_MODE="$(var_to_param "hostname" "$ENTANDO_VM_MODE_CUSTOM")"
+else
+  P_ENTANDO_INST_MODE="--simple"
+  echo "Assuming SIMPLE INSTALLATION MODE"
+fi
 
-  if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
-    ent-quickstart --with-vm --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
-  else
-    ent-quickstart --simple "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
-  fi
-) < "$DEV_TTY"
+if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
+  WITH_VM=true
+else
+  WITH_VM=false
+fi
+
+ENTANDO_OPT_YES_FOR_ALL=true
+
+OPTS=(
+  "$(var_to_param -f "with-vm" "$WITH_VM")"
+  "$(var_to_param "debug" "$ENTANDO_DEBUG")"
+  "$(var_to_param "vm-name" "$ENTANDO_VM_NAME")"
+  "$(var_to_param "vm-cpu" "$ENTANDO_VM_CPU")"
+  "$(var_to_param "vm-disk" "$ENTANDO_VM_DISK")"
+  "$(var_to_param "vm-mem" "$ENTANDO_VM_MEM")"
+  "$(var_to_param "release" "$ENTANDO_RELEASE")"
+  "$(var_to_param "cli-version" "$ENTANDO_CLI_VERSION")"
+  "$(var_to_param -f "yes" "$ENTANDO_OPT_YES_FOR_ALL")"
+)
+
+declare -a NNOPTS
+for i in "${OPTS[@]}"; do
+  [ -n "$i" ] && NNOPTS+=("${i}")
+done
+
+T="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+cleanup() {
+  rm "$T"
+}
+trap cleanup exit
+
+cat << EOF > "$T"
+  ent-quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+EOF
+
+bash "$T"

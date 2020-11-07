@@ -27,7 +27,7 @@ print_entando_banner
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo "~ STARTING QUICKSTART"
 echo "~ NAME OF THIS HOST: $(hostname)"
-echo "$@"
+echo "~ ARGUMENTS: $*"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ args_or_ask -f "--destroy" "$@" && {
 #-----------------------------------------------------------------------------------------------------------------------
 args_or_ask -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE" "$@"
 args_or_ask -n -p "ENTANDO_CLI_VERSION" "--cli-version" "$@"
-args_or_ask -n "ENTANDO_DEBUG" "--debug/num" "$@"
+args_or_ask -n "ENTANDO_DEBUG" "--debug/num/0" "$@"
 args_or_ask -n -F "WITH_VM" "--with-vm" "$@"
 args_or_ask -n -F "JUST_SET_CFG" "--config" "$@"
 args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes" "$@"
