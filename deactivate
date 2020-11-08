@@ -1,45 +1,45 @@
 #!/bin/bash
 
-if [ -n "$BASH_VERSION" ]; then
-  if [ -f "${BASH_SOURCE[0]}.ln" ]; then
-    SS="$(cat "${BASH_SOURCE[0]}.ln")"
+ENTANDO_ENT_ACTIVE_NEW=$(
+  if [ -n "$BASH_VERSION" ]; then
+    if [ -f "${BASH_SOURCE[0]}.ln" ]; then
+      SS="$(cat "${BASH_SOURCE[0]}.ln")"
+    else
+      SS="$(readlink --canonicalize --no-newline "${BASH_SOURCE[0]}")"
+      [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
+    fi
+    cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd
+  elif [ -n "$ZSH_VERSION" ]; then
+    dirname "$0:A"
   else
-    SS="$(readlink --canonicalize --no-newline "${BASH_SOURCE[0]}")"
-    [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
+    echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
+    echo ""
   fi
-  DIR="$( cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd )"
-elif [ -n "$ZSH_VERSION" ]; then
-  DIR="$(dirname "$0:A")"
-else
-  echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
-fi
+)
+
+[ "$ENTANDO_ENT_ACTIVE_NEW" = "" ] && exit 99
 
 (
- [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||   
+ [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
  [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
-    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] || 
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
  [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
-) && sourced=1 || sourced=0
-
-if [[ "$sourced" == "0" ]]; then
+) || {
   P="$0"
   [[ ! "$P" =~ / ]] && P="./$P"
   echo "You need to source-execute me (\"source $P\")" 1>&2
   exit
-fi
+}
 
 [ "$ENTANDO_ENT_ACTIVE" = "" ] && echo "No instance is currently active" && return 99
-if [ "$ENTANDO_ENT_ACTIVE" != "$DIR" ]; then
-  if [ "$1" = "--force" ]; then
+if [ "$ENTANDO_ENT_ACTIVE" != "$ENTANDO_ENT_ACTIVE_NEW" ]; then
+  if [[ "$1" = "--force" || "$2" = "--force" ]]; then
     echo "Forcing deactivation of instance $ENTANDO_ENT_ACTIVE"
-    DEA="$ENTANDO_ENT_ACTIVE"
   else
     echo "This instance is not currently active (you may want to use --force)" && return 99
-    DEA="$DIR"
   fi
-else
-  DEA="$ENTANDO_ENT_ACTIVE"
 fi
 
+PATH="${PATH//$ENTANDO_ENT_ACTIVE\/bin:/}"
 unset ENTANDO_ENT_ACTIVE
-PATH="${PATH//$DEA\/bin:/}"
+[ "$1" != "-p" ] && unset ENTANDO_ENT_ACTIVE_NEW

@@ -1,65 +1,55 @@
 #!/bin/bash
 
-if [ -n "$BASH_VERSION" ]; then
-  if [ -f "${BASH_SOURCE[0]}.ln" ]; then
-    SS="$(cat "${BASH_SOURCE[0]}.ln")"
+ENTANDO_ENT_ACTIVE_NEW=$(
+  if [ -n "$BASH_VERSION" ]; then
+    if [ -f "${BASH_SOURCE[0]}.ln" ]; then
+      SS="$(cat "${BASH_SOURCE[0]}.ln")"
+    else
+      SS="$(readlink --canonicalize --no-newline "${BASH_SOURCE[0]}")"
+      [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
+    fi
+    cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd
+  elif [ -n "$ZSH_VERSION" ]; then
+    dirname "$0:A"
   else
-    SS="$(readlink --canonicalize --no-newline "${BASH_SOURCE[0]}")"
-    [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
+    echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
+    echo ""
   fi
-  DIR="$( cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd )"
-elif [ -n "$ZSH_VERSION" ]; then
-  DIR="$(dirname "$0:A")"
-else
-  echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
-fi
+)
+
+[ "$ENTANDO_ENT_ACTIVE_NEW" = "" ] && exit 99
 
 (
  [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] || 
  [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
     printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] || 
  [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
-) && sourced=1 || sourced=0
-
-if [[ "$sourced" == "0" ]]; then
+) || {
   P="$0"
   [[ ! "$P" =~ / ]] && P="./$P"
   echo "You need to source-execute me (\"source $P\")" 1>&2
   exit
-fi
-
-QUIET=false
-if [ "$1" = "--quiet" ]; then
-  QUIET=true
-  _echo() {
-    :;
-  }
-else
-  _echo() {
-    echo "$@"
-  }
-fi
+}
 
 [ "$ENTANDO_ENT_ACTIVE" != "" ] && {
-  _echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
-  if [ "$1" = "--force" ]; then
-    shift
-    _echo "FORCING ACTIVATION AS REQUESTED"
-    if $QUIET ; then
-      . "$DIR/deactivate" --force > /dev/null 2>&1
+  [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
+  if [[ "$1" = "--force" || "$2" = "--force" ]]; then
+    [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
+    if [ "$ENTANDO_ENT_ACTIVE" != "" ] ; then
+      . "$ENTANDO_ENT_ACTIVE/deactivate" -p --force
     else
-      . "$DIR/deactivate" --force
+      . "$ENTANDO_ENT_ACTIVE/deactivate" -p --force > /dev/null 2>&1
     fi
   else
-    _echo "Quitting"
+    [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Quitting"
     return 91
   fi
 }
 
-ENTANDO_ENT_ACTIVE="$DIR"
+ENTANDO_ENT_ACTIVE="$ENTANDO_ENT_ACTIVE_NEW"
 export ENTANDO_ENT_ACTIVE
-PATH="$DIR/bin:$PATH"
+PATH="$ENTANDO_ENT_ACTIVE/bin:$PATH"
 export PATH
+unset ENTANDO_ENT_ACTIVE_NEW
 
-_echo "Version \"$ENTANDO_ENT_ACTIVE\" activated"
-
+[[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_ACTIVE\" activated"

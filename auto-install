@@ -1,13 +1,6 @@
 #!/bin/bash
 [ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
 
-(
- [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
- [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
-    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
- [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
-) && sourced_DC7C420E09B4492D=true || sourced_DC7C420E09B4492D=false
-
 ent_extract_switch_param_DC7C420E09B4492D() {
   if [[ "$1" =~ \=(.*) ]]; then
     if [[ -n $ZSH_VERSION ]]; then
@@ -38,10 +31,10 @@ ent_cli_register_rc_DC7C420E09B4492D() {
 }
 
 ent_clone_repo_DC7C420E09B4492D() {
-  local URL="$1" # URL TO CLONE
-  local TAG="$2" # TAG TO CHECKOUT
-  local FLD="$3" # local folder name
-  local DSC="$4" # human description of the cloned repository
+  local URL="$1"    # URL TO CLONE
+  local TAG="$2"    # TAG TO CHECKOUT
+  local FLD="$3"    # local folder name
+  local DSC="$4"    # human description of the cloned repository
   local UPDATE="$5" # human description of the cloned repository
 
   if [[ -d "$FLD" && $UPDATE -eq 2 ]]; then
@@ -58,7 +51,10 @@ ent_clone_repo_DC7C420E09B4492D() {
         if [[ ! -d "$FLD" || "$UPDATE" -eq 0 ]]; then
           git clone "$URL" "$FLD"
         fi
-        cd "$FLD" || { echo "Unable to enter folder \"$FLD\"" 1>&2; exit 99; }
+        cd "$FLD" || {
+          echo "Unable to enter folder \"$FLD\"" 1>&2
+          exit 99
+        }
         git fetch --tags
         git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
 
@@ -97,6 +93,12 @@ ENT_RUNNER_DC7C420E09B4492D() {
     ENT_RUNNER_DC7C420E09B4492D "$@"
     local RES="$?"
     cd "$ORIG_DIR"
+
+    unset -f ent_extract_switch_param_DC7C420E09B4492D
+    unset -f ent_cli_register_rc_DC7C420E09B4492D
+    unset -f ent_clone_repo_DC7C420E09B4492D
+    unset -f ENT_RUNNER_DC7C420E09B4492D
+
     return "$RES"
   fi
 
@@ -107,48 +109,65 @@ ENT_RUNNER_DC7C420E09B4492D() {
   local UPDATE_CLI=0
   local UPDATE_REL=0
   local ENT_RES=""
+  local SOURCED=false
 
   # ----------------------------------------------------------------------------------------------------
   # OPTIONS
   for opt in "$@"; do
     case "$opt" in
+      --sourced)
+        SOURCED=true
+        ;;
       --curr-dir)
-        CURR_DIR=true;;
-      --update|--update=*)
+        CURR_DIR=true
+        ;;
+      --update | --update=*)
         # shellcheck disable=SC2015
         ent_extract_switch_param_DC7C420E09B4492D "$opt" && {
-          ENTANDO_OPT_UPDATE="$ENT_RES"; true
+          ENTANDO_OPT_UPDATE="$ENT_RES"
+          true
         } || {
           ENTANDO_OPT_UPDATE="all"
-        };;
+        }
+        ;;
       --no-auto-activation)
-        AUTO_ACTIVATION=false;;
-      --release|--release=*)
+        AUTO_ACTIVATION=false
+        ;;
+      --release | --release=*)
         ent_extract_switch_param_DC7C420E09B4492D "$opt"
-        [ -z "$ENT_RES" ] && { echo "Please provide the release version tag" 1>&2; return 99; }
-        ENTANDO_RELEASE="$ENT_RES";;
-      --cli-version|--cli-version=*)
+        [ -z "$ENT_RES" ] && {
+          echo "Please provide the release version tag" 1>&2
+          return 99
+        }
+        ENTANDO_RELEASE="$ENT_RES"
+        ;;
+      --cli-version | --cli-version=*)
         ent_extract_switch_param_DC7C420E09B4492D "$opt"
         [ -z "$ENT_RES" ] && { echo "Please provide the CLI version tag" 1>&2 && return 99; }
-        ENTANDO_CLI_VERSION="$ENT_RES";;
+        ENTANDO_CLI_VERSION="$ENT_RES"
+        ;;
       --releases-repo-url=*)
         ent_extract_switch_param_DC7C420E09B4492D "$opt"
-        [ -z "$ENT_RES" ] && { echo "Please provide the release url" 1>&2; return 99; }
-        ENTANDO_RELEASES_REPO_URL="$ENT_RES";;
+        [ -z "$ENT_RES" ] && {
+          echo "Please provide the release url" 1>&2
+          return 99
+        }
+        ENTANDO_RELEASES_REPO_URL="$ENT_RES"
+        ;;
       *)
         echo "> Unknown or misplaced argument $opt" 1>&2
-        return 99;;
+        return 99
+        ;;
     esac
   done
-  
-  case "${ENTANDO_OPT_UPDATE}" in
-    cli) UPDATE_CLI=1&&UPDATE_REL=2;;
-    rel) UPDATE_REL=1&&UPDATE_CLI=2;;
-    all) UPDATE_REL=1&&UPDATE_CLI=1;;
-    "")  UPDATE_REL=0&&UPDATE_CLI=0;;
-    *) echo "Invalid value provided for parameter update (rel|cli)" && return 99;;
-  esac
 
+  case "${ENTANDO_OPT_UPDATE}" in
+    cli) UPDATE_CLI=1 && UPDATE_REL=2 ;;
+    rel) UPDATE_REL=1 && UPDATE_CLI=2 ;;
+    all) UPDATE_REL=1 && UPDATE_CLI=1 ;;
+    "") UPDATE_REL=0 && UPDATE_CLI=0 ;;
+    *) echo "Invalid value provided for parameter update (rel|cli)" && return 99 ;;
+  esac
 
   if [ "$ENTANDO_RELEASE" = "" ]; then
     ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE"
@@ -210,21 +229,20 @@ ENT_RUNNER_DC7C420E09B4492D() {
   ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
   echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
 
-  . "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
+  (
+    . "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
 
-  local R='\033[101m'
-  local W='\033[0;37m'
-
-  echo "."
-  echo ".."
-  print_entando_banner || true
+    echo "."
+    echo ".."
+    print_entando_banner || true
+  )
   echo "═════════════════════════════════════════════════════════════════════════════"
   echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
   echo ""
-  $AUTO_ACTIVATION && $sourced && {
+  $AUTO_ACTIVATION && $SOURCED && {
     source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
       echo ""
-      echo -e "${R}ENTANDO-CLI AUTOMATICALLY ACTIVATED${W}"
+      echo -e "\033[101mENTANDO-CLI AUTOMATICALLY ACTIVATED\033[0;37m"
     }
   }
   echo ""
@@ -251,9 +269,16 @@ ENT_RUNNER_DC7C420E09B4492D() {
   fi
 }
 
-ENT_RUNNER_DC7C420E09B4492D --wrapped "$@"
-
-unset -f ent_extract_switch_param_DC7C420E09B4492D
-unset -f ent_cli_register_rc_DC7C420E09B4492D
-unset -f ent_clone_repo_DC7C420E09B4492D
-unset -f ENT_RUNNER_DC7C420E09B4492D
+# shellcheck disable=SC2015
+(
+   [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+   [[ -n $KSH_VERSION && $(cd "$(dirname -- "$PROG")" &&
+      printf '%s' "${PWD%/}/")$(basename -- "$PROG") != "${.sh.file}" ]] ||
+   [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
+) && {
+  ENT_RUNNER_DC7C420E09B4492D --wrapped --sourced "$@"
+  return $?
+} || {
+  ENT_RUNNER_DC7C420E09B4492D --wrapped "$@"
+  exit $?
+}
