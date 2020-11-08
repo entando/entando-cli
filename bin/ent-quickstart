@@ -118,7 +118,7 @@ FOUND=false
   echo -e "Please provide a valid address mode option:" 1>&2
   echo "  --simple=[ADDR]    => standard installation with an existing ip" 1>&2
   echo "  --hostname=[FQDN]  => standard installation with an existing fully qualified domain name" 1>&2
-  echo "  --custom=[ADDR] => automatically adds an IP on the OS (only netplan)" 1>&2
+  echo "  --custom=[ADDR]    => automatically adds an IP on the OS (only netplan)" 1>&2
   echo "" 1>&2
   echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
   echo "" 1>&2

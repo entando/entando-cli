@@ -7,24 +7,35 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 [ -z "$ENTANDO_APPNAME" ] && ENTANDO_APPNAME="quickstart" && echo "Assuming ENTANDO_APPNAME=\"$ENTANDO_APPNAME\""
 [ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
 [ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
+[ -z "$ENTANDO_OPT_YES_FOR_ALL" ] && ENTANDO_OPT_YES_FOR_ALL=true  && echo "Assuming ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\""
 
 if [ "$ENTANDO_CLI_VERSION" = "develop" ] || [[ "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
   rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
 fi
 
-if [ "$1" != "--local-test" ]; then
-  curl -L "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install" \
-    | ENTANDO_CLI_VERSION="$ENTANDO_CLI_VERSION" \
-      ENTANDO_RELEASE="$ENTANDO_RELEASE" \
-      bash
+if [ "$1" = "--local-test" ]; then
+  shift
+  . s/essentials.sh
+  . activate --force
+else
+  bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+    --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE"
+
+  if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then
+    echo "> Partial installation detected, trying to recover $ENTANDO_CLI_VERSION.."
+    bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+      --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE" --update
+  fi
+
+  if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then
+    echo "> Unable to recover the CLI installation.." 1>&2
+    exit 99
+  fi
 
   . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
   . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
 
   . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/essentials.sh
-else
-  shift
-  . s/essentials.sh
 fi
 
 # shellcheck disable=SC2034
@@ -54,7 +65,7 @@ if [ -n "$ENTANDO_VM_MODE_SIMPLE" ]; then
 elif [ -n "$ENTANDO_VM_MODE_CUSTOM" ]; then
   P_ENTANDO_INST_MODE="$(var_to_param "custom" "$ENTANDO_VM_MODE_CUSTOM")"
 elif [ -n "$ENTANDO_VM_MODE_HOSTNAME" ]; then
-  P_ENTANDO_INST_MODE="$(var_to_param "hostname" "$ENTANDO_VM_MODE_CUSTOM")"
+  P_ENTANDO_INST_MODE="$(var_to_param "hostname" "$ENTANDO_VM_MODE_HOSTNAME")"
 else
   P_ENTANDO_INST_MODE="--simple"
   echo "Assuming SIMPLE INSTALLATION MODE"
@@ -65,8 +76,6 @@ if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; th
 else
   WITH_VM=false
 fi
-
-ENTANDO_OPT_YES_FOR_ALL=true
 
 OPTS=(
   "$(var_to_param -f "with-vm" "$WITH_VM")"
@@ -95,4 +104,8 @@ cat << EOF > "$T"
   ent-quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
 EOF
 
-bash "$T"
+if [ -t 0 ]; then
+  bash "$T"
+else
+  bash "$T" < "$DEV_TTY"
+fi
