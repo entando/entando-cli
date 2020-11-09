@@ -61,11 +61,11 @@ case "$OSTYPE" in
 esac
 
 if [ -n "$ENTANDO_VM_MODE_SIMPLE" ]; then
-  P_ENTANDO_INST_MODE="$(var_to_param "simple" "$ENTANDO_VM_MODE_SIMPLE")"
+  P_ENTANDO_INST_MODE="$(var_to_param -d "simple" "$ENTANDO_VM_MODE_SIMPLE")"
 elif [ -n "$ENTANDO_VM_MODE_CUSTOM" ]; then
-  P_ENTANDO_INST_MODE="$(var_to_param "custom" "$ENTANDO_VM_MODE_CUSTOM")"
+  P_ENTANDO_INST_MODE="$(var_to_param -d "custom" "$ENTANDO_VM_MODE_CUSTOM")"
 elif [ -n "$ENTANDO_VM_MODE_HOSTNAME" ]; then
-  P_ENTANDO_INST_MODE="$(var_to_param "hostname" "$ENTANDO_VM_MODE_HOSTNAME")"
+  P_ENTANDO_INST_MODE="$(var_to_param -d "hostname" "$ENTANDO_VM_MODE_HOSTNAME")"
 else
   if $OS_WIN; then
     P_ENTANDO_INST_MODE="--hostname"

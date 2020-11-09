@@ -140,6 +140,7 @@
 
 var_to_param() {
   FLAG=false; [ "$1" == "-f" ] && FLAG=true && shift
+  DASHABLE=false; [ "$1" == "-d" ] && DASHABLE=true && shift
   [ -z "$2" ] && return
 
   local par_name="$1"
@@ -152,9 +153,13 @@ var_to_param() {
       echo "--${par_name}=false"
     fi
   else
-    local par_value="${2//\\/\\\\}"
-    par_value="'${par_value//\'/\'\\\'\'}'"
-    echo "--${par_name}=${par_value}"
+    if $DASHABLE && [ "$2" = "-" ]; then
+      echo "--${par_name}"
+    else
+      local par_value="${2//\\/\\\\}"
+      par_value="'${par_value//\'/\'\\\'\'}'"
+      echo "--${par_name}=${par_value}"
+    fi
   fi
 }
 
