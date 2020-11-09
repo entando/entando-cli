@@ -56,6 +56,7 @@
   # SUDO
   ensure_sudo() {
     # NB: not using "sudo -v" because misbehaves with password-less sudoers
+    $OS_WIN && return 0
     sudo true || FATAL "Unable to obtain the required privileges"
   }
 
