@@ -80,8 +80,8 @@ ent_clone_repo_DC7C420E09B4492D() {
       fi
     ) || return "$?"
   else
-    echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.. (you may use --update)" 1>&2
-    return 91
+    # Please note that this is not an error
+    echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.. (you may use --update)"
   fi
   return 0
 }
