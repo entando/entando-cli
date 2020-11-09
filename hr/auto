@@ -67,7 +67,11 @@ elif [ -n "$ENTANDO_VM_MODE_CUSTOM" ]; then
 elif [ -n "$ENTANDO_VM_MODE_HOSTNAME" ]; then
   P_ENTANDO_INST_MODE="$(var_to_param "hostname" "$ENTANDO_VM_MODE_HOSTNAME")"
 else
-  P_ENTANDO_INST_MODE="--simple"
+  if $OS_WIN; then
+    P_ENTANDO_INST_MODE="--hostname"
+  else
+    P_ENTANDO_INST_MODE="--simple"
+  fi
   echo "Assuming SIMPLE INSTALLATION MODE"
 fi
 
