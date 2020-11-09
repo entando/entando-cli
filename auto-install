@@ -55,7 +55,7 @@ ent_clone_repo_DC7C420E09B4492D() {
           echo "Unable to enter folder \"$FLD\"" 1>&2
           exit 99
         }
-        git fetch --tags
+        git fetch --tags --force
         git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
 
         if [ "$UPDATE" -eq 1 ]; then

@@ -298,7 +298,7 @@ git_clone_repo() {
   git clone "$URL" "$FLD"
   if cd "$FLD"; then
     (
-      git fetch --tags
+      git fetch --tags --force
       git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
       if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
         $ERRC "> Unable to checkout the tag or branch of $DSC \"$TAG\""

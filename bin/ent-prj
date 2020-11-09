@@ -316,7 +316,7 @@ push_git() {
     git commit -m "$VERSION_COMMENT"
   fi
 
-  git fetch --tags 1> /dev/null
+  git fetch --tags --force 1> /dev/null
 
   if git tag | grep -q -F "$VERSION_NUMBER"; then
     if $FORCE; then
