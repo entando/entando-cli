@@ -69,21 +69,21 @@ FOUND=false
   args_or_ask -n -p "ADDR" "--hostname/fdn?" "$@" && {
     if [ -n "$ADDR" ]; then
       FOUND=true
-      WITH_HOSTNAME=true
-      if $WITH_VM; then
-        VM_OPT="--hostname=\"$ADDR\""
-      fi
     else
       if $OS_WIN && $WITH_VM && [ -n "$ENTANDO_VM_NAME" ]; then
         # OS_WIN: derive the hostname from the
         ADDR="$ENTANDO_VM_NAME.$C_WIN_VM_HOSTNAME_SUFFIX"
         _log_i 0 "Assuming hostname name: \"$ADDR\""
         assert_fdn "HOSTNAME" "$ADDR"
-        WITH_HOSTNAME=true
         FOUND=true
       else
         FATAL "Please provide an hostname"
       fi
+    fi
+
+    WITH_HOSTNAME=true
+    if $WITH_VM; then
+      VM_OPT="--hostname=\"$ADDR\""
     fi
   }
 #-----------------------------------------------------------------------------------------------------------------------
