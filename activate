@@ -4,10 +4,8 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   if [ -n "$BASH_VERSION" ]; then
     if [ -f "${BASH_SOURCE[0]}.ln" ]; then
       SS="$(cat "${BASH_SOURCE[0]}.ln")"
-    else
-      SS="$(readlink --canonicalize --no-newline "${BASH_SOURCE[0]}")"
-      [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
     fi
+    [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
     cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd
   elif [ -n "$ZSH_VERSION" ]; then
     dirname "$0:A"
@@ -35,11 +33,7 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
   if [[ "$1" = "--force" || "$2" = "--force" ]]; then
     [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
-    if [ "$ENTANDO_ENT_ACTIVE" != "" ] ; then
-      . "$ENTANDO_ENT_ACTIVE/deactivate" -p --force
-    else
-      . "$ENTANDO_ENT_ACTIVE/deactivate" -p --force > /dev/null 2>&1
-    fi
+    . "$ENTANDO_ENT_ACTIVE_NEW/deactivate" -p --force > /dev/null 2>&1
   else
     [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Quitting"
     return 91

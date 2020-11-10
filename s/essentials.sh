@@ -10,41 +10,38 @@
   SYS_GNU_LIKE=false
   SYS_OS_UNKNOWN=false
 
+  DEV_TTY="$(tty)"
+
   # shellcheck disable=SC2034
   case "$OSTYPE" in
     linux*)
       SYS_OS_TYPE="linux"
       SYS_GNU_LIKE=true
       OS_LINUX=true
-      DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     darwin*)
       SYS_OS_TYPE="mac"
       SYS_GNU_LIKE=true
       OS_MAC=true
-      DEV_TTY="/dev/ttys000"
       C_HOSTS_FILE="/private/etc/hosts"
       ;;
     "cygwin" | "msys")
       SYS_OS_TYPE="win"
       SYS_GNU_LIKE=true
       OS_WIN=true
-      DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     win*)
       SYS_OS_TYPE="win"
       SYS_GNU_LIKE=false
       OS_WIN=true
-      DEV_TTY="/dev/tty"
       C_HOSTS_FILE="%SystemRoot%\System32\drivers\etc\hosts"
       ;;
     "freebsd" | "openbsd")
       SYS_OS_TYPE="bsd"
       SYS_GNU_LIKE=true
       OS_BSD=true
-      DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     *)
@@ -57,7 +54,8 @@
   ensure_sudo() {
     # NB: not using "sudo -v" because misbehaves with password-less sudoers
     $OS_WIN && return 0
-    sudo true || FATAL "Unable to obtain the required privileges"
+    [ $UID -eq 0 ] && return 0
+    sudo true #|| FATAL "Unable to obtain the required privileges"
   }
 
   # KUBECTL
@@ -95,31 +93,41 @@
     }
   fi
 
+  # sed multiplatform and limited reimplementation
+  # - implies "-E"
+  # - doesn't support file operations
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # $@ the sed in place args *without* the "-i
+  #
+  _perl_sed() {
+    perl -pe "$@"
+  }
+
   # helper function to print the file help
   # shellcheck disable=SC2001
   # shellcheck disable=SC2155
   print_ent_tool_help() {
 
     if [ "$1" = "--short" ]; then
-      local short_help=$(grep '#''H::' "$0" | sed 's/^[[:space:]]*#H::[[:space:]]\{0,1\}//' | grep -v "^[[:space:]]*$" | head -n 1)
+      local short_help=$(grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
       short_help+=" | Syntax: (run ${0##*/} -h)"
       echo "$short_help"
       return
     fi
 
-    grep '#''H::' "$0" | sed 's/^[[:space:]]*#H::[[:space:]]\{0,1\}//' \
-    | sed 's/^\([[:space:]]*\)>/\1⮞/' | sed "s/{{TOOL-NAME}}/${0##*/}/"
+    grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
+    | _perl_sed 's/^([[:space:]]*)>/\1⮞/' | _perl_sed "s/{{TOOL-NAME}}/${0##*/}/"
 
     grep '#''H:' "$0" | while IFS= read -r var; do
       if [[ "$var" =~ "#H::" || "$var" =~ "#H:%" ]]; then
         :;
       elif [[ "$var" =~ "#H:>" ]]; then
         echo ""
-        echo "$var" | sed 's/^[[:space:]]*#H:>[[:space:]]\{0,1\}/⮞ /' | sed 's/"//g' | sed 's/:$/###/'
+        echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/⮞ /' | _perl_sed 's/"//g' | _perl_sed 's/:$/###/'
       else
-        echo "$var" | sed 's/[[:space:]]*\(.*\))[[:space:]]*#''H:\(.*\)/  - \1: \2/' | sed 's/"//g'  | sed 's/|[[:space:]]*\([^:]*\)/[\1]/'
+        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g'  | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/'
       fi
-    done | _column -t -s ":" -e | sed 's/###$/:/'
+    done | _column -t -s ":" -e | _perl_sed 's/###$/:/'
 
     echo ""
 
@@ -133,7 +141,7 @@
         *) false;;
         esac && NOTE=""
       done
-    done < <(grep '#''H:%' "$0" | sed "s/^[[:space:]]*#H:%[[:space:]]\{0,1\}//")
+    done < <(grep '#''H:%' "$0" | _perl_sed "s/^[[:space:]]*#H:%[[:space:]]{0,1}//")
 
     [ -z "$NOTE" ] && echo ""
   }

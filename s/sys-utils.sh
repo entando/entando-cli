@@ -6,7 +6,7 @@ SYS_CLI_PRE=""
 netplan_add_custom_ip() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
-  sudo grep -v addresses "$F" | sed '/dhcp4/a ___addresses: [ '$1' ]' | sed 's/_/    /g' > "w/netplan.tmp"
+  sudo grep -v addresses "$F" | sed '/dhcp4/a ___addresses: [ '$1' ]' | sed's/_/    /g' > "w/netplan.tmp"
   [ -f $F.orig ] && sudo cp -a "$F" "$F.orig"
   sudo cp "w/netplan.tmp" "$F"
 }
@@ -14,7 +14,7 @@ netplan_add_custom_ip() {
 netplan_add_custom_nameserver() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
-  sudo grep -v "#ENT-NS" "$F" | sed '/dhcp4/a ___nameservers: #ENT-NS\n____addresses: [ '$1' ] #ENT-NS' | sed 's/_/    /g' > "w/netplan.tmp"
+  sudo grep -v "#ENT-NS" "$F" | sed'/dhcp4/a ___nameservers: #ENT-NS\n____addresses: [ '$1' ] #ENT-NS' | sed 's/_/    /g' > "w/netplan.tmp"
   [ ! -f $F.orig ] && sudo cp -a "$F" "$F.orig"
   sudo cp "w/netplan.tmp" "$F"
 }
@@ -28,7 +28,7 @@ net_is_address_present() {
 #}
 
 hostsfile_clear() {
-  sudo sed --in-place='' "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE"
+  sudo _sed_in_place "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE"
   sudo echo "##ENT-CUSTOM-VALUE##$1" | sudo tee -a "$C_HOSTS_FILE" > /dev/null
 }
 
@@ -60,7 +60,7 @@ check_ver() {
   fi
 
   P="${VER:0:1}"
-  [ "${P^^}" == "V" ] && VER=${VER:1}
+  [[ "${P}" == "v" || "${P}" == "V" ]] && VER=${VER:1}
 
   VER="${VER//_/.}"
   REQ="${2//_/.}"
@@ -122,7 +122,7 @@ check_ver_num() {
 make_safe_resolv_conf() {
   [ ! -f /etc/resolv.conf.orig ] && sudo cp -ap /etc/resolv.conf /etc/resolv.conf.orig
   sudo cp -a /etc/resolv.conf /etc/resolv.conf.tmp
-  sudo sed --in-place='' 's/nameserver.*/nameserver 8.8.8.8/' /etc/resolv.conf.tmp
+  sudo _sed_in_place 's/nameserver.*/nameserver 8.8.8.8/' /etc/resolv.conf.tmp
   sudo mv /etc/resolv.conf.tmp /etc/resolv.conf
 }
 
@@ -294,12 +294,19 @@ git_clone_repo() {
   local ENTER=false
   local FORCE=false
   local ERRC="nop"
-  case "$OPT" in
-    FATAL*) ERRC="FATAL" ;;&
-    LOGW*) ERRC="_log_w 0" ;;&
-    FORCE*) FORCE=true ;;&
-    ENTER*) ENTER=true ;;&
-  esac
+
+  if [[ "$OPT" =~ "FATAL" ]]; then
+    ERRC="FATAL"
+  fi
+  if [[ "$OPT" =~ "LOGW" ]]; then
+    ERRC="_log_w 0"
+  fi
+  if [[ "$OPT" =~ "FORCE" ]]; then
+    FORCE=true
+  fi
+  if [[ "$OPT" =~ "ENTER" ]]; then
+    ENTER=true
+  fi
 
   [ -z "$FLD" ] && FLD="$(basename "$URL")"
   [ -z "$DSC" ] && DSC="$FLD/$TAG"
@@ -322,7 +329,7 @@ git_clone_repo() {
         $ERRC "> Unable to checkout the tag or branch of $DSC \"$TAG\""
         exit 92
       fi
-    )
+    ) || return $?
 
     if [ $? ]; then
       ! $ENTER && {

@@ -210,10 +210,10 @@ RUN_DIRECT() {
   fi
 
   cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
-    | sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
-    | sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
-    | sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOST_NAME/$SINGLE_HOST_NAME/" \
-    | sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
+    | _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
+    | _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
+    | _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOST_NAME/$SINGLE_HOST_NAME/" \
+    | _perl_sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
       > "w/$DEPL_SPEC_YAML_FILE"
 
   _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"

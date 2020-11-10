@@ -39,26 +39,7 @@ else
 fi
 
 # shellcheck disable=SC2034
-case "$OSTYPE" in
-  linux*)
-    DEV_TTY="/dev/tty"
-    ;;
-  darwin*)
-    DEV_TTY="/dev/ttys000"
-    ;;
-  "cygwin" | "msys")
-    DEV_TTY="/dev/tty"
-    ;;
-  win*)
-    DEV_TTY="/dev/tty"
-    ;;
-  "freebsd" | "openbsd")
-    DEV_TTY="/dev/tty"
-    ;;
-  *)
-    DEV_TTY="/dev/tty"
-    ;;
-esac
+DEV_TTY="$(tty)"
 
 if [ -n "$ENTANDO_VM_MODE_SIMPLE" ]; then
   P_ENTANDO_INST_MODE="$(var_to_param -d "simple" "$ENTANDO_VM_MODE_SIMPLE")"

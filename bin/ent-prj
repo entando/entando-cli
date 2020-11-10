@@ -209,7 +209,7 @@ be_test_run() {
 get_be_info() {
   local ver=$(sha256sum pom.xml | awk '{print $1}')
   if [ "$ver" != "$PARSED_POM_CHECKSUM" ]; then
-    local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | sed 's/<image>\([^<]*\).*/\1/')"
+    local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | _perl_sed 's/<image>([^<]*).*/\1/')"
 
     IMAGE_FQNAME="$(
       ./mvnw -q --non-recursive exec:exec \
@@ -430,7 +430,7 @@ generate_project() {
     set_or_ask "TMPVAR" "$val_user" "$val_msg" "$val_def" "$assertion"
 
     # apply
-    sed -r --in-place='' 's/\{\{app.serverPort[^}]*\}\}/'"$TMPVAR"'/' prj-generation.jdl~
+    _sed_in_place -r 's/\{\{app.serverPort[^}]*\}\}/'"$TMPVAR"'/' prj-generation.jdl~
   done
 
   _log_i 1 "Configuring.."

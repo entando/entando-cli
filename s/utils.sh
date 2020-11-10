@@ -2,6 +2,20 @@
 
 # CFG
 
+# runs a sed "in place" given the sed command and the file to change
+# (multiplatform wrapper)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $@ the sed in place args *without* the "-i
+#
+_sed_in_place() {
+  [ "$2" = "" ] && FATAL "Illegal function call (missing file param)"
+  if $OS_MAC; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
+
 # Saves a key/value pair to a configuration file
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # $1: key           strict identifier
@@ -11,7 +25,7 @@
 save_cfg_value() {
   local config_file=${3:-$CFG_FILE}
   if [[ -f "$config_file" ]]; then
-    sed --in-place='' "/^$1=.*$/d" "$config_file"
+    _sed_in_place "/^$1=.*$/d" "$config_file"
   fi
   if [ "$(echo "$2" | wc -l)" -gt 1 ]; then
     FATAL "save_cfg_value: Unsupported multiline value"
@@ -123,7 +137,7 @@ ask() {
   while true; do
     local suffix=""
     if [ "$mode" != "notif" ]; then
-      suffix="$(echo " (y/n/q)" | sed "s/\($default\)/\U\1/i")"
+      suffix="$(echo " (y/n/q)" | _perl_sed "s/($default)/\U\1/i")"
     fi
     echo -ne "$prompt$suffix"
     if [ -n "$ENTANDO_OPT_YES_FOR_ALL" ] && "$ENTANDO_OPT_YES_FOR_ALL"; then
@@ -171,7 +185,7 @@ EXIT_UE() {
 
 # converts a snake case identifier to camel case
 snake_to_camel() {
-  local res="$(echo "$2" | sed -E 's/[ _-]([a-z])/\U\1/gi;s/^([A-Z])/\l\1/')"
+  local res="$(echo "$2" | _perl_sed 's/[ _-]([a-z])/\U\1/gi;s/^([A-Z])/\l\1/')"
   _set_var "$1" "$res"
 }
 
@@ -262,7 +276,7 @@ require_initialized_dir() {
 #
 pre_parse_jdlt() {
   FILE="$1" # the file to parse
-  grep "{{[a-zA-Z][.-_a-zA-Z0-9]*}}," "$FILE" | sed 's/\s\+[^{]*{{\([^}]*\).*/\1/'
+  grep "{{[a-zA-Z][.-_a-zA-Z0-9]*}}," "$FILE" | _perl_sed 's/\s+[^{]*{{([^}]*).*/\1/'
 }
 
 git_enable_credentials_cache() {

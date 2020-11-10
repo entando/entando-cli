@@ -66,6 +66,7 @@ $M_DEVL && {
 
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "sed" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
 check_ver "awk" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "cat" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
@@ -148,18 +149,17 @@ $M_DEVL && {
   FOUND=""
   CURRENT="$(node -v)"
   PREFERRED="$VER_NODE_DEF"
-  #VERSIONS="$(nvm ls --no-colors --no-alias | sed 's/[^v]*\(v\S*\).*/\1/' | grep -v system | grep -v $CURRENT)"
   if $OS_WIN; then
     VERSIONS="$(
       nvm ls | grep '^\s\+v.*$' \
         | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
-        | sed 's/[^v]*\(v\S*\).*/\1/'
+        | _perl_sed 's/[^v]*(v\S*).*/\1/'
     )"
   else
     VERSIONS="$(
       nvm ls --no-colors --no-alias | grep '^\s\+v.*$' \
         | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
-        | sed 's/[^v]*\(v\S*\).*/\1/'
+        | _perl_sed 's/[^v]*(v\S*).*/\1/'
     )"
   fi
 
@@ -200,7 +200,7 @@ $M_DEVL && {
   }
 }
 
-check_git_package() {
+check_npm_git_package() {
   local ADDR="$1"
   local VER_REQ="$2"
   local VER_DEF="$3"
@@ -241,7 +241,7 @@ check_git_package() {
 
 $M_DEVL && {
   # ENTANDO-GENERATOR-JHIPSTER (entando blueprint)
-  check_git_package \
+  check_npm_git_package \
     "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
     "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" \
     "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
@@ -267,7 +267,7 @@ $M_DEVL && {
 
 #---
 $M_KUBE && {
-  if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | sed 's/k3s version \(.*\)+k.*/\1/'"; then
+  if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | _perl_sed 's/k3s version (.*)\+k.*/\1/'"; then
     _log_i 3 "\tfound: $check_ver_res => OK"
   else
     if ask "Should I try to install it?" "y"; then
