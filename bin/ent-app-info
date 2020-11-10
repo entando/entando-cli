@@ -28,7 +28,7 @@ export SYS_GNU_LIKE
 
 $WATCH && {
   start_time="$(date -u +%s)"
-  watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
+  _watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
   exit
 }
 

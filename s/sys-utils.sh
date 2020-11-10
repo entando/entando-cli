@@ -126,23 +126,29 @@ make_safe_resolv_conf() {
   sudo mv /etc/resolv.conf.tmp /etc/resolv.conf
 }
 
-# MISC - WIN
+# MISC
 
-$OS_WIN && {
-  watch() {
+if [[ ! -t 0 || $OS_WIN = "true" ]]; then
+  _watch() {
     if [ "$1" == "-v" ]; then
       echo "ent fake watch UNKNOWN"
       return 0
     fi
     while true; do
-      OUT=$("$@")
+      OUT="$("$@")"
       clear
       echo -e "$*\t$USER: $(date)\n"
       echo "$OUT"
       sleep 2
     done
   }
+else
+  _watch() {
+    watch "$@"
+  }
+fi
 
+$OS_WIN && {
   win_run_as() {
     "$SYS_UTILS_BASE_DIR/s/win_run_as.cmd" "$@"
   }

@@ -13,6 +13,17 @@ if [ "$ENTANDO_CLI_VERSION" = "develop" ] || [[ "$ENTANDO_CLI_VERSION" =~ ^exp-.
   rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
 fi
 
+if [ -z "$ENTANDO_DEV_TTY" ]; then
+  if [ -t 0 ]; then
+    ENTANDO_DEV_TTY="$(tty)"
+  else
+    case "$OSTYPE" in
+      darwin*) ENTANDO_DEV_TTY="-";;
+      *) ENTANDO_DEV_TTY="/dev/tty";;
+    esac
+  fi
+fi
+
 if [ "$1" = "--local-test" ]; then
   shift
   . s/essentials.sh
@@ -39,8 +50,6 @@ else
 fi
 
 # shellcheck disable=SC2034
-DEV_TTY="$(tty)"
-
 if [ -n "$ENTANDO_VM_MODE_SIMPLE" ]; then
   P_ENTANDO_INST_MODE="$(var_to_param -d "simple" "$ENTANDO_VM_MODE_SIMPLE")"
 elif [ -n "$ENTANDO_VM_MODE_CUSTOM" ]; then
@@ -89,8 +98,8 @@ cat << EOF > "$T"
   ent-quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
 EOF
 
-if [ -t 0 ]; then
+if [[ -t 0 || "$ENTANDO_DEV_TTY" = "-" ]]; then
   bash "$T"
 else
-  bash "$T" < "$DEV_TTY"
+  bash "$T" < "$ENTANDO_DEV_TTY"
 fi

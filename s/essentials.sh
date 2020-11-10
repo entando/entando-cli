@@ -10,7 +10,9 @@
   SYS_GNU_LIKE=false
   SYS_OS_UNKNOWN=false
 
-  DEV_TTY="$(tty)"
+  if [[ -z "$ENTANDO_DEV_TTY" && -t 0 ]]; then
+    ENTANDO_DEV_TTY="$(tty)"
+  fi
 
   # shellcheck disable=SC2034
   case "$OSTYPE" in
@@ -18,30 +20,35 @@
       SYS_OS_TYPE="linux"
       SYS_GNU_LIKE=true
       OS_LINUX=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     darwin*)
       SYS_OS_TYPE="mac"
       SYS_GNU_LIKE=true
       OS_MAC=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="-"
       C_HOSTS_FILE="/private/etc/hosts"
       ;;
     "cygwin" | "msys")
       SYS_OS_TYPE="win"
       SYS_GNU_LIKE=true
       OS_WIN=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     win*)
       SYS_OS_TYPE="win"
       SYS_GNU_LIKE=false
       OS_WIN=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="%SystemRoot%\System32\drivers\etc\hosts"
       ;;
     "freebsd" | "openbsd")
       SYS_OS_TYPE="bsd"
       SYS_GNU_LIKE=true
       OS_BSD=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     *)
@@ -116,16 +123,16 @@
     fi
 
     grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
-    | _perl_sed 's/^([[:space:]]*)>/\1⮞/' | _perl_sed "s/{{TOOL-NAME}}/${0##*/}/"
+      | _perl_sed 's/^([[:space:]]*)>/\1⮞/' | _perl_sed "s/{{TOOL-NAME}}/${0##*/}/"
 
     grep '#''H:' "$0" | while IFS= read -r var; do
       if [[ "$var" =~ "#H::" || "$var" =~ "#H:%" ]]; then
-        :;
+        :
       elif [[ "$var" =~ "#H:>" ]]; then
         echo ""
         echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/⮞ /' | _perl_sed 's/"//g' | _perl_sed 's/:$/###/'
       else
-        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g'  | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/'
+        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/'
       fi
     done | _column -t -s ":" -e | _perl_sed 's/###$/:/'
 
@@ -135,10 +142,10 @@
     while IFS= read -r ln; do
       for var in $ln; do
         case "$var" in
-        CHAINED) echo -e "$NOTE  - This command supports chained execution (${0##*/} subcmd1 --AND subcmd2)";;
-        OPTPAR) echo -e "$NOTE  - Some of the parameters can be omitted or set to \"\", in which case the tool would interactively ask to enter the value if required";;
-        SHORTS) echo -e "$NOTE  - Shorthands are reported in square brackets just after the main sub-command";;
-        *) false;;
+          CHAINED) echo -e "$NOTE  - This command supports chained execution (${0##*/} subcmd1 --AND subcmd2)" ;;
+          OPTPAR) echo -e "$NOTE  - Some of the parameters can be omitted or set to \"\", in which case the tool would interactively ask to enter the value if required" ;;
+          SHORTS) echo -e "$NOTE  - Shorthands are reported in square brackets just after the main sub-command" ;;
+          *) false ;;
         esac && NOTE=""
       done
     done < <(grep '#''H:%' "$0" | _perl_sed "s/^[[:space:]]*#H:%[[:space:]]{0,1}//")
@@ -146,31 +153,33 @@
     [ -z "$NOTE" ] && echo ""
   }
 
-var_to_param() {
-  FLAG=false; [ "$1" == "-f" ] && FLAG=true && shift
-  DASHABLE=false; [ "$1" == "-d" ] && DASHABLE=true && shift
-  [ -z "$2" ] && return
+  var_to_param() {
+    FLAG=false
+    [ "$1" == "-f" ] && FLAG=true && shift
+    DASHABLE=false
+    [ "$1" == "-d" ] && DASHABLE=true && shift
+    [ -z "$2" ] && return
 
-  local par_name="$1"
+    local par_name="$1"
 
-  if $FLAG; then
-    local par_value="$2"
-    if [ "$par_value" = "true" ]; then
-      echo "--${par_name}"
-    elif [ "$par_value" = "false" ]; then
-      echo "--${par_name}=false"
-    fi
-  else
-    if $DASHABLE && [ "$2" = "-" ]; then
-      echo "--${par_name}"
+    if $FLAG; then
+      local par_value="$2"
+      if [ "$par_value" = "true" ]; then
+        echo "--${par_name}"
+      elif [ "$par_value" = "false" ]; then
+        echo "--${par_name}=false"
+      fi
     else
-      local par_value="${2//\\/\\\\}"
-      par_value="'${par_value//\'/\'\\\'\'}'"
-      echo "--${par_name}=${par_value}"
+      if $DASHABLE && [ "$2" = "-" ]; then
+        echo "--${par_name}"
+      else
+        local par_value="${2//\\/\\\\}"
+        par_value="'${par_value//\'/\'\\\'\'}'"
+        echo "--${par_name}=${par_value}"
+      fi
     fi
-  fi
-}
+  }
 
-#~ END OF FILE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~ END OF FILE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   return 0
 }

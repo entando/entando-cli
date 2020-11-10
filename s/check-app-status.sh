@@ -1,5 +1,8 @@
 #!/bin/bash
 
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+. s/essentials.sh
+
 ENTANDO_NAMESPACE="$1"
 [ "$ENTANDO_NAMESPACE" == "" ] && echo "please provide the namespace name" 1>&2 && exit 1
 shift
@@ -17,7 +20,7 @@ if [ -n "$start_time" ]; then
 fi
 
 RUN() {
-  INGR=$(sudo k3s kubectl get ingress -n "$ENTANDO_NAMESPACE")
+  INGR=$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" 2>/dev/null)
 
   $SYS_GNU_LIKE && {
     DISKFREE="$(df . -h | tail -n 1 | awk '{print $4}')"
@@ -68,7 +71,7 @@ fi
 
   echo -e "\n~~~\n"
 
-  sudo k3s kubectl get pods -n "$ENTANDO_NAMESPACE"
+  _kubectl get pods -n "$ENTANDO_NAMESPACE"
 }
 
 ingr_check() {
