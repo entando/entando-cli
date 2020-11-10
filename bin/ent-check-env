@@ -53,7 +53,8 @@ case $1 in
 esac
 shift
 
-NO_DNS_FIX=false; [ "$2" == "--no-dns-fix" ] && NO_DNS_FIX=true
+NO_DNS_FIX=false
+[ "$2" == "--no-dns-fix" ] && NO_DNS_FIX=true
 
 # PRE
 $M_DEVL && {
@@ -248,12 +249,20 @@ $M_DEVL && {
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
 
   # ENTANDO-BUNDLE TOOL (entando blueprint)
-  check_git_package \
-    "$REPO_ENTANDO_BUNDLE_TOOL_ADDR" \
-    "$VER_ENTANDO_BUNDLE_TOOL_REQ" \
-    "$VER_ENTANDO_BUNDLE_TOOL_DEF" \
-    "$C_ENTANDO_BUNDLE_TOOL_NAME" \
-    "$C_ENTANDO_BUNDLE_TOOL_NAME"
+  check_npm_git_package \
+    "$REPO_ENTANDO_BUNDLER_ADDR" \
+    "$VER_ENTANDO_BUNDLER_REQ" \
+    "$VER_ENTANDO_BUNDLER_DEF" \
+    "$C_ENTANDO_BUNDLER_DIR" \
+    "$C_ENTANDO_BUNDLER_DIR" && {
+    (
+      __cd "$ENT_NPM_BIN_DIR"
+      rm -rf "$C_ENTANDO_BUNDLER_NAME"
+      ln -sf \
+        "$ENTANDO_ENT_ACTIVE/lib/$C_ENTANDO_BUNDLER_DIR/$VER_ENTANDO_BUNDLER_REQ/bin/index.js" \
+        "$C_ENTANDO_BUNDLER_NAME"
+    )
+  }
 }
 
 #---

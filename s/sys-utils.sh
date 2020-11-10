@@ -188,7 +188,7 @@ function _ent-jhipster() {
     # protection against yeoman's reverse recursive lookup
     #[ ! -f ".yo-rc.json" ] && echo "{}" > ".yo-rc.json"
 
-    [ ! -f package.json ] && {
+    [[ ! -f package.json ]] && {
       ask "The project dir doesn't seem to be initialized, should I do it now?" && {
         ent-init-project-dir
       }
@@ -202,6 +202,26 @@ function _ent-jhipster() {
   fi
 }
 
+# Run the ent private installation of the entando bundle tool
+_ent-bundler() {
+  if [ "$1" == "--ent-get-version" ]; then
+    if $OS_WIN; then
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME.cmd" --version
+    else
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME" --version
+    fi
+  else
+    require_develop_checked
+    activate_designated_node
+    # RUN
+    if $OS_WIN; then
+      $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME.cmd" "$@"
+    else
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME" "$@"
+    fi
+  fi
+}
+
 function ent-init-project-dir() {
   [ -f "$C_ENT_PRJ_FILE" ] && {
     _log_w 0 "The project seems to be already initialized"
@@ -209,8 +229,6 @@ function ent-init-project-dir() {
   }
   require_develop_checked
   _ent-npm--import-module-to-current-dir "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
-    | grep -v 'No description\|No repository field.\|No license field.'
-  _ent-npm--import-module-to-current-dir "$C_ENTANDO_BUNDLE_TOOL_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
     | grep -v 'No description\|No repository field.\|No license field.'
   generate_ent_project_file
 }
