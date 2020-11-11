@@ -146,18 +146,21 @@ assert_ip() {
 _assert_regex_nn() {
   [ "$7" != "" ] && FATAL "[_assert_regex_nn] Internal Error: Invalid function call "
   assert_nn "$1" "$2" "$6"
-  if [[ "$2" =~ $3 ]]; then
-    return 0
-  else
-    if [[ -n "$4" && "$2" =~ $4 ]]; then
+  (
+    LC_COLLATE=C
+    if [[ "$2" =~ $3 ]]; then
       return 0
+    else
+      if [[ -n "$4" && "$2" =~ $4 ]]; then
+        return 0
+      fi
+      if [ "$6" != "silent" ]; then
+        local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
+        _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"
+      fi
+      return 1
     fi
-    if [ "$6" != "silent" ]; then
-      local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
-      _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"
-    fi
-    return 1
-  fi
+  )
 }
 
 # FORMAT CHECKERS

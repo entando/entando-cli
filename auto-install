@@ -215,6 +215,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
       "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version" $UPDATE_CLI || exit "$?"
 
     cd "cli/$ENTANDO_CLI_VERSION"
+    rm -rf ./dist
     ln -sf "../../dist" ./
   ) || return "$?"
 
@@ -224,8 +225,10 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   echo "> Finalizing"
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  rm -rf "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
   ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
   echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE.ln"
+  rm -rf "$TGT_DIR/$BASE_PREFIX/activate"
   ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
   echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
 

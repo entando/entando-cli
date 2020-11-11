@@ -79,7 +79,7 @@ $M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"
 check_ver "curl" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 $M_DEVL && {
   check_ver "watch" "*.*.*" "-v" || {
-    prompt "Recommended dependency not found, some tool may not work as expected.\nPress enter to continue.."
+    prompt "Recommended dependency not found, workaround will be applied.\nPress enter to continue.."
   }
 }
 
@@ -149,21 +149,26 @@ $M_DEVL && {
   FOUND=""
   CURRENT="$(node -v)"
   PREFERRED="$VER_NODE_DEF"
+
   if $OS_WIN; then
-    VERSIONS="$(
-      nvm ls | grep '^\s\+v.*$' \
-        | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
-        | _perl_sed 's/[^v]*(v\S*).*/\1/'
-    )"
+    VERSIONS="$(nvm ls | grep -v system)"
   else
-    VERSIONS="$(
-      nvm ls --no-colors --no-alias | grep '^\s\+v.*$' \
-        | grep -v system | grep -v "$CURRENT" | grep -v "$PREFERRED" \
-        | _perl_sed 's/[^v]*(v\S*).*/\1/'
-    )"
+    VERSIONS="$(nvm ls --no-colors --no-alias | grep -v system)"
   fi
 
-  VERSIONS="$VERSIONS $CURRENT $PREFERRED"
+  if echo "$VERSIONS" | grep -q "$CURRENT"; then
+    VERSIONS="$(echo "$VERSIONS" | grep -v "$CURRENT")"
+    VERSIONS+=$'\n'" $CURRENT"
+  fi
+
+  if echo "$VERSIONS" | grep -q "$PREFERRED"; then
+    VERSIONS="$(echo "$VERSIONS" | grep -v "$PREFERRED")"
+    VERSIONS+=$'\n'" $PREFERRED"
+  fi
+
+  VERSIONS="$(
+    echo "$VERSIONS" | grep '^\s\+v.*$' | _perl_sed 's/[^v]*(v\S*).*/\1/'
+  )"
 
   for ver in $VERSIONS; do
     if check_ver "echo" "$VER_NODE_REQ" "\"$ver\"" "quiet"; then
@@ -191,9 +196,9 @@ $M_DEVL && {
 
 # ENT-LOCAL-JHIPSTER installation
 $M_DEVL && {
-  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-no-envcheck -V 2>/dev/null | grep -v INFO" verbose "ENT private jhipster installation is not available" || {
+  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" verbose "ENT private jhipster installation is not available" || {
     if ask "Should I try to install it?" "y"; then
-      _ent-npm install generator-jhipster@$VER_JHIPSTER_DEF
+      _ent-npm install-package "generator-jhipster@$VER_JHIPSTER_DEF"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
@@ -224,7 +229,7 @@ check_npm_git_package() {
         (
           git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
           _npm install
-          _ent-npm install .
+          _ent-npm install-from-source
         ) || {
           _log_e 0 "An error occurred while installing $DESC.. rolling back"
           local EC="$?"

@@ -161,6 +161,7 @@ $OS_WIN && {
 # Runs npm from the private npm modules
 function _ent-npm() {
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
+
   [ ! -d "$ENTANDO_ENT_ACTIVE/lib/node" ] && mkdir -p "$ENTANDO_ENT_ACTIVE/lib/node"
   if [ ! -f "$P/package.json" ]; then
     (
@@ -170,8 +171,24 @@ function _ent-npm() {
     ) || return $?
   fi
   (
-    cd "$P" || FATAL "Unable to switch to dir \"$P\""
-    _npm "$@"
+    case "$1" in
+      bin)
+        npm bin --prefix "$P" -g 2>/dev/null
+        ;;
+      install-from-source)
+        shift
+        [ -d "$P" ] || FATAL "Required dir \"$P\" is missing"
+        _npm install --prefix "$P" -g .
+        ;;
+      install-package)
+        shift
+        cd "$P" || FATAL "Unable to switch to dir \"$P\""
+        _npm install --prefix "$P" -g "$@"
+        ;;
+      *)
+        _log_i 0 "missing parameter (install-from-source|install-package|bin)"
+        ;;
+    esac
   ) || return $?
 }
 
@@ -185,8 +202,12 @@ function _ent-npm--import-module-to-current-dir() {
 
 # Run the ent private installation of jhipster
 function _ent-jhipster() {
-  if [ "$1" == "--ent-no-envcheck" ]; then
-    shift
+  if [ "$1" == "--ent-get-version" ]; then
+    if $OS_WIN; then
+      "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2>/dev/null | grep -v INFO
+    else
+      "$ENT_NPM_BIN_DIR/jhipster" -V 2>/dev/null | grep -v INFO
+    fi
   else
     require_develop_checked
     activate_designated_node
@@ -199,12 +220,12 @@ function _ent-jhipster() {
         ent-init-project-dir
       }
     }
-  fi
-  # RUN
-  if $OS_WIN; then
-    $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
-  else
-    "$ENT_NPM_BIN_DIR/jhipster" "$@"
+    # RUN
+    if $OS_WIN; then
+      $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
+    else
+      "$ENT_NPM_BIN_DIR/jhipster" "$@"
+    fi
   fi
 }
 
@@ -219,12 +240,21 @@ _ent-bundler() {
   else
     require_develop_checked
     activate_designated_node
+<<<<<<< HEAD
     # RUN
     if $OS_WIN; then
       $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME.cmd" "$@"
     else
       "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME" "$@"
     fi
+=======
+  fi
+  # RUN
+  if $OS_WIN; then
+    $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_TOOL_NAME.cmd" "$@"
+  else
+    "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_TOOL_NAME" "$@"
+>>>>>>> 3e6f880... More windows fixes
   fi
 }
 
@@ -364,3 +394,5 @@ __cd() {
 }
 
 return 0
+
+}
