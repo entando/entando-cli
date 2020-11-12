@@ -41,9 +41,9 @@ RUN() {
         require_ent_project_dir
         print_entando_banner
         _log_i 0 "Building the frontend"
-        fe_build
+        fe_build -a
         _log_i 0 "Building the backend"
-        be_build
+        be_build "$@"
         ;;
       "gen") #H: generates project contents
         require_develop_checked
