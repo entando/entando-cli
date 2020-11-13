@@ -155,9 +155,9 @@ $M_DEVL && {
   PREFERRED="$VER_NODE_DEF"
 
   if $OS_WIN; then
-    VERSIONS="$(nvm ls | grep -v system)"
+    VERSIONS="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
   else
-    VERSIONS="$(nvm ls --no-colors --no-alias | grep -v system)"
+    VERSIONS="$(nvm ls --no-colors --no-alias | _perl_sed 's/->/  /' | grep -v system  | grep '^\s\+v.*$' | _perl_sed 's/[^v]*(v\S*).*/\1/')"
   fi
 
   if echo "$VERSIONS" | grep -q "$CURRENT"; then
@@ -169,10 +169,6 @@ $M_DEVL && {
     VERSIONS="$(echo "$VERSIONS" | grep -v "$PREFERRED")"
     VERSIONS+=$'\n'" $PREFERRED"
   fi
-
-  VERSIONS="$(
-    echo "$VERSIONS" | grep '^\s\+v.*$' | _perl_sed 's/[^v]*(v\S*).*/\1/'
-  )"
 
   for ver in $VERSIONS; do
     if check_ver "echo" "$VER_NODE_REQ" "\"$ver\"" "quiet"; then
@@ -290,3 +286,6 @@ $M_KUBE && {
 $M_DEVL && {
   save_cfg_value "WAS_DEVELOP_CHECKED" "true"
 }
+
+
+_log_i 0 "${0##*/} completed"

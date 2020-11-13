@@ -270,12 +270,17 @@ function ent-init-project-dir() {
 }
 
 generate_ent_project_file() {
-  #  grep -qs "\.ent$" .gitignore && {
-  #    echo -e "\n########\n.ent\n" >> ".gitignore"
-  #  }
+  ! grep -qs "^$C_ENT_STATE_FILE\$" .gitignore && {
+    echo -e "\n########\n$C_ENT_STATE_FILE\n" >> ".gitignore"
+  }
 
-  [ -f "$C_ENT_PRJ_FILE" ] && return 0
-  echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > "$C_ENT_PRJ_FILE"
+  if [ ! -f "$C_ENT_PRJ_FILE" ]; then
+    echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > "$C_ENT_PRJ_FILE"
+  fi
+
+  camel_to_snake -d PRJ_NAME "$(basename "$PWD")"
+  set_or_ask PRJ_NAME "" "Please provide the project name" "$PRJ_NAME"
+  save_cfg_value PRJ_NAME "$PRJ_NAME" "$C_ENT_PRJ_FILE"
 }
 
 rescan-sys-env() {

@@ -127,6 +127,8 @@
       elif [[ "$var" =~ "#H:>" ]]; then
         echo ""
         echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/⮞ /' | _perl_sed 's/"//g'
+      elif [[ "$var" =~ "#H:-" ]]; then
+        echo "$var" | _perl_sed 's/#H:-/ :  -/' | _align_by_sep ":" 22
       else
         echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/' | _align_by_sep ":" 22
       fi
@@ -154,6 +156,8 @@
     [ "$1" == "-f" ] && FLAG=true && shift
     DASHABLE=false
     [ "$1" == "-d" ] && DASHABLE=true && shift
+    SEP="="
+    [ "$1" == "-s" ] && SEP=" " && shift
     [ -z "$2" ] && return
 
     local par_name="$1"
@@ -171,7 +175,7 @@
       else
         local par_value="${2//\\/\\\\}"
         par_value="'${par_value//\'/\'\\\'\'}'"
-        echo "--${par_name}=${par_value}"
+        echo "--${par_name}${SEP}${par_value}"
       fi
     fi
   }

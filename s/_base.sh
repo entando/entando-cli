@@ -32,13 +32,16 @@ xu_set_status "-"
 
 trace_var() {
   local PRE="$1";shift
-  echo "$PRE $1: ${!1}"
+  (echo "$PRE $1: ${!1}")
 }
 
 trace_vars() {
-  local PRE="$1";shift
+  if [ "$1" == "-t" ]; then
+    local TITLE=" [$2]";shift 2
+  fi
   echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
-  echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"
+  echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒$TITLE"
+  [ -z "$TITLE" ] && echo "▕> $TITLE"
   for varname in "$@"; do
     trace_var "▕-" "$varname"
   done
@@ -174,11 +177,12 @@ activate_designated_node() {
 
   [[ -z "$ACTIVATED_NODE_VERSION" || "$ACTIVATED_NODE_VERSION" != "$DESIGNATED_NODE_VERSION" ]] && {
     check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
-      nvm use "$DESIGNATED_NODE_VERSION" || {
+      nvm use "$DESIGNATED_NODE_VERSION" > /dev/null || {
         _log_w 1 "Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\")"
         return 1
       }
     }
     ACTIVATED_NODE_VERSION="$DESIGNATED_NODE_VERSION"
   }
+  return 0
 }
