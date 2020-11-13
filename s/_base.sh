@@ -164,10 +164,16 @@ nvm_activate() {
 }
 
 activate_designated_node() {
-  [ -z "$ACTIVATED_NODE_VERSION" ] && ACTIVATED_NODE_VERSION="$(node -v)  "
+  $OS_WIN && {
+    # npm-windows always shows the UAC privilege escalation screen, so we try to not invoke it when possible
+    # this is sub-optimal as we may end-up using the system node
+    [[ "$(node -v)" = "$DESIGNATED_NODE_VERSION" ]] && return 0
+  }
+  nvm_activate
+  [ -z "$ACTIVATED_NODE_VERSION" ] && ACTIVATED_NODE_VERSION="$(node -v)"
+
   [[ -z "$ACTIVATED_NODE_VERSION" || "$ACTIVATED_NODE_VERSION" != "$DESIGNATED_NODE_VERSION" ]] && {
     check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
-      nvm_activate
       nvm use "$DESIGNATED_NODE_VERSION" || {
         _log_w 1 "Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\")"
         return 1
