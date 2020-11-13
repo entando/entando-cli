@@ -89,16 +89,12 @@
     :
   }
 
-  # COLUMNS
-  if command -V column 1> /dev/null 2>&1; then
-    _column() {
-      column "$@"
-    }
-  else
-    _column() {
-      cat
-    }
-  fi
+  # Alignment a <left><sep><right> value sequence given the separator and the left column size
+  _align_by_sep() {
+    local sep="$1"
+    local alg="$2"
+    perl -ne 'printf "%-'"$alg"'s %-5s\n", "$1", "$2" while /([^'"$sep"']+)'"$sep"'(.+)/g;'
+  }
 
   # sed multiplatform and limited reimplementation
   # - implies "-E"
@@ -130,11 +126,11 @@
         :
       elif [[ "$var" =~ "#H:>" ]]; then
         echo ""
-        echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/⮞ /' | _perl_sed 's/"//g' | _perl_sed 's/:$/###/'
+        echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/⮞ /' | _perl_sed 's/"//g'
       else
-        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/'
+        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/' | _align_by_sep ":" 22
       fi
-    done | _column -t -s ":" -e | _perl_sed 's/###$/:/'
+    done
 
     echo ""
 

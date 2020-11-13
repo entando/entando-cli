@@ -146,6 +146,8 @@ reload_cfg
 rescan-sys-env
 reload_cfg
 
+[ -n "$DESIGNATED_JAVA_HOME" ] && JAVA_HOME="$DESIGNATED_JAVA_HOME"
+
 ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
 [[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {
   # keep this as simple as possible, only native commands

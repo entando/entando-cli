@@ -65,14 +65,15 @@ $M_DEVL && {
 # MISC
 
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
-check_ver "sed" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
 check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
 check_ver "awk" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
-check_ver "cat" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
 $M_DEVL && {
   [ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
   check_ver "java" "$VER_JDK_REQ" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || MAYBE_FATAL "Quitting"
+  save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
 }
 $M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"; }
 $M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"; }
@@ -182,12 +183,12 @@ $M_DEVL && {
     _log_i 0 "\tfound suitable node version $FOUND"
     DESIGNATED_NODE_VERSION="$FOUND"
     save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION"
-    activate_designated_node
+    activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
   else
     _log_w 0 "No suitable version of node was found"
-    if ask "Should I try to install it?" "y"; then
-      _nvm install "$VER_NODE_DEF"
-      _nvm use "$VER_NODE_DEF"
+    if ask "Should I try to install the preferred version ($PREFERRED)?" "y"; then
+      _nvm install "$PREFERRED"
+      _nvm use "$PREFERRED"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
