@@ -199,12 +199,12 @@ RUN_DIRECT() {
     }
 
     FQADDR="$ADDR.nip.io"
-    SINGLE_HOST_NAME="~"
+    SINGLE_HOSTNAME="~"
 
     _log_d 5 "> Using ip address: $ADDR"
   else
     FQADDR="$ADDR"
-    SINGLE_HOST_NAME="$FQADDR"
+    SINGLE_HOSTNAME="$FQADDR"
 
     _log_d 5 "> Using domain: $ADDR"
   fi
@@ -212,8 +212,8 @@ RUN_DIRECT() {
   cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
-    | _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOST_NAME/$SINGLE_HOST_NAME/" \
-    | _perl_sed "s/your\\.domain\\.suffix\\.com/$FQADDR/" \
+    | _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOSTNAME/$SINGLE_HOSTNAME/" \
+    | _perl_sed "s/PLACEHOLDER_ENTANDO_DOMAIN_SUFFIX/$FQADDR/" \
       > "w/$DEPL_SPEC_YAML_FILE"
 
   _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"

@@ -212,7 +212,7 @@ fe_build() {
     activate_designated_node
     ./prepareMicrofrontends.sh
   else
-    fe_select_widget && (
+    fe_select_widget "build" && (
       __cd "$SELECTED_WIDGET"
       _npm install
     )
@@ -220,7 +220,7 @@ fe_build() {
 }
 
 fe_select_widget() {
-  fe_widget_do :select "build"
+  fe_widget_do :select "$1"
 }
 
 fe_list_widgets() {
@@ -251,7 +251,7 @@ fe_widget_do() {
 }
 
 fe_test_run() {
-  fe_select_widget && (
+  fe_select_widget "run" && (
     __cd "$SELECTED_WIDGET"
     _npm install && _npm start
   )
