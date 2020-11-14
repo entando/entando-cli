@@ -86,6 +86,10 @@ test_asserters() {
   assert_ver "VER" "0.0.1:2" "$OPT" && FATAL "failed! $LINENO"
   assert_ver "VER" "0.0.1_3" "$OPT" && FATAL "failed! $LINENO"
   assert_ver "VER" "v0.0.1" "$OPT" || FATAL "failed! $LINENO"
+
+  assert_giga "VER" "10G" "$OPT" || FATAL "failed! $LINENO"
+  assert_giga "VER" "10GG" "$OPT" && FATAL "failed! $LINENO"
+  assert_giga "VER" "10" "$OPT" && FATAL "failed! $LINENO"
 }
 
 true

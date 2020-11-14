@@ -52,8 +52,8 @@ args_or_ask -n -a "ENTANDO_NAMESPACE" "1/id" "$@" || FATAL "Please provide the n
 args_or_ask -n -a "ENTANDO_APPNAME" "2/id" "$@" || FATAL "Please provide the app name"
 args_or_ask -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE" "$@"
 args_or_ask -n "ENTANDO_VM_CPU" "--vm-cpu" "$@"
-args_or_ask -n "ENTANDO_VM_MEM" "--vm-mem" "$@"
-args_or_ask -n "ENTANDO_VM_DISK" "--vm-disk" "$@"
+args_or_ask -n "ENTANDO_VM_MEM" "--vm-mem/giga" "$@"
+args_or_ask -n "ENTANDO_VM_DISK" "--vm-disk/giga" "$@"
 
 debug_trace_vars
 

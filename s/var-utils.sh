@@ -136,6 +136,10 @@ assert_ip() {
   _assert_regex_nn "$1" "$2" "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$" "" "ip address" "$3"
 }
 
+assert_giga() {
+  _assert_regex_nn "$1" "$2" "^[0-9]*G$" "" "ip address" "$3"
+}
+
 # GENERIC REGEX ASSERTION
 # - $1  var name
 # - $2  value
