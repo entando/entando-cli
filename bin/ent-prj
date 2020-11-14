@@ -23,6 +23,7 @@ cd "$DIR/.." || {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 RUN() {
   reload_cfg "$C_ENT_PRJ_FILE"
+  reload_cfg "$C_ENT_STATE_FILE"
 
   while true; do
     cmd="$1"
@@ -52,6 +53,12 @@ RUN() {
         require_ent_project_dir
         print_entando_banner
         generate_project "$@"
+        ;;
+      "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
+        #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
+        require_develop_checked
+        require_ent_project_dir
+        generate_custom_resource "$@"
         ;;
         # ~~~~~~~~~~~~~~~~~~~~
         #H:> PUB SYSTEM:
@@ -153,7 +160,47 @@ ext_keycloak() {
       ;;
   esac
 }
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~
+generate_custom_resource() {
+  local NAME="$ENT_PRJ_NAME"
+  [ -z "$NAME" ] && camel_to_snake -d NAME "$(basename "$PWD")"
+  local REPOSITORY="$(get_bundle_repo_url)"
+  local THUMBNAIL_FILE="$ENTANDO_ENT_ACTIVE/$C_ENTANDO_LOGO_FILE"
+
+  args_or_ask -n -f '--help' "$@" && {
+    local HH="-h"
+    echo ""
+    echo "> Parameters:"
+  }
+
+  args_or_ask -n -p $HH "NAME" '--name///name of the bundle project' "$@"
+  args_or_ask -n -p $HH "REPOSITORY" '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p $HH "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p $HH "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
+
+  [ -n "$HH" ] && {
+    echo ""
+    echo "> Notes:"
+    echo "  - all parameters are optional"
+    echo ""
+    return 0
+  }
+
+  if [ -n "$THUMBNAIL_FILE" ]; then
+    OPT="--thumbnail-file"
+    OPT_VALUE="$THUMBNAIL_FILE"
+  elif [ -n "$THUMBNAIL_URL" ]; then
+    OPT="--thumbnail-url"
+    OPT_VALUE="$THUMBNAIL_URL"
+  fi
+
+  _ent-bundler from-git \
+    --dry-run \
+    --name "$NAME" \
+    --repository "$REPOSITORY" \
+    $OPT "$OPT_VALUE"
+}
+
 bundle_all() {
   ./prepareBundle.sh
 }
@@ -241,8 +288,8 @@ get_be_info() {
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
   IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
 
-  save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_PRJ_FILE"
-  save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_PRJ_FILE"
+  save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_STATE_FILE"
+  save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_STATE_FILE"
 }
 
 be_info() {
@@ -315,7 +362,7 @@ push_git() {
     "$LATEST_VERSION_NUMBER" "assert_ver"
   set_or_ask "VERSION_COMMENT" "$2" "Please provide the bundle version comment" \
     "$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')" "assert_nn"
-  save_cfg_value "LATEST_VERSION_NUMBER" "$VERSION_NUMBER" "$C_ENT_PRJ_FILE"
+  save_cfg_value "LATEST_VERSION_NUMBER" "$VERSION_NUMBER" "$C_ENT_STATE_FILE"
 
   __cd bundle
 
@@ -387,7 +434,12 @@ init_project() {
     _log_i 1 "Project initialized."
   }
 }
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+get_bundle_repo_url() {
+  __cd "./bundle"
+  git remote get-url origin
+  cd - >/dev/null
+}
 generate_project() {
   DEF=""
   snake_to_camel DEF "$(basename "$PWD")"
@@ -456,7 +508,7 @@ generate_project() {
   #  echo bundle >> .gitignore
 
   generate_ent_project_file
-  save_cfg_value "PRJ_NAME" "$PRJ_NAME" "$C_ENT_PRJ_FILE"
+  save_cfg_value PRJ_NAME "$PRJ_NAME" "$C_ENT_PRJ_FILE"
 
   echo ""
   ask "Do you want to commit everything in a new local git repository?" && {
@@ -543,8 +595,8 @@ initialize_publication_git_repository() {
     echo -e "\n####\nbundle/" >> .gitignore
     UP=true
   }
-  grep -sq "^$C_ENT_PRJ_FILE\$" .gitignore || {
-    echo -e "\n$C_ENT_PRJ_FILE" >> .gitignore
+  grep -sq "^$C_ENT_STATE_FILE\$" .gitignore || {
+    echo -e "\n$C_ENT_STATE_FILE" >> .gitignore
     UP=true
   }
   $UP && _log_d 1 "bundle project .gitignore updated"

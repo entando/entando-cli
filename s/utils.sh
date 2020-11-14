@@ -189,6 +189,17 @@ snake_to_camel() {
   _set_var "$1" "$res"
 }
 
+# converts a snake case identifier to camel case
+camel_to_snake() {
+  if [ "$1" == "-d" ]; then
+    shift
+    local res="$(echo "$2" | _perl_sed 's/([A-Z]{1,})/-\L\1/g;s/^-//')"
+  else
+    local res="$(echo "$2" | _perl_sed 's/([A-Z]{1,})/_\L\1/g;s/^_//')"
+  fi
+  _set_var "$1" "$res"
+}
+
 # Returns the index of the given argument value
 # if "-p" is provided as first argument performs a partial match
 # if "-P" is provided as first argument performs a bash pattern match
@@ -339,6 +350,7 @@ args_or_ask() {
   local FLAGANDVAR=false
   local ARG=false
   local PRESERVE=false
+  local JUST_PRINT_HELP=false
 
   while true; do
     case "$1" in
@@ -347,6 +359,7 @@ args_or_ask() {
       -F) FLAGANDVAR=true;shift;;
       -a) ARG=true;shift;;
       -p) PRESERVE=true;shift;;
+      -h) JUST_PRINT_HELP=true;shift;;
       *) break;;
     esac
   done
@@ -365,6 +378,11 @@ args_or_ask() {
     local val_msg="$(echo "$V" | cut -d'/' -f 4)"
     ! $PRESERVE && _set_var "$var_name" ""
   fi
+
+  $JUST_PRINT_HELP && {
+    echo "    $val_name @$val_msg" | _align_by_sep "@" 25
+    return 0
+  }
 
   # user provided value
   if $ARG; then

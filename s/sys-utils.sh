@@ -240,21 +240,12 @@ _ent-bundler() {
   else
     require_develop_checked
     activate_designated_node
-<<<<<<< HEAD
     # RUN
     if $OS_WIN; then
       $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME.cmd" "$@"
     else
       "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME" "$@"
     fi
-=======
-  fi
-  # RUN
-  if $OS_WIN; then
-    $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_TOOL_NAME.cmd" "$@"
-  else
-    "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_TOOL_NAME" "$@"
->>>>>>> 3e6f880... More windows fixes
   fi
 }
 
@@ -278,9 +269,9 @@ generate_ent_project_file() {
     echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > "$C_ENT_PRJ_FILE"
   fi
 
-  camel_to_snake -d PRJ_NAME "$(basename "$PWD")"
-  set_or_ask PRJ_NAME "" "Please provide the project name" "$PRJ_NAME"
-  save_cfg_value PRJ_NAME "$PRJ_NAME" "$C_ENT_PRJ_FILE"
+  camel_to_snake -d ENT_PRJ_NAME "$(basename "$PWD")"
+  set_or_ask ENT_PRJ_NAME "" "Please provide the project name" "$ENT_PRJ_NAME"
+  save_cfg_value ENT_PRJ_NAME "$ENT_PRJ_NAME" "$C_ENT_PRJ_FILE"
 }
 
 rescan-sys-env() {
