@@ -91,8 +91,8 @@ set_or_ask() {
 
   local res="$sval"
   local def=""
-  local nullable=false
-  [[ "$asserter" =~ ^.*\?$ ]] && nullable=true
+  local NULLABLE=false
+  [[ "$asserter" =~ ^.*\?$ ]] && NULLABLE=true
 
   while true; do
 
@@ -113,7 +113,7 @@ set_or_ask() {
     }
 
     if [ -n "$asserter" ]; then
-      if [ -n "$res" ] || ! $nullable; then
+      if [ -n "$res" ] || ! $NULLABLE; then
         ("$asserter" "$dvar" "$res") || {
           res=""
           continue
