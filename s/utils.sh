@@ -22,16 +22,40 @@ _sed_in_place() {
 # $2: value         the value of the key
 # $3: [cfg-file]    optional cfg file name; defaults to the project config file
 #
+# Maps:
+# save_cfg_value -m {MAP_NAME} {KEY} {VALUE}
+#
 save_cfg_value() {
-  local config_file=${3:-$CFG_FILE}
+  IS_MAP=false;  [ "$1" = "-m" ] && IS_MAP=true && shift
+  local name="${1}";shift
+  local value="${1}"; shift
+  local config_file=${1:-$CFG_FILE}; shift
+
   if [[ -f "$config_file" ]]; then
-    _sed_in_place "/^$1=.*$/d" "$config_file"
+    if $IS_MAP; then
+      if [ "$map_key" = "*" ]; then
+        _sed_in_place "/^$name\[/d" "$config_file"
+      else
+        _sed_in_place "/^$name\[$map_key\]/d" "$config_file"
+      fi
+    else
+      _sed_in_place "/^$name=/d" "$config_file"
+    fi
   fi
-  if [ "$(echo "$2" | wc -l)" -gt 1 ]; then
+  if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
     FATAL "save_cfg_value: Unsupported multiline value"
   fi
-  if [ -n "$2" ]; then
-    printf "$1=%s\n" "$2" >> "$config_file"
+  if $IS_MAP; then
+    local key; local val
+    for key in $(echo "${!__AA*}"|grep "$name"); do
+      val="${!key}"
+      [ -z "$val" ] && continue
+      printf "${key}=%s\n" "$val" >> "$config_file"
+    done
+  else
+    if [ -n "$value" ]; then
+        printf "$name=%s\n" "$value" >> "$config_file"
+    fi
   fi
 
   return 0
@@ -50,7 +74,7 @@ reload_cfg() {
   # shellcheck disable=SC1097
   while IFS== read -r var value; do
     [[ "$var" =~ ^# ]] && continue
-    if assert_ic_id "CFGVAR" "$var" "silent"; then
+    if assert_ext_ic_id_with_arr "CFGVAR" "$var" "silent"; then
       printf -v sanitized "%q" "$value"
       eval "$var"="$sanitized"
     else
