@@ -180,6 +180,8 @@ RUN_DIRECT() {
     else
       . bin/ent-check-env runtime
     fi
+     [ -f ~/.bashrc ] && . ~/.bashrc
+     setup_kubectl
   }
 
   _log_i 2 "> Generating the kubernetes specification file for the deployment"
