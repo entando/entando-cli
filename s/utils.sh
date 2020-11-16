@@ -274,21 +274,22 @@ index_of_arg() {
 
 # prints the Entando banner
 #
+# shellcheck disable=SC2059
 print_entando_banner() {
-  B='\033[0;34m'
-  W='\033[0;37m'
+  B() { echo '\033[0;34m'; }
+  W() { echo '\033[0;39m'; }
   N=''
-  echo -e ""
-  echo -e " $B████████╗$W"
-  echo -e " $B██╔═════╝$W"
-  echo -e " $B██║$W $B███████╗$W  ██    █  ███████    ███    ██    █  ██████    █████ "
-  echo -e " $B╚═╝$N $B█╔═════╝$W  █ █   █     █      █   █   █ █   █  █     █  █     █"
-  echo -e " $N$N    $B█████╗  $W  █  █  █     █     █     █  █  █  █  █     █  █     █"
-  echo -e " $N$N    $B█╔═══╝  $W  █   █ █     █     ███████  █   █ █  █     █  █     █"
-  echo -e " $N$N    $B███████╗$W  █    ██     █     █     █  █    ██  ██████    █████    $B██╗$W"
-  echo -e " $N$N    $B╚══════╝$W                                                         $B██║$W"
-  echo -e " $N$N$N$N                                                               $B████████║$W"
-  echo -e " $N$N$N$N                                                               $B╚═══════╝$W"
+  printf "\n"
+  printf " $(B)████████╗$(W)\n"
+  printf " $(B)██╔═════╝$(W)\n"
+  printf " $(B)██║$(W) $(B)███████╗$(W)  ██    █  ███████    ███    ██    █  ██████    █████ \n"
+  printf " $(B)╚═╝${N} $(B)█╔═════╝$(W)  █ █   █     █      █   █   █ █   █  █     █  █     █\n"
+  printf " ${N}${N}    $(B)█████╗  $(W)  █  █  █     █     █     █  █  █  █  █     █  █     █\n"
+  printf " ${N}${N}    $(B)█╔═══╝  $(W)  █   █ █     █     ███████  █   █ █  █     █  █     █\n"
+  printf " ${N}${N}    $(B)███████╗$(W)  █    ██     █     █     █  █    ██  ██████    █████    $(B)██╗$(W)\n"
+  printf " ${N}${N}    $(B)╚══════╝$(W)                                                         $(B)██║$(W)\n"
+  printf " ${N}${N}${N}${N}                                                               $(B)████████║$(W)\n"
+  printf " ${N}${N}${N}${N}                                                               $(B)╚═══════╝$(W)\n"
 }
 
 # requires that the system environment was checked for development mode
