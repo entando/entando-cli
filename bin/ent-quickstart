@@ -31,10 +31,32 @@ echo "~ ARGUMENTS: $*"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 #-----------------------------------------------------------------------------------------------------------------------
+args_or_ask -n -f '--help' "$@" && {
+  HH="-h"
+  echo -e "\n> Parameters:"
+}
+
+args_or_ask $HH -n -a "ENTANDO_NAMESPACE" "1/id//The namespace" "$@" || FATAL "Please provide the namespace"
+args_or_ask $HH -n -a "ENTANDO_APPNAME" "2/id//The application name" "$@" || FATAL "Please provide the app name"
+args_or_ask $HH -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
+args_or_ask $HH -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
+args_or_ask $HH -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug informations" "$@"
+args_or_ask $HH -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
+args_or_ask $HH -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+args_or_ask $HH -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
+args_or_ask $HH -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
+args_or_ask $HH -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 8G" "$@"
+args_or_ask $HH -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 12G" "$@"
+
+[ -n "$HH" ] && echo "" && exit 0
+
+args_or_ask $HH -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
+args_or_ask $HH -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
+args_or_ask $HH -n -F "JUST_SET_CFG" "--config" "$@"
 
 args_or_ask -f "--destroy" "$@" && {
   reload_cfg
-  ensure_sudo
+  prepare_for_sudo
   ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {
     _kubectl delete namespace "$ENTANDO_NAMESPACE"
   }
@@ -42,18 +64,6 @@ args_or_ask -f "--destroy" "$@" && {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-args_or_ask -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE" "$@"
-args_or_ask -n -p "ENTANDO_CLI_VERSION" "--cli-version" "$@"
-args_or_ask -n "ENTANDO_DEBUG" "--debug/num/0" "$@"
-args_or_ask -n -F "WITH_VM" "--with-vm" "$@"
-args_or_ask -n -F "JUST_SET_CFG" "--config" "$@"
-args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes" "$@"
-args_or_ask -n -a "ENTANDO_NAMESPACE" "1/id" "$@" || FATAL "Please provide the namespace"
-args_or_ask -n -a "ENTANDO_APPNAME" "2/id" "$@" || FATAL "Please provide the app name"
-args_or_ask -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE" "$@"
-args_or_ask -n "ENTANDO_VM_CPU" "--vm-cpu" "$@"
-args_or_ask -n "ENTANDO_VM_MEM" "--vm-mem/giga" "$@"
-args_or_ask -n "ENTANDO_VM_DISK" "--vm-disk/giga" "$@"
 
 debug_trace_vars
 
@@ -158,12 +168,29 @@ RUN_WITH_VM() {
       --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
     "
 
+  _log_i 2 "> Checking the environment"
+  if ! $ENTANDO_NO_CHECK; then
+    if $WITH_HOSTNAME; then
+      multipass exec "$ENTANDO_VM_NAME" -- bash -c "ent-check-env runtime --no-dns-fix"
+    else
+      multipass exec "$ENTANDO_VM_NAME" -- bash -c "ent-check-env runtime"
+    fi
+  fi
+
+  remotes-set "$ENTANDO_VM_NAME" "$ENTANDO_NAMESPACE/$ENTANDO_APPNAME/$ENTANDO_RELEASE"
+
+  _log_i 2 "> Registering the VM"
+  ! $ENTANDO_NO_AUTO_ATTACH && {
+    ent attach "$ENTANDO_VM_NAME"
+  }
+
   multipass exec "$ENTANDO_VM_NAME" -- bash -c "
     cd \
     && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
     && ent-quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\" \
          --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
     "
+
 
   exit 0
 }
@@ -174,15 +201,16 @@ RUN_WITH_VM() {
 RUN_DIRECT() {
   _log_i 2 "> Checking environment"
 
-  ! $JUST_SET_CFG && {
+  ! $JUST_SET_CFG && ! $ENTANDO_NO_CHECK && {
     if $WITH_HOSTNAME; then
       . bin/ent-check-env runtime --no-dns-fix
     else
       . bin/ent-check-env runtime
     fi
-     [ -f ~/.bashrc ] && . ~/.bashrc
-     setup_kubectl
   }
+
+  [ -f ~/.bashrc ] && . ~/.bashrc
+  setup_kubectl
 
   _log_i 2 "> Generating the kubernetes specification file for the deployment"
 
@@ -238,7 +266,7 @@ RUN_DIRECT() {
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-ensure_sudo
+prepare_for_sudo
 
 if $WITH_VM; then
   RUN_WITH_VM

@@ -11,42 +11,51 @@ cd "$DIR/.." || {
 
 . s/_base.sh
 
-echo ""
-echo "~~~~~~~~~~~~~~~~~~~"
-echo " Entando CLI tools "
-echo "~~~~~~~~~~~~~~~~~~~"
-echo ""
+SIMPLE=false; [ "$1" == "--simple" ] && SIMPLE=true
 
-echo "> Essentials:"
+! $SIMPLE && {
+  echo ""
+  echo "~~~~~~~~~~~~~~~~~~~"
+  echo " Entando CLI tools "
+  echo "~~~~~~~~~~~~~~~~~~~"
+  echo ""
 
-echo -e "  - Activate using:  $PWD/activate"
-echo -e "  - Dectivate using: $PWD/deactivate"
-echo ""
+  echo "> Essentials:"
 
-echo "> Available tools:"
+  echo -e "  - Activate using:  $PWD/activate"
+  echo -e "  - Dectivate using: $PWD/deactivate"
+  echo ""
 
-printf "" 1>/dev/null 2>&1
+  echo "> Available tools:"
+}
+
+
 [ $? -eq 0 ] && PRINTF_AVAILABLE=true || PRINTF_AVAILABLE=false
 
 cd bin || { echo "Unable to enter directory $PWD/bin"; exit 99; }
 for file in ent-*; do
   H=$($file -h --short)
-  $PRINTF_AVAILABLE &&
-    printf "  - %-20s => %s\n" "$file" "$H" ||
-    echo -e "  - $file => $H"
+  if $SIMPLE; then
+    file="${file//ent-/}"
+    printf "  - %-21s%s\n" "$file" "$H"
+  else
+    printf "  - %-20s => %s\n" "$file" "$H"
+  fi
 done
 
 cd ..
 
-echo ""
-echo "> Further info about entando:"
-echo -e "  - $PWD/README.md"
-echo -e "  - https://www.entando.com/"
-echo -e "  - https://dev.entando.org/"
+! $SIMPLE && {
+  echo ""
+  echo "> Further info about entando:"
+  echo -e "  - $PWD/README.md"
+  echo -e "  - https://www.entando.com/"
+  echo -e "  - https://dev.entando.org/"
 
-echo ""
-echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"
+  echo ""
+  echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"
 
-echo -e "  - Check the dependencies (ent-check-env -h)"
+  echo -e "  - Check the dependencies (ent-check-env -h)"
 
-echo ""
+  echo ""
+}

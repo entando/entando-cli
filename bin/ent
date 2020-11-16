@@ -1,0 +1,130 @@
+#!/bin/bash
+
+#H::
+#H:: The Entando Command Line Toolset
+#H::
+#H:: Syntax:
+#H::  - ent {script} {command} {params}
+#H::
+#H:: Built-in Scripts:
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  reload_cfg "$C_ENT_PRJ_FILE"
+  reload_cfg "$C_ENT_STATE_FILE"
+
+  while true; do
+    cmd="$1"
+    shift
+    case "$cmd" in
+      "config") #H: [--edit] -- attach ent to a ent-managed VM
+        case "$1" in
+          --print|"") cat "$ENTANDO_ENT_ACTIVE/w/.cfg";;
+          --edit) edit "$ENTANDO_ENT_ACTIVE/w/.cfg";;
+        esac
+        ;;
+      "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
+        attach_vm "$@"
+        ;;
+      "detach-vm") #H: detach ent from the current ent-managed VM
+        detach_vm "$@"
+        ;;
+      more-scripts) #H: shows the rest of the available scripts
+        ent-help --simple
+        ;;
+      "")
+        ent-help
+        ;;
+      *)
+        [ ! -f "${ENTANDO_ENT_ACTIVE}/bin/ent-${cmd}" ] && {
+          _log_i 0 "Unrecognized script"
+          return 0
+        }
+        "${ENTANDO_ENT_ACTIVE}/bin/ent-${cmd}" "$@"
+        ;;
+    esac
+    index_of_arg "--AND" "$@"
+    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
+    [ -z "$1" ] && break
+  done
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+clear_kubectl_command() {
+  args_or_ask -f "--clear" "$@" && {
+    save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
+  }
+}
+
+set_kubectl_command() {
+  args_or_ask -n -f '--help' "$@" && {
+    local HH="-h"
+    echo "> Parameters:"
+  }
+
+  args_or_ask -a $HH "DESIGNATED_KUBECTL_CMD" "1" "$@"
+  save_cfg_value "DESIGNATED_KUBECTL_CMD" "$DESIGNATED_KUBECTL_CMD"
+
+  # reset kubeconfig setup
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
+  save_cfg_value "DESIGNATED_VM" ""
+}
+
+detach_vm() {
+  rm "$ENT_KUBECONF_FILE_PATH"
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
+  save_cfg_value "DESIGNATED_VM" ""
+}
+
+attach_vm() {
+  args_or_ask -n -f '--help' "$@" && {
+    local HH="-h"
+    echo "> Parameters:"
+  }
+
+  args_or_ask__a_remote -a $HH "VM_NAME" "1" "%sp VM to which ent-kubectl should attach" "$@"
+
+  [ -n "$HH" ] && return 0
+
+  local ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+  [ -z "$ADDR" ] && FATAL "Unable to determine the VM address (\"$VM_NAME\")"
+
+  (
+    set -e
+    rm "$ENT_KUBECONF_FILE_PATH"
+    touch "$ENT_KUBECONF_FILE_PATH"
+    chmod 600 "$ENT_KUBECONF_FILE_PATH"
+    chmod u=rw,go= "$ENT_KUBECONF_FILE_PATH"
+  ) || FATAL "Unable to prepare to KUBECONFIG file"
+
+  multipass exec "$VM_NAME" -- sudo cat /etc/rancher/k3s/k3s.yaml \
+    | _perl_sed "s/127.0.0.1/$ADDR/" >> "$ENT_KUBECONF_FILE_PATH"
+
+  save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
+  save_cfg_value "DESIGNATED_VM" "$VM_NAME"
+
+  # reset kubectl command setup
+  save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
+}
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+
+if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+  . s/essentials.sh
+  print_ent_tool_help "$2"
+  exit 0
+fi
+
+. s/_base.sh
+cd - > /dev/null || FATAL "internal error"
+
+RUN "$@"

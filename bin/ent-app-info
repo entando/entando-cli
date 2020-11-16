@@ -10,6 +10,11 @@ cd "$DIR/.." || {
 
 . s/_base.sh
 
+if [ -n "$DESIGNATED_VM" ]; then
+  multipass exec "$DESIGNATED_VM" -- bash -c "source .entando/activate && \"${0##*/}\" $*"
+  exit
+fi
+
 WATCH=false
 STATUS=false
 [ "$1" == "watch" ] && {
@@ -37,7 +42,7 @@ $STATUS && {
   exit
 }
 
-ensure_sudo
+_kubectl-pre-sudo
 
 _log_i 1 "NODES:"
 _kubectl get nodes

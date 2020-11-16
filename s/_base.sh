@@ -41,7 +41,6 @@ trace_vars() {
   fi
   echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
   echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒$TITLE"
-  [ -z "$TITLE" ] && echo "▕> $TITLE"
   for varname in "$@"; do
     trace_var "▕-" "$varname"
   done
@@ -145,11 +144,14 @@ mkdir -p "$ENTANDO_ENT_ACTIVE/lib"
 . s/utils.sh
 . s/var-utils.sh
 . s/logger.sh
+
 reload_cfg
 rescan-sys-env
 reload_cfg
 
 [ -n "$DESIGNATED_JAVA_HOME" ] && export JAVA_HOME="$DESIGNATED_JAVA_HOME"
+
+setup_kubectl
 
 ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
 [[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {

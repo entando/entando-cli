@@ -1,5 +1,10 @@
 # ESSENTIALS
 
+if [ "$1" = "--with-state" ]; then
+  DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_ACTIVE/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
+  DESIGNATED_KUBECTL_CMD=$(grep DESIGNATED_KUBECTL_CMD "$ENTANDO_ENT_ACTIVE/w/.cfg" | sed "s/DESIGNATED_KUBECTL_CMD=//")
+fi
+
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
   # OS DETECT
@@ -9,6 +14,10 @@
   OS_BSD=false
   SYS_GNU_LIKE=false
   SYS_OS_UNKNOWN=false
+  DESIGNATED_KUBECTL_CMD=""
+  ENTANDO_KUBECTL_MODE=""
+  DESIGNATED_KUBECONFIG=""
+
 
   if [[ -z "$ENTANDO_DEV_TTY" && -t 0 ]]; then
     ENTANDO_DEV_TTY="$(tty)"
@@ -58,31 +67,62 @@
   esac
 
   # SUDO
-  ensure_sudo() {
-    # NB: not using "sudo -v" because misbehaves with password-less sudoers
-    $OS_WIN && return 0
-    [ $UID -eq 0 ] && return 0
-    sudo true #|| FATAL "Unable to obtain the required privileges"
-  }
+  if command -v "sudo" > /dev/null; then
+    prepare_for_sudo() {
+      # NB: not using "sudo -v" because misbehaves with password-less sudoers
+      $OS_WIN && return 0
+      [ $UID -eq 0 ] && return 0
+      sudo true
+    }
+  else
+    prepare_for_sudo() {
+      :;
+    }
+  fi
 
   # KUBECTL
-  if [ -n "$ENTANDO_KUBECTL" ]; then
-    _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
-  else
-    if command -v "k3s" > /dev/null; then
-      if $OS_WIN; then
-        _kubectl() { k3s kubectl "$@"; }
+  setup_kubectl() {
+    [ -n "$DESIGNATED_KUBECTL_CMD" ] && {
+      ENTANDO_KUBECTL="$DESIGNATED_KUBECTL_CMD"
+    }
+
+    if [ -n "$ENTANDO_KUBECTL" ]; then
+      ENTANDO_KUBECTL_MODE="COMMAND"
+      _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
+      if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
+        _kubectl-pre-sudo() { prepare_for_sudo; }
       else
-        _kubectl() { sudo k3s kubectl "$@"; }
+        _kubectl-pre-sudo() { :; }
       fi
+    elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
+      ENTANDO_KUBECTL_MODE="CONFIG"
+      _kubectl() {
+        KUBECONFIG="$DESIGNATED_KUBECONFIG" kubectl "$@"
+      }
+      _kubectl-pre-sudo() { :; }
     else
-      if $OS_WIN; then
-        _kubectl() { kubectl "$@"; }
+      ENTANDO_KUBECTL_MODE="AUODETECT"
+      if command -v "k3s" > /dev/null; then
+        if $OS_WIN; then
+          _kubectl() { k3s kubectl "$@"; }
+          _kubectl-pre-sudo() { :; }
+        else
+          _kubectl() { sudo k3s kubectl "$@"; }
+          _kubectl-pre-sudo() { prepare_for_sudo true; }
+        fi
       else
-        _kubectl() { sudo kubectl "$@"; }
+        if $OS_WIN; then
+          _kubectl() { kubectl "$@"; }
+          _kubectl-pre-sudo() { :; }
+        else
+          _kubectl() { sudo kubectl "$@"; }
+          _kubectl-pre-sudo() { prepare_for_sudo true; }
+        fi
       fi
     fi
-  fi
+  }
+
+  setup_kubectl
 
   # NOP
   nop() {

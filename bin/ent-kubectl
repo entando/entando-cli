@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# HELP HEADER
+#H::
+#H:: Helper for using kubectl in ent managed scenarios
+#H::
+#H:: Syntax:
+#H::  - {{TOOL-NAME}} {sub-command}
+#H::
+#H:: SubCommands:
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  reload_cfg "$C_ENT_PRJ_FILE"
+  reload_cfg "$C_ENT_STATE_FILE"
+
+  while true; do
+    cmd="$1"
+    shift
+    case "$cmd" in
+      "print-kubeconfig") #H: prints the command for setting the kubectl configuration
+        if [ -n "$DESIGNATED_KUBECONFIG" ]; then
+          echo "export KUBECONFIG=\"$DESIGNATED_KUBECONFIG\""
+        else
+          _log_e 0 "No ENT KUBECONFIG set"
+        fi
+        ;;
+      "set-cmd") #H: prints the command for setting the kubectl environment
+        #H:- {command}: uses this command to run kubectl
+        set_kubectl_command "$@"
+        ;;
+      "clear-cmd") #H: prints the command for setting the kubectl environment
+        clear_kubectl_command --clear
+        ;;
+      *) #H: any other command is passed to kubectl
+        _kubectl "$cmd" "$@"
+        ;;
+    esac
+    index_of_arg "--AND" "$@"
+    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
+    [ -z "$1" ] && break
+  done
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+clear_kubectl_command() {
+  args_or_ask -f "--clear" "$@" && {
+    save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
+  }
+}
+
+set_kubectl_command() {
+  args_or_ask -n -f '--help' "$@" && {
+    local HH="-h"
+    echo "> Parameters:"
+  }
+
+  args_or_ask -a $HH "DESIGNATED_KUBECTL_CMD" "1" "$@"
+  save_cfg_value "DESIGNATED_KUBECTL_CMD" "$DESIGNATED_KUBECTL_CMD"
+
+  # reset kubeconfig setup
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
+  save_cfg_value "DESIGNATED_VM" ""
+}
+
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+
+if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+  . s/essentials.sh
+  print_ent_tool_help "$2"
+  exit 0
+fi
+
+. s/_base.sh
+cd - > /dev/null || FATAL "internal error"
+
+RUN "$@"

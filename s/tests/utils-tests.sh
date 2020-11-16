@@ -125,5 +125,25 @@ test_args_or_ask() {
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
 }
 
+test_remotes() {
+    print_current_function_name "> " ".."
+    remotes-clear
+    remotes-save
+    remotes-count N
+    [ "$N" = 0 ] || FATAL "failed! $LINENO"
+    remotes-set "test" "a-test"
+    remotes-set "test2" "another test"
+    remotes-count N
+    [ "$N" = 2 ] || FATAL "failed! $LINENO"
+    remotes-save
+    remotes-clear
+    reload_cfg
+    remotes-count N
+    [ "$N" = 2 ] || FATAL "failed! $LINENO"
+    remotes-get V "test"
+    [ "$V" = "a-test" ] || FATAL "failed! $LINENO"
+    remotes-get V "test2"
+    [ "$V" = "another test" ] || FATAL "failed! $LINENO"
+}
 
 true

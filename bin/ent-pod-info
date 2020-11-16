@@ -10,15 +10,18 @@ cd "$DIR/.." || {
 
 . s/_base.sh
 
-ENTANDO_NAMESPACE="$1"
-[ "$ENTANDO_NAMESPACE" == "" ] && echo "please provide the namespace name" 1>&2 && exit 1
-shift
+args_or_ask -n -f '--help' "$@" && {
+  HH="-h"
+  echo "> Parameters:"
+}
 
-args_or_ask $HH "ENTANDO_NAMESPACE" '--namespace/ext_id/entando/%sp provide the namespace' "$@"
-args_or_ask $HH -n "POD_PATT" '--pod-patt/any?//%sp the pod pattern' "$@"
-args_or_ask $HH -n "LOG_PATT" '--log-patt/any?//%sp the pod pattern' "$@"
+args_or_ask $HH ENTANDO_NAMESPACE "--namespace/ext_id//%sp provide the namespace" "$@"
+args_or_ask $HH -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
+args_or_ask $HH -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
 
-ensure_sudo
+[ -n "$HH" ] && return 0
+
+_kubectl-pre-sudo
 
 for pod in $(_kubectl get pods -n "$ENTANDO_NAMESPACE" | awk 'NR>1' | awk '{print $1}' | grep -- "$POD_PATT"); do
   echo -e "\n===================================================================================================="

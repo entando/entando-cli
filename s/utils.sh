@@ -1,6 +1,7 @@
 # UTILS
 
 # CFG
+WAS_DEVELOP_CHECKED=false
 
 # runs a sed "in place" given the sed command and the file to change
 # (multiplatform wrapper)
@@ -28,16 +29,12 @@ _sed_in_place() {
 save_cfg_value() {
   IS_MAP=false;  [ "$1" = "-m" ] && IS_MAP=true && shift
   local name="${1}";shift
-  local value="${1}"; shift
-  local config_file=${1:-$CFG_FILE}; shift
+  local value="${1}";shift
+  local config_file=${1:-$CFG_FILE};shift
 
   if [[ -f "$config_file" ]]; then
     if $IS_MAP; then
-      if [ "$map_key" = "*" ]; then
-        _sed_in_place "/^$name\[/d" "$config_file"
-      else
-        _sed_in_place "/^$name\[$map_key\]/d" "$config_file"
-      fi
+      _sed_in_place "/^$name__/d" "$config_file"
     else
       _sed_in_place "/^$name=/d" "$config_file"
     fi
@@ -47,7 +44,7 @@ save_cfg_value() {
   fi
   if $IS_MAP; then
     local key; local val
-    for key in $(echo "${!__AA*}"|grep "$name"); do
+    for key in $(echo "${!__AA_*}"|grep "__AA_${name}_"); do
       val="${!key}"
       [ -z "$val" ] && continue
       printf "${key}=%s\n" "$val" >> "$config_file"
@@ -234,34 +231,48 @@ camel_to_snake() {
 # $...: the remaining arguments are the array to be searched
 #
 index_of_arg() {
-  local N=1; local REGEX=0
+  local N=1
+  local REGEX=0
   if [ "$1" = "--" ]; then
-    REGEX=0;shift;
+    REGEX=0
+    shift
   else
-    [ "$1" = "-p" ] && { REGEX=1;shift; }
-    [ "$1" = "-P" ] && { REGEX=2;shift; }
-    [ "$1" = "-n" ] && { N="$2";shift 2; }
+    [ "$1" = "-p" ] && {
+      REGEX=1
+      shift
+    }
+    [ "$1" = "-P" ] && {
+      REGEX=2
+      shift
+    }
+    [ "$1" = "-n" ] && {
+      N="$2"
+      shift 2
+    }
   fi
   par="$1"
   shift
   local i=0
   while true; do
     case "$REGEX" in
-    1)
-      while [[ ! "$1" = ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
-        i=$((i + 1))
-        shift
-      done;;
-    2)
-      while [[ ! "$1" =~ ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
-        i=$((i + 1))
-        shift
-      done;;
-    *)
-      while [[ ! "$1" = "$par" ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
-        i=$((i + 1))
-        shift
-      done;;
+      1)
+        while [[ ! "$1" == ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+          i=$((i + 1))
+          shift
+        done
+        ;;
+      2)
+        while [[ ! "$1" =~ ${par}* ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+          i=$((i + 1))
+          shift
+        done
+        ;;
+      *)
+        while [[ ! "$1" == "$par" ]] && [ -n "$1" ] && [ $i -lt 100 ]; do
+          i=$((i + 1))
+          shift
+        done
+        ;;
     esac
     i=$((i + 1))
     N=$((N - 1))
@@ -369,6 +380,11 @@ select_one() {
 # Example:
 # - args_or_ask  "NAME" "name/id//Enter the name" "$@"
 # {argument to look for}/{type}/{default}/{prompt message}
+#
+# Notes the {prompt message} supports the plaveholders:
+# - %sp:  "Please provide " (resolved to "" when printing the help)
+# - %var: the var name
+#
 args_or_ask() {
   local NOASK=false
   local FLAG=false
@@ -377,37 +393,69 @@ args_or_ask() {
   local PRESERVE=false
   local JUST_PRINT_HELP=false
 
+  print_sub_help() {
+    local val_name="$1"
+    local val_msg="$2"
+    $JUST_PRINT_HELP && {
+      if [ -z "$val_msg" ]; then
+        val_msg="$val_name"
+      else
+        val_msg="${val_msg//%sp/}"
+      fi
+      echo "    $val_name @$val_msg" | _align_by_sep "@" 25
+      return 0
+    }
+    return 1
+  }
+
   while true; do
     case "$1" in
-      -n) NOASK=true;shift;;
-      -f) FLAG=true;shift;;
-      -F) FLAGANDVAR=true;shift;;
-      -a) ARG=true;shift;;
-      -p) PRESERVE=true;shift;;
-      -h) JUST_PRINT_HELP=true;shift;;
-      *) break;;
+      -n)
+        NOASK=true
+        shift
+        ;;
+      -f)
+        FLAG=true
+        shift
+        ;;
+      -F)
+        FLAGANDVAR=true
+        shift
+        ;;
+      -a)
+        ARG=true
+        shift
+        ;;
+      -p)
+        PRESERVE=true
+        shift
+        ;;
+      -h)
+        JUST_PRINT_HELP=true
+        shift
+        ;;
+      *) break ;;
     esac
   done
 
-  if $FLAG; then
-    local V="$1"; shift
-    val_name="$(echo "$V" | cut -d'/' -f 1)"
-    index_of_arg "${val_name}" "$@"
-    [ "$?" -eq 255 ] && return 1 || return 0;
-  else
-    local var_name="$1"; shift
-    local V="$1/"; shift
-    local val_name="$(echo "$V" | cut -d'/' -f 1)"
-    local val_type="$(echo "$V" | cut -d'/' -f 2)"
-    local val_def="$(echo "$V" | cut -d'/' -f 3)"
-    local val_msg="$(echo "$V" | cut -d'/' -f 4)"
-    ! $PRESERVE && _set_var "$var_name" ""
-  fi
-
-  $JUST_PRINT_HELP && {
-    echo "    $val_name @$val_msg" | _align_by_sep "@" 25
-    return 0
+  ! $FLAG && {
+    local var_name="$1"
+    shift
   }
+
+  local V="$1/"
+  shift
+  local val_name="$(echo "$V" | cut -d'/' -f 1)"
+  local val_type="$(echo "$V" | cut -d'/' -f 2)"
+  local val_def="$(echo "$V" | cut -d'/' -f 3)"
+  local val_msg="$(echo "$V" | cut -d'/' -f 4)"
+
+  ! $FLAG && ! $PRESERVE && {
+    _set_var "$var_name" ""
+  }
+
+  val_msg="${val_msg//%var/$dvar}"
+  val_msg="${val_msg//%sp/Please provide the}"
 
   # user provided value
   if $ARG; then
@@ -425,11 +473,13 @@ args_or_ask() {
     index_of_arg "${val_name}" "$@"
     found_at="$?"
 
+    print_sub_help "$val_name" "$val_msg" && return 0
+
     if [ $found_at -ne 255 ]; then
       $FLAGANDVAR && _set_var "$var_name" "true"
       return 0
     else
-      $FLAGANDVAR &&_set_var "$var_name" "${val_def:-false}"
+      $FLAGANDVAR && _set_var "$var_name" "${val_def:-false}"
       return 1
     fi
   else
@@ -449,7 +499,14 @@ args_or_ask() {
     fi
   fi
 
-  [[ "$found_at" -eq 255 && -z "$val_def" ]] && return 255
+  print_sub_help "$val_name" "$val_msg" && return 0
+
+  if $FLAG; then
+    index_of_arg "${val_name}" "$@"
+    [ "$?" -eq 255 ] && return 1 || return 0
+  fi
+
+  [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NOASK && return 255
 
   # prompt message processing
   if [ -z "$val_msg" ]; then
@@ -477,7 +534,6 @@ args_or_ask() {
     local assertion=""
   fi
 
-
   # set/ask
   if $NOASK; then
     if [ -z "$val_from_args" ]; then
@@ -485,6 +541,7 @@ args_or_ask() {
     else
       local val="$val_from_args"
     fi
+
     $NULLABLE && [ -z "$val" ] && return 0
 
     [ -n "$assertion" ] && { "$assertion" "$var_name" "$val" "silent" || return $?; }
@@ -494,4 +551,102 @@ args_or_ask() {
     set_or_ask "$var_name" "$val_from_args" "$val_msg" "$val_def" "$assertion"
     return 0
   fi
+}
+
+args_or_ask__a_remote() {
+  [ "$1" = "-a" ] && local PRE="$1" && shift
+  [ "$1" = "-h" ] && local HH="$1" && shift
+  local var_name="$1";shift
+  local switch="$1";shift
+  local msg="$1"; shift
+  local TMP;
+
+  args_or_ask "$PRE" -n -p $HH "TMP" "$switch/ext_id?//$msg" "$@"
+
+  [ -z "$HH" ] && {
+    if [ -z "$TMP" ]; then
+      local count
+      remotes-count count
+      if [ "$count" -eq 0 ]; then
+        TMP=""
+      else
+        TITLES="$(remotes-list)"
+        TITLES+=("other..")
+        select_one "Select the remote" "${TITLES[@]}"
+        local TMP="$select_one_res_alt"
+        [ $TMP = "other.." ] && TMP=""
+      fi
+    fi
+
+    if [ -z "$TMP" ]; then
+      args_or_ask -p "TMP" "$switch/ext_id/$TMP/$msg" "$@"
+    else
+      assert_ext_id "$var_name" "$TMP"
+    fi
+
+    _set_var "$var_name" "$TMP"
+  }
+}
+#-----------------------------------------------------------------------------------------------------------------------
+
+remotes-clear() {
+  for name in ${!__AA_ENTANDO_REMOTES__*}; do
+    unset "${name}"
+  done
+}
+
+remotes-count() {
+  local i=0
+  for name in ${!__AA_ENTANDO_REMOTES__*}; do
+    i=$((i+1))
+  done
+  _set_var "$1" "$i"
+  [ "$i" -gt 0 ] && return 0; return 255
+}
+
+remotes-set() {
+  local name="$1"
+  local address="$2"
+  _set_var "__AA_ENTANDO_REMOTES__${name}" "$address"
+}
+
+remotes-get() {
+  if [ "$1" = "--first" ]; then
+    shift
+    local dst_var_name="$1"
+    local name="$(remotes-list|head -n 1)"
+  else
+    local dst_var_name="$1"
+    local name="$2"
+  fi
+  local tmp
+  tmp="__AA_ENTANDO_REMOTES__${name}"
+  value="${!tmp}"
+  _set_var "$dst_var_name" "$value"
+  [ -n "$value" ] && return 0; return 255
+}
+
+remotes-del() {
+  local name="$1"
+  unset "__AA_ENTANDO_REMOTES__${name}"
+}
+
+# shellcheck disable=SC2120
+remotes-list() {
+  local SEP="$1"
+  local tmp
+  for name in ${!__AA_ENTANDO_REMOTES__*}; do
+    {
+      if [ -z "$SEP" ]; then
+        echo "$name"
+      else
+        tmp="${name}"
+        echo "${name}${SEP}${!tmp}"
+      fi
+    } | sed "s/__AA_ENTANDO_REMOTES__//"
+  done
+}
+
+remotes-save() {
+  save_cfg_value -m "ENTANDO_REMOTES"
 }

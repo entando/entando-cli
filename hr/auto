@@ -2,20 +2,19 @@
 
 C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 
-[ -z "$ENTANDO_CLI_VERSION" ] && ENTANDO_CLI_VERSION="develop" && echo "Assuming ENTANDO_CLI_VERSION=\"$ENTANDO_CLI_VERSION\""
 [ -z "$ENTANDO_NAMESPACE" ] && ENTANDO_NAMESPACE="entando" && echo "Assuming ENTANDO_NAMESPACE=\"$ENTANDO_NAMESPACE\""
 [ -z "$ENTANDO_APPNAME" ] && ENTANDO_APPNAME="quickstart" && echo "Assuming ENTANDO_APPNAME=\"$ENTANDO_APPNAME\""
 [ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
 [ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 [ -z "$ENTANDO_OPT_YES_FOR_ALL" ] && ENTANDO_OPT_YES_FOR_ALL=true  && echo "Assuming ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\""
 
-if [ "$ENTANDO_CLI_VERSION" = "develop" ] || [[ "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
+if [[ "$ENTANDO_CLI_VERSION" = "develop" || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
   rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
 fi
 
 if [ -z "$ENTANDO_DEV_TTY" ]; then
   if [ -t 0 ]; then
-    ENTANDO_DEV_TTY="$(tty)"
+    ENTANDO_DEV_TTY="-"
   else
     case "$OSTYPE" in
       darwin*) ENTANDO_DEV_TTY="-";;
@@ -29,6 +28,18 @@ if [ "$1" = "--local-test" ]; then
   . s/essentials.sh
   . activate --force
 else
+
+  if [ -z "$ENTANDO_CLI_VERSION" ]; then
+    echo "$ENTANDO_CLI_VERSION";
+
+    ENTANDO_CLI_VERSION="$(
+      source /dev/stdin <<<"$(curl "https://raw.githubusercontent.com/entando/entando-releases/$ENTANDO_RELEASE/manifest" 2> /dev/null)";
+      echo "$ENTANDO_CLI_VERSION";
+    )"
+
+    [ -z "$ENTANDO_CLI_VERSION" ] && echo "Unable to determine the CLI version of release \"$ENTANDO_RELEASE\"" 1>&2 && exit 99
+  fi
+
   bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
     --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE"
 
@@ -65,7 +76,7 @@ else
   echo "Assuming SIMPLE INSTALLATION MODE"
 fi
 
-if [ "$ENTANDO_WITH_VM" == "true" ] || [ "$ENTANDO_WITH_VM" == "multipass" ]; then
+if [[ "$ENTANDO_WITH_VM" = "true"  || "$ENTANDO_WITH_VM" == "multipass" ]]; then
   WITH_VM=true
 else
   WITH_VM=false
@@ -98,7 +109,7 @@ cat << EOF > "$T"
   ent-quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
 EOF
 
-if [[ -t 0 || "$ENTANDO_DEV_TTY" = "-" ]]; then
+if [ "$ENTANDO_DEV_TTY" = "-" ]; then
   bash "$T"
 else
   bash "$T" < "$ENTANDO_DEV_TTY"

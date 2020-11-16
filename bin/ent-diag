@@ -3,32 +3,26 @@
 
 [ "$1" = "-h" ] && echo -e "Runs some diagnostic and collects the related info in a tgz file | Syntax: ${0##*/} namespace" && exit 0
 
-NS="$1"
-[ "$NS" == "" ] && NS="$ENTANDO_NAMESPACE"
-[ "$NS" == "" ] && echo "please provide the namespace name" 1>&2 && exit 1
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
 
-TT="$PWD/entando-diagdata"
+
+. s/_base.sh
+
+args_or_ask -n -f '--help' "$@" && { HH="-h"; echo "> Parameters:"; }
+args_or_ask -p $HH "NS" '--namespace/id/entando/Please provide the namespace' "$@"
+
+# NODES
+NN="entando-diagdata-$(date -u '+%Y-%m-%dT%H:%M:%S%z')"
+TT="$HOME/.entando/reports/$NN"
 mkdir -p "$TT"
-cd "$TT" || FATAL "Unable to enter di \"$TT\""
+__cd "$TT"
 
-# KUBECTL
-
-if [ -n "$ENTANDO_KUBECTL" ]; then
-    _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
-else
-  if command -v "k3s" > /dev/null; then
-    if $OS_WIN; then
-      _kubectl() { k3s kubectl "$@"; }
-    else
-      _kubectl() { sudo k3s kubectl "$@"; }
-    fi
-  else
-    _kubectl() { kubectl "$@"; }
-  fi
-fi
-
-_kubectl get nodes
-echo "" >basics.txt
+echo "# $NN" >basics.txt
+_kubectl get nodes >basics.txt
 
 # DNS rebinding protection TEST
 echo "## DNS rebinding protection TEST"
@@ -62,10 +56,10 @@ for pod in $(_kubectl get pods -n "$NS" | awk 'NR>1' | awk '{print $1}'); do
   done
 done
 
-echo "> Collected diagdata available under \"./entando-diagdata\" for consultation"
+echo "> Collected diagdata available under \"$TT\" for consultation"
 
 cd ..
 set +e
-tar cfz entando-diagdata.tgz "entando-diagdata"
+tar cfz entando-diagdata.tgz "$NN"
 
-echo "> Collected diagdata available into archive \"entando-diagdata.tgz\""
+echo "> Collected diagdata available in archive \"${TT}.tgz\""
