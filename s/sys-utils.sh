@@ -28,12 +28,19 @@ net_is_address_present() {
 #}
 
 hostsfile_clear() {
-  sudo _sed_in_place "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE"
-  sudo echo "##ENT-CUSTOM-VALUE##$1" | sudo tee -a "$C_HOSTS_FILE" > /dev/null
+  (
+    T="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+    cleanup() { rm "$T"; }
+    trap cleanup exit
+    sudo sed "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE" > "$T"
+    echo "##ENT-CUSTOM-VALUE##$1" >> "$T"
+    _sudo cp "$C_HOSTS_FILE" "${C_HOSTS_FILE}.ent.save~"
+    _sudo cp "$T" "$C_HOSTS_FILE"
+  )
 }
 
 hostsfile_add_dns() {
-  sudo echo "$1 $2    ##ENT-CUSTOM-VALUE##$3" | sudo tee -a "$C_HOSTS_FILE" > /dev/null
+  echo "$1 $2    ##ENT-CUSTOM-VALUE##$3" | _sudo tee -a "$C_HOSTS_FILE" > /dev/null
 }
 
 

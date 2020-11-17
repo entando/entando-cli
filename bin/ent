@@ -37,7 +37,10 @@ RUN() {
       "detach-vm") #H: detach ent from the current ent-managed VM
         detach_vm "$@"
         ;;
-      more-scripts) #H: shows the rest of the available scripts
+      "fix-vm-ddns") #H: [--help] detach ent from the current ent-managed VM
+        ent-host "$cmd" "$@"
+        ;;
+      "more-scripts") #H: shows the rest of available scripts
         ent-help --simple
         ;;
       "")

@@ -68,13 +68,19 @@ fi
 
   # SUDO
   if command -v "sudo" > /dev/null; then
-    prepare_for_sudo() {
+    _sudo() {
       # NB: not using "sudo -v" because misbehaves with password-less sudoers
       $OS_WIN && return 0
       [ $UID -eq 0 ] && return 0
-      sudo true
+      sudo "$@"
+    }
+    prepare_for_sudo() {
+      _sudo true
     }
   else
+    _sudo() {
+      "$@"
+    }
     prepare_for_sudo() {
       :;
     }
