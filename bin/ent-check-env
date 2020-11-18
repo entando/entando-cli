@@ -259,15 +259,7 @@ $M_DEVL && {
     "$VER_ENTANDO_BUNDLER_REQ" \
     "$VER_ENTANDO_BUNDLER_DEF" \
     "$C_ENTANDO_BUNDLER_DIR" \
-    "$C_ENTANDO_BUNDLER_DIR" && {
-    (
-      __cd "$ENT_NPM_BIN_DIR"
-      rm -rf "$C_ENTANDO_BUNDLER_NAME"
-      ln -sf \
-        "$ENTANDO_ENT_ACTIVE/lib/$C_ENTANDO_BUNDLER_DIR/$VER_ENTANDO_BUNDLER_REQ/bin/index.js" \
-        "$C_ENTANDO_BUNDLER_NAME"
-    )
-  }
+    "$C_ENTANDO_BUNDLER_DIR"
 }
 
 #---

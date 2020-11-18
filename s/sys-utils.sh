@@ -240,18 +240,18 @@ function _ent-jhipster() {
 _ent-bundler() {
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME.cmd" --version
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" --version
     else
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME" --version
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" --version
     fi
   else
     require_develop_checked
     activate_designated_node
     # RUN
     if $OS_WIN; then
-      $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME.cmd" "$@"
+      $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
     else
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLER_NAME" "$@"
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
     fi
   fi
 }
