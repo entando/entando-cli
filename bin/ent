@@ -108,7 +108,7 @@ attach_vm() {
     chmod u=rw,go= "$ENT_KUBECONF_FILE_PATH"
   ) || FATAL "Unable to prepare to KUBECONFIG file"
 
-  multipass exec "$VM_NAME" -- sudo cat /etc/rancher/k3s/k3s.yaml \
+  multipass exec "$VM_NAME" -- bash -c "sudo cat /etc/rancher/k3s/k3s.yaml" \
     | _perl_sed "s/127.0.0.1/$ADDR/" >> "$ENT_KUBECONF_FILE_PATH"
 
   save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
