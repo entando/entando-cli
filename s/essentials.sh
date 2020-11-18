@@ -75,6 +75,7 @@ fi
       sudo "$@"
     }
     prepare_for_sudo() {
+      [ "$1" ] && echo "$1"
       _sudo true
     }
   else

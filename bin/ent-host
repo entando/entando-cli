@@ -1,7 +1,12 @@
 #!/bin/bash
 
-H() { echo -e "Helps managing the system that hosts the quickstart VM | Syntax: ${0##*/} update-hosts-file ..."; }
-[ "$1" = "-h" ] && H && exit 0
+#H::
+#H:: Helps managing the system that hosts the quickstart VM
+#H::
+#H:: Syntax:
+#H::  - ent {script} {command} {params}
+#H::
+#H:: Built-in Scripts:
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || {
@@ -10,9 +15,39 @@ cd "$DIR/.." || {
 }
 
 RUN() {
-  case "$1" in
-    "fix-vm-ddns")
-      shift
+  args_or_ask -n -f '--help' "$@" && {
+    local HH="-h"
+    echo "> Parameters:"
+  }
+
+  local CMD="$1";shift
+  case "$CMD" in
+    #---------------------------------------------------------------------------------------------------------------------
+    "setup-vm-hostname")  #H: setups the domain name in a single hostname setup (--hostname in quickstart)
+      local VM_NAME
+
+      if [ -z "$DESIGNATED_VM" ]; then
+        args_or_ask -a $HH "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
+      else
+        VM_NAME="$DESIGNATED_VM"
+      fi
+      [ -n "$HH" ] && return 0
+
+      local ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+
+      _log_i 1 "Setting up hostname \"$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX\" for VM \"$VM_NAME\" to address \"$ADDR\""
+
+      prepare_for_sudo "(super-powers required)" || FATAL "Unable to obtain the required privileges"
+
+      local TAG="${VM_NAME}-VMHN"
+      hostsfile_clear "$TAG"
+      hostsfile_add_dns "$ADDR" "$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX" "$TAG"
+
+      _log_i 1 "Operation completed"
+
+      ;;
+    #---------------------------------------------------------------------------------------------------------------------
+    "fix-vm-ddns")  #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
       local VM_NAME
       #---
       args_or_ask -n -f '--help' "$@" && {
@@ -20,12 +55,12 @@ RUN() {
         echo "> Parameters:"
       }
 
-      if [ -n "$DESIGNATED_VM" ]; then
+      if [ -z "$DESIGNATED_VM" ]; then
         args_or_ask -a $HH "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
       else
         VM_NAME="$DESIGNATED_VM"
       fi
-      args_or_ask $HH -n RELEASE  '--release/any?//Optional ent version' "$@"
+      args_or_ask $HH -n RELEASE '--release/any?//Optional ent version' "$@"
 
       [ -n "$HH" ] && return 0
 
@@ -34,9 +69,9 @@ RUN() {
         local ENTS=("$(multipass exec "$VM_NAME" -- bash -c "ls ~/.entando/ent")")
 
         case "${#ENTS[@]}" in
-          0) FATAL "No ent found in VM";;
-          1) local RELEASE="${ENTS[0]}";;
-          *) select_one "Select the release" "${ENTS[@]}" && RELEASE="$select_one_res_alt";;
+          0) FATAL "No ent found in VM" ;;
+          1) local RELEASE="${ENTS[0]}" ;;
+          *) select_one "Select the release" "${ENTS[@]}" && RELEASE="$select_one_res_alt" ;;
         esac
       }
 
@@ -62,9 +97,10 @@ RUN() {
 
       _log_i 1 "Setting host file entries for VM \"$VM_NAME\" with address \"$ADDR\""
 
-      hostsfile_clear "$VM_NAME"
-      hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$VM_NAME"
-      hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-kc-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$VM_NAME"
+      local TAG="${VM_NAME}-DDNS"
+      hostsfile_clear "$TAG"
+      hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$TAG"
+      hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-kc-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$TAG"
 
       _log_i 1 "Done"
 
@@ -80,6 +116,13 @@ RUN() {
   esac
 }
 
+if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+  . s/essentials.sh
+  print_ent_tool_help "$2"
+  exit 0
+fi
+
 . s/_base.sh
+cd - > /dev/null || FATAL "internal error"
 
 RUN "$@"

@@ -92,6 +92,7 @@ OPTS=(
   "$(var_to_param "release" "$ENTANDO_RELEASE")"
   "$(var_to_param "cli-version" "$ENTANDO_CLI_VERSION")"
   "$(var_to_param -f "yes" "$ENTANDO_OPT_YES_FOR_ALL")"
+  "$(var_to_param -f "auto-hostname" "$ENTANDO_AUTO_HOSTNAME")"
 )
 
 declare -a NNOPTS
