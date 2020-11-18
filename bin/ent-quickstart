@@ -13,17 +13,15 @@ debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     trace_vars \
       AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME \
-      ENTANDO_DEBUG ENTANDO_RELEASE ENTANDO_CLI_VERSION WITH_VM ENTANDO_OPT_YES_FOR_ALL \
+      ENTANDO_DEBUG ENTANDO_RELEASE ENTANDO_CLI_VERSION WITH_VM ENTANDO_OPT_YES_FOR_ALL ENTANDO_INTERACTIVE \
       JUST_SET_CFG ENTANDO_NAMESPACE ENTANDO_APPNAME \
-      ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK \
+      ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK ENTANDO_VM_REUSE \
       ENTANDO_AUTO_HOSTNAME
   fi
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
 . s/_base.sh
-
-print_entando_banner
 
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo "~ STARTING QUICKSTART"
@@ -37,6 +35,7 @@ args_or_ask -n -f '--help' "$@" && {
   echo -e "\n> Parameters:"
 }
 
+ENTANDO_INTERACTIVE="true"
 args_or_ask $HH -n -a "ENTANDO_NAMESPACE" "1/id//The namespace" "$@" || FATAL "Please provide the namespace"
 args_or_ask $HH -n -a "ENTANDO_APPNAME" "2/id//The application name" "$@" || FATAL "Please provide the app name"
 args_or_ask $HH -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
@@ -44,10 +43,12 @@ args_or_ask $HH -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of 
 args_or_ask $HH -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug informations" "$@"
 args_or_ask $HH -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
 args_or_ask $HH -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+args_or_ask $HH -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
 args_or_ask $HH -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
 args_or_ask $HH -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
 args_or_ask $HH -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 4G" "$@"
 args_or_ask $HH -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 12G" "$@"
+args_or_ask $HH -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Disk space: ex: 12G" "$@"
 args_or_ask $HH -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the hostname for the VM into the host system hosts file" "$@"
 
 [ -n "$HH" ] && echo "" && exit 0
@@ -55,6 +56,11 @@ args_or_ask $HH -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically r
 args_or_ask $HH -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
 args_or_ask $HH -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
 args_or_ask $HH -n -F "JUST_SET_CFG" "--config" "$@"
+args_or_ask $HH -n -F "IN_QUICKSTART_VM" "--in-quickstart-vm///Tells quickstart the it's being run in a VM designed to run it" "$@"
+
+! $ENTANDO_INTERACTIVE && {
+  ENTANDO_OPT_YES_FOR_ALL=true
+}
 
 args_or_ask -f "--destroy" "$@" && {
   reload_cfg
@@ -67,8 +73,6 @@ args_or_ask -f "--destroy" "$@" && {
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-debug_trace_vars
-
 if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
   assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
 fi
@@ -77,7 +81,6 @@ WITH_HOSTNAME=false
 FOUND=false
 
 ! $JUST_SET_CFG && {
-
   # HOSTNAME MODE ----
   args_or_ask -n -p "ADDR" "--hostname/fdn?" "$@" && {
     if [ -n "$ADDR" ]; then
@@ -101,21 +104,29 @@ FOUND=false
   }
 
   # AUTO HOSTNAME MODE ----
+  if ! $WITH_HOSTNAME; then
+    _log_i 0 "Checking if user is admin (skippable with CTRL+C)"
+    if ! ! $ENTANDO_INTERACTIVE && prepare_for_privileged_commands; then
+        ENTANDO_AUTO_HOSTNAME=true
+        _log_i 0 "User is an admin, auto-hostname enabled"
+    else
+      _log_i 0 "User admin check failed, auto-hostname not enabled"
+    fi
+  fi
+
   $ENTANDO_AUTO_HOSTNAME && {
+    $WITH_HOSTNAME && FATAL "--hostname is not compatible with --auto-hostname"
+
     if $WITH_VM; then
-      VM_OPT+=" --auto-hostname"
+      VM_OPT="--auto-hostname"
       WITH_HOSTNAME=true
       FOUND=true
     else
-      if $WITH_HOSTNAME; then
-        FATAL "--hostname is not compatible with --auto-hostname"
-      else
-        ADDR="$ENTANDO_VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX"
-        _log_i 0 "Assuming hostname name: \"$ADDR\""
-        assert_fdn "HOSTNAME" "$ADDR"
-        FOUND=true
-        WITH_HOSTNAME=true
-      fi
+      ADDR="$ENTANDO_VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX"
+      _log_i 0 "Assuming hostname name: \"$ADDR\""
+      assert_fdn "HOSTNAME" "$ADDR"
+      FOUND=true
+      WITH_HOSTNAME=true
     fi
   }
 
@@ -180,10 +191,30 @@ RUN_WITH_VM() {
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
   $ENTANDO_OPT_YES_FOR_ALL && VM_OPT+=" --yes"
-
+  ! $ENTANDO_INTERACTIVE && VM_OPT+=" --non-interactive"
   #~
   _log_i 2 "> Generating the base VM"
-  multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
+  if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
+    local err_msg="A VM named entando already exists"
+
+    if $ENTANDO_VM_REUSE; then
+      _log_i 2 "$err_msg"
+    else
+      _log_w 0 "${err_msg}:"
+      multipass info "$ENTANDO_VM_NAME"
+
+      if $ENTANDO_INTERACTIVE; then
+        ask "Do you want to try reusing it?" || {
+          EXIT_UE "$err_msg"
+        }
+      else
+        FATAL "$err_msg"
+      fi
+    fi
+    _log_i 2 "Trying to reuse the VM"
+  else
+    multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
+  fi
 
   #~
   _log_i 2 "> Installing Ent on the VM"
@@ -194,17 +225,28 @@ RUN_WITH_VM() {
 
   #~
   $ENTANDO_AUTO_HOSTNAME && {
-    _log_i 2 "> Creating the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
-    ent-host setup-vm-hostname "$ENTANDO_VM_NAME"
+    if $ENTANDO_OPT_YES_FOR_ALL || ! $ENTANDO_INTERACTIVE; then
+      _log_w 2 "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
+      _log_w 2 "> Please run \"ent-host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
+    else
+      _log_i 2 "> Creating the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
+      ent-host setup-vm-hostname "$ENTANDO_VM_NAME"
+    fi
   }
 
   #~
   _log_i 2 "> Checking the environment"
   if ! $ENTANDO_NO_CHECK; then
     if $WITH_HOSTNAME; then
-      multipass exec "$ENTANDO_VM_NAME" -- bash -c "ent-check-env runtime --no-dns-fix"
+      multipass exec "$ENTANDO_VM_NAME" -- bash -c "
+        cd \
+        && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
+        ent-check-env runtime --no-dns-fix"
     else
-      multipass exec "$ENTANDO_VM_NAME" -- bash -c "ent-check-env runtime"
+      multipass exec "$ENTANDO_VM_NAME" -- bash -c "
+        cd \
+        && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
+        && ent-check-env runtime"
     fi
   fi
 
@@ -212,16 +254,16 @@ RUN_WITH_VM() {
 
   _log_i 2 "> Registering the VM"
   ! $ENTANDO_NO_AUTO_ATTACH && {
-    ent attach "$ENTANDO_VM_NAME"
+    ent attach-vm "$ENTANDO_VM_NAME"
   }
 
   multipass exec "$ENTANDO_VM_NAME" -- bash -c "
     cd \
     && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
     && ent-quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\" \
+         --in-quickstart-vm\
          --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
     "
-
 
   exit 0
 }
@@ -296,8 +338,7 @@ RUN_DIRECT() {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-
-prepare_for_privileged_commands
+debug_trace_vars
 
 if $WITH_VM; then
   RUN_WITH_VM

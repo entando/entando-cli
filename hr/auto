@@ -6,7 +6,7 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 [ -z "$ENTANDO_APPNAME" ] && ENTANDO_APPNAME="quickstart" && echo "Assuming ENTANDO_APPNAME=\"$ENTANDO_APPNAME\""
 [ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
 [ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
-[ -z "$ENTANDO_OPT_YES_FOR_ALL" ] && ENTANDO_OPT_YES_FOR_ALL=true  && echo "Assuming ENTANDO_OPT_YES_FOR_ALL=\"$ENTANDO_OPT_YES_FOR_ALL\""
+[ -z "$ENTANDO_INTERACTIVE" ] && ENTANDO_INTERACTIVE=false  && echo "Assuming ENTANDO_INTERACTIVE=\"$ENTANDO_INTERACTIVE\""
 
 if [[ "$ENTANDO_CLI_VERSION" = "develop" || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
   rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
@@ -89,9 +89,11 @@ OPTS=(
   "$(var_to_param "vm-cpu" "$ENTANDO_VM_CPU")"
   "$(var_to_param "vm-disk" "$ENTANDO_VM_DISK")"
   "$(var_to_param "vm-mem" "$ENTANDO_VM_MEM")"
+  "$(var_to_param -f "vm-reuse" "$ENTANDO_VM_REUSE")"
   "$(var_to_param "release" "$ENTANDO_RELEASE")"
   "$(var_to_param "cli-version" "$ENTANDO_CLI_VERSION")"
   "$(var_to_param -f "yes" "$ENTANDO_OPT_YES_FOR_ALL")"
+  "$(var_to_param -f "interactive" "$ENTANDO_INTERACTIVE")"
   "$(var_to_param -f "auto-hostname" "$ENTANDO_AUTO_HOSTNAME")"
 )
 
