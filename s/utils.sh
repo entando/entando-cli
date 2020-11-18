@@ -3,6 +3,13 @@
 # CFG
 WAS_DEVELOP_CHECKED=false
 
+IS_GIT_CREDENTIAL_MANAGER_PRESENT=false
+git credential-cache 2>/dev/null
+if [ "$?" != 1 ]; then
+  IS_GIT_CREDENTIAL_MANAGER_PRESENT=true
+fi
+
+
 # runs a sed "in place" given the sed command and the file to change
 # (multiplatform wrapper)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -327,6 +334,8 @@ pre_parse_jdlt() {
 }
 
 git_enable_credentials_cache() {
+  ! $IS_GIT_CREDENTIAL_MANAGER_PRESENT && return 99
+
   if [ -n "$1" ]; then
     git config credential.helper "cache --timeout='$1'"
   else

@@ -168,7 +168,7 @@ fi
     fi
 
     grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
-      | _perl_sed 's/^([[:space:]]*)>/\1⮞/' | _perl_sed "s/{{TOOL-NAME}}/${0##*/}/"
+      | _perl_sed 's/^([[:space:]]*)>/\1⮞/' | _perl_sed "s/\{\{TOOL-NAME\}\}/${0##*/}/"
 
     grep '#''H:' "$0" | while IFS= read -r var; do
       if [[ "$var" =~ "#H::" || "$var" =~ "#H:%" ]]; then

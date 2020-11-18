@@ -106,7 +106,7 @@ FOUND=false
   # AUTO HOSTNAME MODE ----
   if ! $WITH_HOSTNAME; then
     _log_i 0 "Checking if user is admin (skippable with CTRL+C)"
-    if ! ! $ENTANDO_INTERACTIVE && prepare_for_privileged_commands; then
+    if ! $ENTANDO_INTERACTIVE && prepare_for_privileged_commands; then
         ENTANDO_AUTO_HOSTNAME=true
         _log_i 0 "User is an admin, auto-hostname enabled"
     else

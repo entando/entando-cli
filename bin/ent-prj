@@ -263,7 +263,11 @@ be_test_run() {
 
 # shellcheck disable=SC2155
 get_be_info() {
-  local ver=$(shasum -a 256 pom.xml | awk '{print $1}')
+  if $OS_WIN; then
+    local ver=$(sha256sum pom.xml | awk '{print $1}')
+  else
+    local ver=$(shasum -a 256 pom.xml | awk '{print $1}')
+  fi
   if [ "$ver" != "$PARSED_POM_CHECKSUM" ]; then
     local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | _perl_sed 's/<image>([^<]*).*/\1/')"
 
@@ -689,6 +693,8 @@ read_missing_pub_info_from_project_sources_git() {
 }
 
 pbs_fe_propose_credentials_cache() {
+  ! $IS_GIT_CREDENTIAL_MANAGER_PRESENT && return 99
+
   local TIMEOUT=""
   ask "Do you want to enable the credentials cache for the publication of the frontend?" && {
     set_or_ask TIMEOUT "" "Expiration in seconds?" "$((3600 * 24))" && {
