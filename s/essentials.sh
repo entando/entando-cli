@@ -67,25 +67,27 @@ fi
   esac
 
   # SUDO
-  if command -v "sudo" > /dev/null; then
-    _sudo() {
-      # NB: not using "sudo -v" because misbehaves with password-less sudoers
-      $OS_WIN && return 0
-      [ $UID -eq 0 ] && return 0
+  IS_SUDO_PRESENT=false; command -v "sudo" > /dev/null && IS_SUDO_PRESENT=true
+
+  privileged_commands_needs_sudo() {
+    ! $IS_SUDO_PRESENT && echo 255
+    $OS_WIN && return 255
+    [ $UID -eq 0 ] && return 255
+    return 0
+  }
+
+  _sudo() {
+    if privileged_commands_needs_sudo; then
       sudo "$@"
-    }
-    prepare_for_sudo() {
-      [ "$1" ] && echo "$1"
-      _sudo true
-    }
-  else
-    _sudo() {
+    else
       "$@"
-    }
-    prepare_for_sudo() {
-      :;
-    }
-  fi
+    fi
+  }
+
+  prepare_for_privileged_commands() {
+    # NB: not using "sudo -v" because misbehaves with password-less sudoers
+    _sudo true
+  }
 
   # KUBECTL
   setup_kubectl() {
@@ -97,7 +99,7 @@ fi
       ENTANDO_KUBECTL_MODE="COMMAND"
       _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
-        _kubectl-pre-sudo() { prepare_for_sudo; }
+        _kubectl-pre-sudo() { prepare_for_privileged_commands; }
       else
         _kubectl-pre-sudo() { :; }
       fi
@@ -115,7 +117,7 @@ fi
           _kubectl-pre-sudo() { :; }
         else
           _kubectl() { sudo k3s kubectl "$@"; }
-          _kubectl-pre-sudo() { prepare_for_sudo true; }
+          _kubectl-pre-sudo() { prepare_for_privileged_commands true; }
         fi
       else
         if $OS_WIN; then
@@ -123,7 +125,7 @@ fi
           _kubectl-pre-sudo() { :; }
         else
           _kubectl() { sudo kubectl "$@"; }
-          _kubectl-pre-sudo() { prepare_for_sudo true; }
+          _kubectl-pre-sudo() { prepare_for_privileged_commands true; }
         fi
       fi
     fi

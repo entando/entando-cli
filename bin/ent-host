@@ -37,7 +37,7 @@ RUN() {
 
       _log_i 1 "Setting up hostname \"$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX\" for VM \"$VM_NAME\" to address \"$ADDR\""
 
-      prepare_for_sudo "(super-powers required)" || FATAL "Unable to obtain the required privileges"
+      prepare_for_privileged_commands || FATAL "Unable to obtain the required privileges"
 
       local TAG="${VM_NAME}-VMHN"
       hostsfile_clear "$TAG"

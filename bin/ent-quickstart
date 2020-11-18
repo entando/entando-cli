@@ -58,7 +58,7 @@ args_or_ask $HH -n -F "JUST_SET_CFG" "--config" "$@"
 
 args_or_ask -f "--destroy" "$@" && {
   reload_cfg
-  prepare_for_sudo
+  prepare_for_privileged_commands
   ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {
     _kubectl delete namespace "$ENTANDO_NAMESPACE"
   }
@@ -297,7 +297,7 @@ RUN_DIRECT() {
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-prepare_for_sudo
+prepare_for_privileged_commands
 
 if $WITH_VM; then
   RUN_WITH_VM
