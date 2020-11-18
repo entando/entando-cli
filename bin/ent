@@ -102,7 +102,7 @@ attach_vm() {
 
   (
     set -e
-    rm "$ENT_KUBECONF_FILE_PATH"
+    [ -f "$ENT_KUBECONF_FILE_PATH" ] && rm "$ENT_KUBECONF_FILE_PATH"
     touch "$ENT_KUBECONF_FILE_PATH"
     chmod 600 "$ENT_KUBECONF_FILE_PATH"
     chmod u=rw,go= "$ENT_KUBECONF_FILE_PATH"
