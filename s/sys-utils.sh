@@ -1,7 +1,6 @@
 # SYS-UTILS
 
 SYS_UTILS_BASE_DIR=$PWD
-SYS_CLI_PRE=""
 
 netplan_add_custom_ip() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
@@ -161,7 +160,14 @@ $OS_WIN && {
   }
 
   winpty --version 1> /dev/null 2>&1 && {
-    SYS_CLI_PRE="winpty"
+    SYS_CLI_PRE() {
+      RES="$(perl -e 'print -t 1 ? "Y" : "N";')"
+      if [ "$RES" = 'Y' ]; then
+        "winpty" "$@"
+      else
+        "$@"
+      fi
+    }
   }
 }
 
@@ -229,7 +235,7 @@ function _ent-jhipster() {
     }
     # RUN
     if $OS_WIN; then
-      $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
+      SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
     else
       "$ENT_NPM_BIN_DIR/jhipster" "$@"
     fi
@@ -249,7 +255,7 @@ _ent-bundler() {
     activate_designated_node
     # RUN
     if $OS_WIN; then
-      $SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+      SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
     else
       "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
     fi
