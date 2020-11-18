@@ -634,7 +634,7 @@ ensure_valid_location_for_git_publication() {
     # git initialized
     [ -d ".git" ] || FATAL "Publication repository is not initialized"
 
-    ORIG=$(git remote get-url origin 2> /dev/null)
+    ORIG="$(git remote get-url origin 2> /dev/null)"
     [ -z "$ORIG" ] && FATAL "Repo not initialized (run \"${0##*/} init ...\")"
 
     # git user data set
@@ -643,6 +643,7 @@ ensure_valid_location_for_git_publication() {
 
     # git master branch
     if [ "$(git ls-remote origin master)" ]; then
+      # remote already has a master => import it
       _log_w 1 "A remote master has been detected"
       ask "Do you want to import it?" || FATAL "Unable to proceed; manual intervention required"
 
@@ -662,8 +663,9 @@ ensure_valid_location_for_git_publication() {
       git checkout -b master origin/master
       git branch -D master_old 1> /dev/null 2>&1
     else
+      # there is no master on remote
       echo "" > .gitignore
-      git add -A
+      git add .gitignore
       git commit -m "init"
       git checkout -b master
       git push --set-upstream origin master
