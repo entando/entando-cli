@@ -4,7 +4,7 @@
 #H:: The Entando Command Line Toolset
 #H::
 #H:: Syntax:
-#H::  - ent {script} {command} {params}
+#H::  - ent {module} {command} {params}
 #H::
 #H:: Built-in Scripts:
 
@@ -37,10 +37,10 @@ RUN() {
       "detach-vm") #H: detach ent from the current ent-managed VM
         detach_vm "$@"
         ;;
-      "fix-vm-ddns") #H: [--help] detach ent from the current ent-managed VM
+      "fix-vm-ddns") #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
         ent-host "$cmd" "$@"
         ;;
-      "more-scripts") #H: shows the rest of available scripts
+      "modules") #H: shows the ent modules
         ent-help --simple
         ;;
       "")
