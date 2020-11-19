@@ -401,6 +401,7 @@ args_or_ask() {
   local ARG=false
   local PRESERVE=false
   local JUST_PRINT_HELP=false
+  local SPACE_SEP=false
 
   print_sub_help() {
     local val_name="$1"
@@ -439,11 +440,16 @@ args_or_ask() {
         PRESERVE=true
         shift
         ;;
+      -s)
+        SPACE_SEP=true
+        shift
+        ;;
       -h)
         JUST_PRINT_HELP=true
         shift
         ;;
-      *) break ;;
+      *)
+        break;;
     esac
   done
 
@@ -492,8 +498,14 @@ args_or_ask() {
       return 1
     fi
   else
-    index_of_arg -p "${val_name}=" "$@"
-    found_at="$?"
+    if $SPACE_SEP; then
+      index_of_arg -- "${val_name}" "$@"
+      found_at="$?"
+      found_at=$((found_at+1))
+    else
+      index_of_arg -p "${val_name}=" "$@"
+      found_at="$?"
+    fi
 
     if [ $found_at -eq 255 ]; then
       index_of_arg "${val_name}" "$@"

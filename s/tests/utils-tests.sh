@@ -123,6 +123,9 @@ test_args_or_ask() {
   [ "$RES" = "surname" ] || FATAL "failed! $LINENO"
   args_or_ask -n -a "RES" "3" --build --clean name surname && FATAL "failed! $LINENO"
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  # Space separated argument
+  args_or_ask -n -s "RES" "-n" -n entando || FATAL "failed! $LINENO"
+  [ "$RES" = "entando" ] || FATAL "failed! $LINENO"
 }
 
 test_remotes() {
