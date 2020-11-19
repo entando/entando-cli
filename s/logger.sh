@@ -20,7 +20,7 @@ __log() { #NOTRACE
   LL=$1 && shift
   [[ ! $XU_ENABLED_LOG_TYPES =~ $TP ]] && return 0
   [[ $XU_LOG_LEVEL -lt $LL ]] && return 0
-  echo -e "⮞ $SY | $(date +'%Y-%m-%d %H-%M-%S') | $*"
+  echo -e "➤ $SY | $(date +'%Y-%m-%d %H-%M-%S') | $*"
 }
 
 _log_e() {

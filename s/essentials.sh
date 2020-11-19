@@ -168,14 +168,14 @@ fi
     fi
 
     grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
-      | _perl_sed 's/^([[:space:]]*)>/\1⮞/' | _perl_sed "s/\{\{TOOL-NAME\}\}/${0##*/}/"
+      | _perl_sed 's/^([[:space:]]*)>/\1➤/' | _perl_sed "s/\{\{TOOL-NAME\}\}/${0##*/}/"
 
     grep '#''H:' "$0" | while IFS= read -r var; do
       if [[ "$var" =~ "#H::" || "$var" =~ "#H:%" ]]; then
         :
       elif [[ "$var" =~ "#H:>" ]]; then
         echo ""
-        echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/⮞ /' | _perl_sed 's/"//g'
+        echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/➤ /' | _perl_sed 's/"//g'
       elif [[ "$var" =~ "#H:-" ]]; then
         echo "$var" | _perl_sed 's/#H:-/ :  -/' | _align_by_sep ":" 22
       else
