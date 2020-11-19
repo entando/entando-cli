@@ -22,32 +22,28 @@ RUN() {
   reload_cfg "$C_ENT_PRJ_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
 
-  while true; do
-    cmd="$1"
-    shift
-    case "$cmd" in
-      "print-kubeconfig") #H: prints the command for setting the kubectl configuration
-        if [ -n "$DESIGNATED_KUBECONFIG" ]; then
-          echo "export KUBECONFIG=\"$DESIGNATED_KUBECONFIG\""
-        else
-          _log_e 0 "No ENT KUBECONFIG set"
-        fi
-        ;;
-      "set-cmd") #H: prints the command for setting the kubectl environment
-        #H:- {command}: uses this command to run kubectl
-        set_kubectl_command "$@"
-        ;;
-      "clear-cmd") #H: prints the command for setting the kubectl environment
-        clear_kubectl_command --clear
-        ;;
-      *) #H: any other command is passed to kubectl
-        _kubectl "$cmd" "$@"
-        ;;
-    esac
-    index_of_arg "--AND" "$@"
-    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
-    [ -z "$1" ] && break
-  done
+  case "$1" in
+    "--ent-print-kubeconfig") #H: prints the command for setting the kubectl configuration
+      shift
+      if [ -n "$DESIGNATED_KUBECONFIG" ]; then
+        echo "export KUBECONFIG=\"$DESIGNATED_KUBECONFIG\""
+      else
+        _log_e 0 "No ENT KUBECONFIG set"
+      fi
+      ;;
+    "--ent-set-cmd") #H: prints the command for setting the kubectl environment
+      #H:- {command}: uses this command to run kubectl
+      shift
+      set_kubectl_command "$@"
+      ;;
+    "--ent-clear-cmd") #H: prints the command for setting the kubectl environment
+      shift
+      clear_kubectl_command --clear
+      ;;
+    *) #H: any other command is passed to kubectl
+      _kubectl "$@"
+      ;;
+  esac
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
