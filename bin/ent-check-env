@@ -245,7 +245,7 @@ check_npm_git_package() {
 }
 
 $M_DEVL && {
-  # ENTANDO-GENERATOR-JHIPSTER (entando blueprint)
+  # ENTANDO-GENERATOR-JHIPSTER (entando blueprint for jhipster)
   check_npm_git_package \
     "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
     "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" \
@@ -253,7 +253,7 @@ $M_DEVL && {
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
 
-  # ENTANDO-BUNDLE TOOL (entando blueprint)
+  # ENTANDO-BUNDLER (entando bundle management tool)
   check_npm_git_package \
     "$REPO_ENTANDO_BUNDLER_ADDR" \
     "$VER_ENTANDO_BUNDLER_REQ" \
