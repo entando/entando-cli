@@ -73,7 +73,7 @@ check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
 $M_DEVL && {
   [ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
   check_ver "java" "$VER_JDK_REQ" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
-    _log_w "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this tool"
+    _log_e 0 "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this tool"
     MAYBE_FATAL "Quitting"
   }
   save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
