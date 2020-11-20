@@ -27,7 +27,7 @@ RUN() {
   reload_cfg "$C_ENT_STATE_FILE"
 
   case "$1" in
-    "--ent-print-kubeconfig") #H: prints the command for setting the kubectl configuration
+    "ent-print-kubeconfig") #H: prints the command for setting the kubectl configuration
       shift
       if [ -n "$DESIGNATED_KUBECONFIG" ]; then
         echo "export KUBECONFIG=\"$DESIGNATED_KUBECONFIG\""
@@ -35,7 +35,7 @@ RUN() {
         _log_e 0 "No ENT KUBECONFIG set"
       fi
       ;;
-    "--ent-set-cmd") #H: prints the command for setting the kubectl environment
+    "ent-set-cmd") #H: prints the command for setting the kubectl environment
       #H:- {command}: uses this command to run kubectl
       shift
       set_kubectl_command "$@"
