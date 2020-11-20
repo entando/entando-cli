@@ -17,6 +17,7 @@ ENTANDO_ENT_ACTIVE_NEW=$(
 
 [ "$ENTANDO_ENT_ACTIVE_NEW" = "" ] && exit 99
 
+# shellcheck disable=SC2154
 (
  [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] || 
  [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
@@ -33,6 +34,7 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
   if [[ "$1" = "--force" || "$2" = "--force" ]]; then
     [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
+    # shellcheck disable=SC1090
     . "$ENTANDO_ENT_ACTIVE_NEW/deactivate" -p --force > /dev/null 2>&1
   else
     [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Quitting"

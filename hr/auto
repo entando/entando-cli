@@ -33,6 +33,7 @@ else
     echo "$ENTANDO_CLI_VERSION";
 
     ENTANDO_CLI_VERSION="$(
+      # shellcheck disable=SC1091
       source /dev/stdin <<<"$(curl "https://raw.githubusercontent.com/entando/entando-releases/$ENTANDO_RELEASE/manifest" 2> /dev/null)";
       echo "$ENTANDO_CLI_VERSION";
     )"
@@ -40,6 +41,7 @@ else
     [ -z "$ENTANDO_CLI_VERSION" ] && echo "Unable to determine the CLI version of release \"$ENTANDO_RELEASE\"" 1>&2 && exit 99
   fi
 
+  # shellcheck disable=SC1091
   bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
     --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE"
 
@@ -54,9 +56,12 @@ else
     exit 99
   fi
 
+  # shellcheck source=deactivate
   . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
+  # shellcheck source=activate
   . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
 
+  # shellcheck source=s/essentials.sh
   . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/essentials.sh
 fi
 

@@ -30,8 +30,6 @@ SIMPLE=false; [ "$1" == "--simple" ] && SIMPLE=true
 }
 
 
-[ $? -eq 0 ] && PRINTF_AVAILABLE=true || PRINTF_AVAILABLE=false
-
 cd bin || { echo "Unable to enter directory $PWD/bin"; exit 99; }
 for file in ent-*; do
   H=$($file -h --short)

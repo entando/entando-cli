@@ -1,25 +1,24 @@
+#!/bin/bash
 # SYS-UTILS
-
-SYS_UTILS_BASE_DIR=$PWD
 
 netplan_add_custom_ip() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
-  sudo grep -v addresses "$F" | sed '/dhcp4/a ___addresses: [ '$1' ]' | sed's/_/    /g' > "w/netplan.tmp"
-  [ -f $F.orig ] && sudo cp -a "$F" "$F.orig"
+  sudo grep -v addresses "$F" | sed '/dhcp4/a ___addresses: [ '"$1"' ]' | sed's/_/    /g' > "w/netplan.tmp"
+  [ -f "$F.orig" ] && sudo cp -a "$F" "$F.orig"
   sudo cp "w/netplan.tmp" "$F"
 }
 
 netplan_add_custom_nameserver() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
-  sudo grep -v "#ENT-NS" "$F" | sed'/dhcp4/a ___nameservers: #ENT-NS\n____addresses: [ '$1' ] #ENT-NS' | sed 's/_/    /g' > "w/netplan.tmp"
-  [ ! -f $F.orig ] && sudo cp -a "$F" "$F.orig"
+  sudo grep -v "#ENT-NS" "$F" | sed'/dhcp4/a ___nameservers: #ENT-NS\n____addresses: [ '"$1"' ] #ENT-NS' | sed 's/_/    /g' > "w/netplan.tmp"
+  [ ! -f "$F.orig" ] && sudo cp -a "$F" "$F.orig"
   sudo cp "w/netplan.tmp" "$F"
 }
 
 net_is_address_present() {
-  [ "$(ip a s 2> /dev/null | grep "$1" | wc -l)" -gt 0 ] && return 0 || return 1
+  [ "$(ip a s 2> /dev/null | grep "$1" -c)" -gt 0 ] && return 0 || return 1
 }
 
 #net_is_hostname_known() {
@@ -31,6 +30,7 @@ hostsfile_clear() {
     T="$(mktemp /tmp/ent-auto-XXXXXXXX)"
     cleanup() { rm "$T"; }
     trap cleanup exit
+    # shellcheck disable=SC2024
     sudo sed "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE" > "$T"
     echo "##ENT-CUSTOM-VALUE##$1" >> "$T"
     _sudo cp "$C_HOSTS_FILE" "${C_HOSTS_FILE}.ent.save~"
@@ -76,6 +76,7 @@ check_ver() {
   IFS='.' read -r -a V <<< "$REQ"
   r_maj="${V[0]}" && r_min="${V[1]}" && r_ptc="${V[2]}" && r_upd="${V[3]:-"*"}"
 
+  # shellcheck disable=SC2015
   (
     check_ver_num_start
     check_ver_num "$f_maj" "$r_maj" || return 1
@@ -155,10 +156,6 @@ else
 fi
 
 $OS_WIN && {
-  win_run_as() {
-    "$SYS_UTILS_BASE_DIR/s/win_run_as.cmd" "$@"
-  }
-
   winpty --version 1> /dev/null 2>&1 && {
     SYS_CLI_PRE() {
       RES="$(perl -e 'print -t 1 ? "Y" : "N";')"
@@ -403,5 +400,3 @@ __cd() {
 }
 
 return 0
-
-}

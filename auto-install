@@ -2,6 +2,7 @@
 [ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
 
 ent_extract_switch_param_DC7C420E09B4492D() {
+  # shellcheck disable=SC1001
   if [[ "$1" =~ \=(.*) ]]; then
     if [[ -n $ZSH_VERSION ]]; then
       # shellcheck disable=SC2154
@@ -201,6 +202,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   ) || return "$?"
 
   cd "$PREFIX"
+  # shellcheck disable=SC1090
   [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "./$ENTANDO_RELEASE/dist/manifest"
   [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
 
@@ -239,6 +241,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" > "$TGT_DIR/$BASE_PREFIX/deactivate.ln"
 
   (
+    # shellcheck source=s/utils.sh
     . "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
 
     echo "."
@@ -249,6 +252,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
   echo ""
   $AUTO_ACTIVATION && $SOURCED && {
+    # shellcheck disable=SC1090
     source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
       echo ""
       echo -e "\033[101mENTANDO-CLI AUTOMATICALLY ACTIVATED\033[0;37m"
@@ -283,6 +287,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   fi
 }
 
+# shellcheck disable=SC2154
 # shellcheck disable=SC2015
 (
    [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||

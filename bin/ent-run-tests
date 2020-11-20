@@ -23,3 +23,5 @@ test_select_one
 test_args_or_ask
 test_remotes
 test_asserters
+
+true

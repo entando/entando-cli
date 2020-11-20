@@ -136,8 +136,10 @@ $M_DEVL && {
   nvm_activate
   check_ver "nvm" "$VER_NVM_REQ" "--version | grep -v '^$' | head -1" verbose || {
     $OS_WIN && FATAL "Please install nvm for windows (nvm-windows)"
+    # shellcheck disable=SC2015
     ask "Should I try to install it?" "y" && {
       curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$VER_NVM_DEF/install.sh" | bash
+      return 0
     } || {
       MAYBE_FATAL "Mandatory dependency not available"
     }

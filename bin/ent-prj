@@ -48,12 +48,6 @@ RUN() {
         _log_i 0 "Collecting the bundle artifacts"
         bundle_all
         ;;
-      "gen") #H: generates project contents
-        require_develop_checked
-        require_ent_project_dir
-        print_entando_banner
-        generate_project "$@"
-        ;;
       "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
         #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
         require_develop_checked
@@ -173,10 +167,10 @@ generate_custom_resource() {
     echo "> Parameters:"
   }
 
-  args_or_ask -n -p $HH "NAME" '--name///name of the bundle project' "$@"
-  args_or_ask -n -p $HH "REPOSITORY" '--repository///url of the publication repository' "$@"
-  args_or_ask -n -p $HH "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
-  args_or_ask -n -p $HH "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
+  args_or_ask -n -p  $HH "NAME" '--name///name of the bundle project' "$@"
+  args_or_ask -n -p  $HH "REPOSITORY" '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p  $HH "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p  $HH "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
 
   [ -n "$HH" ] && {
     echo ""
@@ -311,6 +305,7 @@ be_build() {
 
   get_be_info
 
+  # shellcheck disable=SC2015
   ./mvnw -Pprod clean package jib:dockerBuild "$@" && {
     echo ""
     _log_i 0 "Built image \"$IMAGE_FQNAME\""
@@ -442,84 +437,8 @@ init_project() {
 get_bundle_repo_url() {
   __cd "./bundle"
   git remote get-url origin
+  # shellcheck disable=SC2164
   cd - >/dev/null
-}
-generate_project() {
-  DEF=""
-  snake_to_camel DEF "$(basename "$PWD")"
-
-  assert_dn "TEMPLATE_ID" "$1" || FATAL "Please provide a valid template id as first parameter"
-  set_or_ask "TEMPLATE_ID" "$1" "Please provide the template id" "base" "assert_dn" "silent"
-  shift
-
-  JDLT_FILE="$ENT_HOME/res/$TEMPLATE_ID.jdlt"
-  cp "$JDLT_FILE" "prj-generation.jdl~"
-
-  for V in $(# <= don't use read here
-    pre_parse_jdlt "$JDLT_FILE"
-  ); do
-    V="$V/"
-    val_name="$(echo "$V" | cut -d'/' -f 1)"
-    val_type="$(echo "$V" | cut -d'/' -f 2)"
-    val_def="$(echo "$V" | cut -d'/' -f 3)"
-    val_msg="$(echo "$V" | cut -d'/' -f 4)"
-
-    index_of_arg -p "${val_name}=" "$@"
-    found_at="$?"
-
-    # user provided value
-    if [ $found_at -ne 255 ]; then
-      val_user="$(echo "${!found_at}" | cut -d'=' -f 2)"
-    else
-      val_user=""
-    fi
-
-    # prompt message processing
-    if [ -z "$val_msg" ]; then
-      val_msg="Please provide the value for \"$val_name\""
-    fi
-
-    # type processing
-    if [ -n "$val_type" ]; then
-      assertion="assert_$val_type"
-
-      if [ "$(LC_ALL=C type -t "$assertion")" != "function" ]; then
-        echo "undefined type \"$val_type\", falling back to \"strict_id\"" 1>&2
-        val_type="strict_id"
-        assertion="assert_$val_type"
-      fi
-    else
-      assertion=""
-    fi
-
-    # ask
-    set_or_ask "TMPVAR" "$val_user" "$val_msg" "$val_def" "$assertion"
-
-    # apply
-    _sed_in_place -r 's/\{\{app.serverPort[^}]*\}\}/'"$TMPVAR"'/' prj-generation.jdl~
-  done
-
-  _log_i 1 "Configuring.."
-
-  mv "prj-generation.jdl~" "prj-generation.jdl"
-
-  _log_i 1 "Generating the project.."
-
-  _ent-jhipster -blueprint entando import-jdl ./prj-generation.jdl || FATAL "Generation failed"
-
-  #  mkdir bundle
-  #  echo -e "\n##############" >> .gitignore
-  #  echo bundle >> .gitignore
-
-  generate_ent_project_file
-  save_cfg_value PRJ_NAME "$PRJ_NAME" "$C_ENT_PRJ_FILE"
-
-  echo ""
-  ask "Do you want to commit everything in a new local git repository?" && {
-    init_project__commit_all "publication to the frontend repository"
-  }
-
-  _log_i 1 "Done."
 }
 
 # shellcheck disable=SC2155

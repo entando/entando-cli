@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 . s/essentials.sh
 
@@ -14,14 +15,15 @@ shift
 if [ -n "$start_time" ]; then
   start_time="$1"
   now="$(date -u +%s)"
-  elapsed="$(($now-$start_time))"
-  elapsed_mm="$(($elapsed/60))"
-  elapsed_ss="$(($elapsed-elapsed_mm*60))"
+  elapsed="$((now-start_time))"
+  elapsed_mm="$((elapsed/60))"
+  elapsed_ss="$((elapsed-elapsed_mm*60))"
 fi
 
 RUN() {
   INGR=$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" 2>/dev/null)
 
+  # shellcheck disable=SC2015
   $SYS_GNU_LIKE && {
     DISKFREE="$(df . -h | tail -n 1 | awk '{print $4}')"
     MM="$(free -k -t | grep "Mem")"
@@ -36,6 +38,7 @@ RUN() {
 
   ingr_check "KC " "kc-ingress" "auth/"
   ingr_check "ECI" "eci-ingress" "k8s/"
+  # shellcheck disable=SC2015
   ingr_check "APP" "$ENTANDO_APPNAME-ingress" "app-builder/" && {
     [ -z "$ENTANDO_APP_ADDR" ] && ENTANDO_APP_ADDR="$LAST_INGR_ADDR_CHECKED"
     echo ''
@@ -84,7 +87,7 @@ ingr_check() {
   LAST_INGR_ADDR_CHECKED="http://$ADDR/$3"
   http_check "$LAST_INGR_ADDR_CHECKED" || true
 
-  if [ ! -z "$ADDR" ] && [ $http_check_res != "000" ]; then
+  if [ -n "$ADDR" ] && [ "$http_check_res" != "000" ]; then
     echo -n " open.."
 
     T="\t(http://$ADDR/$3)"

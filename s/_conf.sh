@@ -1,3 +1,6 @@
+#!/bin/bash
+# shellcheck disable=SC2034
+
 REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR="https://github.com/entando/entando-blueprint/"
 
 # UTILITIES CONFIGURATION
@@ -25,7 +28,10 @@ C_AUTO_VM_HOSTNAME_SUFFIX="multipass"
 
 # More dynamic configurations
 
-[ -f dist/manifest ] && . dist/manifest
-[ -f d/_env ] && . d/_env
-[ -f w/_env ] && . w/_env
-[ -f _env ] && . _env
+# shellcheck disable=SC1091
+{
+  [ -f dist/manifest ] && . dist/manifest
+  [ -f d/_env ] && . d/_env
+  [ -f w/_env ] && . w/_env
+  [ -f _env ] && . _env
+}

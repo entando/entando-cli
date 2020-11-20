@@ -1,3 +1,4 @@
+#!/bin/bash
 # VAR-UTILS
 
 ## SET AND CHECKED SETS
@@ -67,8 +68,8 @@ assert_nn() {
 }
 
 assert_lit() {
-  local pre && [ ! -z "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
-  local desc && [ ! -z "$3" ] && desc=" for $3"
+  local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
+  local desc && [ -n "$3" ] && desc=" for $3"
   [ "$1" != "$2" ] && _log_e 0 "${pre}Expected literal \"$1\" found \"$2\"$desc" && exit 3
   return 0
 }

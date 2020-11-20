@@ -1,15 +1,14 @@
-[ -z $ZSH_VERSION ] && [ -z $BASH_VERSION ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && exit 99
+#!/bin/bash
+[ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && exit 99
 
 [ "$ENTANDO_ENT_ACTIVE" = "" ] && echo "No ent instance is currently active" && exit 99
 
-ENT_HOME="$PWD"
 mkdir -p "$ENTANDO_ENT_ACTIVE/w"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ERROR AND EXIT MANAGEMENT
 
 XU_STATUS_FILE="$ENTANDO_ENT_ACTIVE/w/.status"
-XU_BACKTRACE=""
 
 # PROGRAM STATUS
 xu_clear_status() {
@@ -23,6 +22,7 @@ xu_set_status() {
 xu_get_status() {
   XU_RES=""
   if [ "$XU_STATUS_FILE" != "" ] && [ -f "$XU_STATUS_FILE" ]; then
+    # shellcheck disable=SC2034
     XU_RES="$(cut "$XU_STATUS_FILE" -d':' -f1)"
   fi
   return 0
@@ -164,6 +164,7 @@ ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
 
 nvm_activate() {
   NVM_DIR="$HOME/.nvm"
+  # shellcheck disable=SC1090
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || return
   export NVM_DIR
 }

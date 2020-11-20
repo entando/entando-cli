@@ -1,14 +1,14 @@
+#!/bin/bash
 # UTILS
 
 # CFG
 WAS_DEVELOP_CHECKED=false
 
 IS_GIT_CREDENTIAL_MANAGER_PRESENT=false
-git credential-cache 2>/dev/null
+git credential-cache 2> /dev/null
 if [ "$?" != 1 ]; then
   IS_GIT_CREDENTIAL_MANAGER_PRESENT=true
 fi
-
 
 # runs a sed "in place" given the sed command and the file to change
 # (multiplatform wrapper)
@@ -34,31 +34,36 @@ _sed_in_place() {
 # save_cfg_value -m {MAP_NAME} {KEY} {VALUE}
 #
 save_cfg_value() {
-  IS_MAP=false;  [ "$1" = "-m" ] && IS_MAP=true && shift
-  local name="${1}";shift
-  local value="${1}";shift
-  local config_file=${1:-$CFG_FILE};shift
+  IS_MAP=false
+  [ "$1" = "-m" ] && IS_MAP=true && shift
+  local name="${1}"
+  shift
+  local value="${1}"
+  shift
+  local config_file=${1:-$CFG_FILE}
+  shift
 
   if [[ -f "$config_file" ]]; then
     if $IS_MAP; then
-      _sed_in_place "/^$name__/d" "$config_file"
+      _sed_in_place "/^${name}__/d" "$config_file"
     else
-      _sed_in_place "/^$name=/d" "$config_file"
+      _sed_in_place "/^${name}=/d" "$config_file"
     fi
   fi
   if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
     FATAL "save_cfg_value: Unsupported multiline value"
   fi
   if $IS_MAP; then
-    local key; local val
-    for key in $(echo "${!__AA_*}"|grep "__AA_${name}_"); do
+    local key
+    local val
+    for key in $(echo "${!__AA_*}" | grep "__AA_${name}_"); do
       val="${!key}"
       [ -z "$val" ] && continue
       printf "${key}=%s\n" "$val" >> "$config_file"
     done
   else
     if [ -n "$value" ]; then
-        printf "$name=%s\n" "$value" >> "$config_file"
+      printf "$name=%s\n" "$value" >> "$config_file"
     fi
   fi
 
@@ -449,7 +454,8 @@ args_or_ask() {
         shift
         ;;
       *)
-        break;;
+        break
+        ;;
     esac
   done
 
@@ -501,7 +507,7 @@ args_or_ask() {
     if $SPACE_SEP; then
       index_of_arg -- "${val_name}" "$@"
       found_at="$?"
-      found_at=$((found_at+1))
+      found_at=$((found_at + 1))
     else
       index_of_arg -p "${val_name}=" "$@"
       found_at="$?"
@@ -577,14 +583,17 @@ args_or_ask() {
 args_or_ask__a_remote() {
   [ "$1" = "-a" ] && local PRE="$1" && shift
   [ "$1" = "-h" ] && local HH="$1" && shift
-  local var_name="$1";shift
-  local switch="$1";shift
-  local msg="$1"; shift
-  local TMP;
+  local var_name="$1"
+  shift
+  local switch="$1"
+  shift
+  local msg="$1"
+  shift
+  local TMP
 
-  args_or_ask "$PRE" -n -p $HH "TMP" "$switch/ext_id?//$msg" "$@"
+  args_or_ask "$PRE" -n -p  $HH "TMP" "$switch/ext_id?//$msg" "$@"
 
-  [ -z "$HH" ] && {
+  [ -z  $HH ] && {
     if [ -z "$TMP" ]; then
       local count
       remotes-count count
@@ -619,10 +628,11 @@ remotes-clear() {
 remotes-count() {
   local i=0
   for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    i=$((i+1))
+    i=$((i + 1))
   done
   _set_var "$1" "$i"
-  [ "$i" -gt 0 ] && return 0; return 255
+  [ "$i" -gt 0 ] && return 0
+  return 255
 }
 
 remotes-set() {
@@ -635,7 +645,7 @@ remotes-get() {
   if [ "$1" = "--first" ]; then
     shift
     local dst_var_name="$1"
-    local name="$(remotes-list|head -n 1)"
+    local name="$(remotes-list | head -n 1)"
   else
     local dst_var_name="$1"
     local name="$2"
@@ -644,7 +654,8 @@ remotes-get() {
   tmp="__AA_ENTANDO_REMOTES__${name}"
   value="${!tmp}"
   _set_var "$dst_var_name" "$value"
-  [ -n "$value" ] && return 0; return 255
+  [ -n "$value" ] && return 0
+  return 255
 }
 
 remotes-del() {

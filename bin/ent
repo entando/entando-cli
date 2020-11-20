@@ -61,25 +61,6 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-clear_kubectl_command() {
-  args_or_ask -f "--clear" "$@" && {
-    save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
-  }
-}
-
-set_kubectl_command() {
-  args_or_ask -n -f '--help' "$@" && {
-    local HH="-h"
-    echo "> Parameters:"
-  }
-
-  args_or_ask -a $HH "DESIGNATED_KUBECTL_CMD" "1" "$@"
-  save_cfg_value "DESIGNATED_KUBECTL_CMD" "$DESIGNATED_KUBECTL_CMD"
-
-  # reset kubeconfig setup
-  save_cfg_value "DESIGNATED_KUBECONFIG" ""
-  save_cfg_value "DESIGNATED_VM" ""
-}
 
 detach_vm() {
   rm "$ENT_KUBECONF_FILE_PATH"
@@ -93,7 +74,7 @@ attach_vm() {
     echo "> Parameters:"
   }
 
-  args_or_ask__a_remote -a $HH "VM_NAME" "1" "%sp VM to which ent-kubectl should attach" "$@"
+  args_or_ask__a_remote -a  $HH "VM_NAME" "1" "%sp VM to which ent-kubectl should attach" "$@"
 
   [ -n "$HH" ] && return 0
 

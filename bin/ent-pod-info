@@ -15,23 +15,23 @@ args_or_ask -n -f '--help' "$@" && {
   echo "> Parameters:"
 }
 
-args_or_ask $HH ENTANDO_NAMESPACE "--namespace/ext_id//%sp provide the namespace" "$@"
-args_or_ask $HH -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
-args_or_ask $HH -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
+args_or_ask  $HH ENTANDO_NAMESPACE "--namespace/ext_id//%sp provide the namespace" "$@"
+args_or_ask  $HH -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
+args_or_ask  $HH -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
 
 [ -n "$HH" ] && return 0
 
 _kubectl-pre-sudo
 
 for pod in $(_kubectl get pods -n "$ENTANDO_NAMESPACE" | awk 'NR>1' | awk '{print $1}' | grep -- "$POD_PATT"); do
-  echo -e "\n===================================================================================================="
-  echo "> POD: $pod"
+  echo -e "\n====================================================================================================" 1>&2
+  echo "> POD: $pod" 1>&2
   if [ -z "$LOG_PATT" ]; then
     _kubectl describe pods/"$pod" -n "$ENTANDO_NAMESPACE"
   fi
   for co in $(_kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}' -n "$ENTANDO_NAMESPACE"); do
-    echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    echo -e "> CONTAINER: $pod/$co"
+    echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" 1>&2
+    echo -e "> CONTAINER: $pod/$co" 1>&2
     echo -e ""
     if [ -n "$LOG_PATT" ]; then
       _kubectl logs pods/"$pod" -c "$co" -n "$ENTANDO_NAMESPACE" | grep -i -E "$LOG_PATT" --color

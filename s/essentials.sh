@@ -1,3 +1,4 @@
+#!/bin/bash
 # ESSENTIALS
 
 if [ "$1" = "--with-state" ]; then
@@ -110,6 +111,7 @@ fi
       }
       _kubectl-pre-sudo() { :; }
     else
+      # shellcheck disable=SC2034
       ENTANDO_KUBECTL_MODE="AUODETECT"
       if command -v "k3s" > /dev/null; then
         if $OS_WIN; then

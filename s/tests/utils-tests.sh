@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 
 # FIND ARG IDX
@@ -73,6 +74,7 @@ test_select_one() {
   arr[1]="test2"
   echo "2" | (
     select_one "TestValue" "${arr[@]}" >/dev/null
+    # shellcheck disable=SC2154
     [ "$select_one_res:$select_one_res_alt" = "2:test2" ] || FATAL "failed! $LINENO"
   ) || return "$?"
 }

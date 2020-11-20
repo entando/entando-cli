@@ -36,27 +36,27 @@ args_or_ask -n -f '--help' "$@" && {
 }
 
 ENTANDO_INTERACTIVE="true"
-args_or_ask $HH -n -a "ENTANDO_NAMESPACE" "1/id//The namespace" "$@" || FATAL "Please provide the namespace"
-args_or_ask $HH -n -a "ENTANDO_APPNAME" "2/id//The application name" "$@" || FATAL "Please provide the app name"
-args_or_ask $HH -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
-args_or_ask $HH -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
-args_or_ask $HH -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug informations" "$@"
-args_or_ask $HH -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
-args_or_ask $HH -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
-args_or_ask $HH -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
-args_or_ask $HH -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
-args_or_ask $HH -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
-args_or_ask $HH -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 4G" "$@"
-args_or_ask $HH -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 12G" "$@"
-args_or_ask $HH -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Disk space: ex: 12G" "$@"
-args_or_ask $HH -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the hostname for the VM into the host system hosts file" "$@"
+args_or_ask  $HH -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@" || FATAL "Please provide the namespace"
+args_or_ask  $HH -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@" || FATAL "Please provide the app name"
+args_or_ask  $HH -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
+args_or_ask  $HH -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
+args_or_ask  $HH -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug informations" "$@"
+args_or_ask  $HH -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
+args_or_ask  $HH -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+args_or_ask  $HH -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
+args_or_ask  $HH -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
+args_or_ask  $HH -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
+args_or_ask  $HH -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 4G" "$@"
+args_or_ask  $HH -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 12G" "$@"
+args_or_ask  $HH -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Disk space: ex: 12G" "$@"
+args_or_ask  $HH -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the hostname for the VM into the host system hosts file" "$@"
 
 [ -n "$HH" ] && echo "" && exit 0
 
-args_or_ask $HH -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
-args_or_ask $HH -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
-args_or_ask $HH -n -F "JUST_SET_CFG" "--config" "$@"
-args_or_ask $HH -n -F "IN_QUICKSTART_VM" "--in-quickstart-vm///Tells quickstart the it's being run in a VM designed to run it" "$@"
+args_or_ask  $HH -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
+args_or_ask  $HH -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
+args_or_ask  $HH -n -F "JUST_SET_CFG" "--config" "$@"
+args_or_ask  $HH -n -F "IN_QUICKSTART_VM" "--in-quickstart-vm///Tells quickstart the it's being run in a VM designed to run it" "$@"
 
 ! $ENTANDO_INTERACTIVE && {
   ENTANDO_OPT_YES_FOR_ALL=true
@@ -271,6 +271,7 @@ RUN_WITH_VM() {
 #-----------------------------------------------------------------------------------------------------------------------
 # DIRECT
 
+# shellcheck disable=SC2120
 RUN_DIRECT() {
   _log_i 2 "> Checking environment"
 
@@ -282,6 +283,7 @@ RUN_DIRECT() {
     fi
   }
 
+  # shellcheck disable=SC1090
   [ -f ~/.bashrc ] && . ~/.bashrc
   setup_kubectl
 
@@ -312,6 +314,7 @@ RUN_DIRECT() {
     _log_d 5 "> Using domain: $ADDR"
   fi
 
+  # shellcheck disable=SC2002
   cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
@@ -330,6 +333,7 @@ RUN_DIRECT() {
     _kubectl create -f "w/$DEPL_SPEC_YAML_FILE"
   }
 
+  # shellcheck disable=SC2015
   ask "Should I start the monitor?" && {
     ent-app-info watch || true
   } || {
