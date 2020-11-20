@@ -74,7 +74,7 @@ attach_vm() {
     echo "> Parameters:"
   }
 
-  args_or_ask__a_remote -a  $HH "VM_NAME" "1" "%sp VM to which ent-kubectl should attach" "$@"
+  args_or_ask__a_remote -a ${HH:+"HH"} "VM_NAME" "1" "%sp VM to which ent-kubectl should attach" "$@"
 
   [ -n "$HH" ] && return 0
 

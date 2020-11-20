@@ -40,7 +40,7 @@ RUN() {
       shift
       set_kubectl_command "$@"
       ;;
-    "--ent-clear-cmd") #H: prints the command for setting the kubectl environment
+    "ent-clear-cmd") #H: prints the command for setting the kubectl environment
       shift
       clear_kubectl_command --clear
       ;;
@@ -83,7 +83,7 @@ set_kubectl_command() {
     echo "> Parameters:"
   }
 
-  args_or_ask -a $HH "DESIGNATED_KUBECTL_CMD" "1" "$@"
+  args_or_ask -a ${HH:+"HH"} "DESIGNATED_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
   save_cfg_value "DESIGNATED_KUBECTL_CMD" "$DESIGNATED_KUBECTL_CMD"
 
   # reset kubeconfig setup

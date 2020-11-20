@@ -591,9 +591,9 @@ args_or_ask__a_remote() {
   shift
   local TMP
 
-  args_or_ask "$PRE" -n -p  $HH "TMP" "$switch/ext_id?//$msg" "$@"
+  args_or_ask "$PRE" -n -p ${HH:+"HH"} "TMP" "$switch/ext_id?//$msg" "$@"
 
-  [ -z  $HH ] && {
+  [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
       local count
       remotes-count count
