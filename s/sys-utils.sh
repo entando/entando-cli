@@ -170,6 +170,8 @@ $OS_WIN && {
 
 # Runs npm from the private npm modules
 function _ent-npm() {
+  activate_shell_login_environment
+
   local P="$ENTANDO_ENT_ACTIVE/lib/node"
 
   [ ! -d "$ENTANDO_ENT_ACTIVE/lib/node" ] && mkdir -p "$ENTANDO_ENT_ACTIVE/lib/node"
@@ -315,10 +317,12 @@ rescan-sys-env() {
 }
 
 _nvm() {
+  activate_shell_login_environment
   "$NVM_CMD" "$@"
 }
 
 _npm() {
+  activate_shell_login_environment
   "$NPM_CMD" "$@"
 }
 
@@ -396,6 +400,13 @@ __cd() {
     echo "~~~" 1>&2
     FATAL "Unable to enter dir \"$1\""
   }
+}
+
+activate_shell_login_environment() {
+ [ -f /etc/profile ] && . /etc/profile
+ [ -f ~/.bash_profile ] && . ~/.bash_profile && return 0
+ [ -f ~/.bash_login ] && . ~/.bash_login && return 0
+ [ -f ~/.profile ] && . ~/.profile && return 0
 }
 
 return 0
