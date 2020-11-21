@@ -1,14 +1,14 @@
 #!/bin/bash
 [ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && exit 99
 
-[ "$ENTANDO_ENT_ACTIVE" = "" ] && echo "No ent instance is currently active" && exit 99
+[ "$ENTANDO_ENT_HOME" = "" ] && echo "No ent instance is currently active" && exit 99
 
-mkdir -p "$ENTANDO_ENT_ACTIVE/w"
+mkdir -p "$ENTANDO_ENT_HOME/w"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ERROR AND EXIT MANAGEMENT
 
-XU_STATUS_FILE="$ENTANDO_ENT_ACTIVE/w/.status"
+XU_STATUS_FILE="$ENTANDO_ENT_HOME/w/.status"
 
 # PROGRAM STATUS
 xu_clear_status() {
@@ -150,9 +150,9 @@ function print_current_function_name() {
 
 $SYS_OS_UNKNOWN && { echo "Unsupported operating system" 1>&2; exit 99; }
 
-mkdir -p "$ENTANDO_ENT_ACTIVE/w"
-mkdir -p "$ENTANDO_ENT_ACTIVE/d"
-mkdir -p "$ENTANDO_ENT_ACTIVE/lib"
+mkdir -p "$ENTANDO_ENT_HOME/w"
+mkdir -p "$ENTANDO_ENT_HOME/d"
+mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
 
 # ----------------------------------------------------------------------------------------------------------------------

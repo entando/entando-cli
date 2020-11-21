@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ENTANDO_ENT_ACTIVE_NEW=$(
+ENTANDO_ENT_HOME_NEW=$(
   if [ -n "$BASH_VERSION" ]; then
     if [ -f "${BASH_SOURCE[0]}.ln" ]; then
       SS="$(cat "${BASH_SOURCE[0]}.ln")"
@@ -15,7 +15,7 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   fi
 )
 
-[ "$ENTANDO_ENT_ACTIVE_NEW" = "" ] && exit 99
+[ "$ENTANDO_ENT_HOME_NEW" = "" ] && exit 99
 
 # shellcheck disable=SC2154
 (
@@ -30,22 +30,22 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   exit
 }
 
-[ "$ENTANDO_ENT_ACTIVE" != "" ] && {
-  [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "An instance at location \"$ENTANDO_ENT_ACTIVE\" is already active (force with --force)"
+[ "$ENTANDO_ENT_HOME" != "" ] && {
+  [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "An instance at location \"$ENTANDO_ENT_HOME\" is already active (force with --force)"
   if [[ "$1" = "--force" || "$2" = "--force" ]]; then
     [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
     # shellcheck disable=SC1090
-    . "$ENTANDO_ENT_ACTIVE_NEW/deactivate" -p --force > /dev/null 2>&1
+    . "$ENTANDO_ENT_HOME_NEW/deactivate" -p --force > /dev/null 2>&1
   else
     [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Quitting"
     return 91
   fi
 }
 
-ENTANDO_ENT_ACTIVE="$ENTANDO_ENT_ACTIVE_NEW"
-export ENTANDO_ENT_ACTIVE
-PATH="$ENTANDO_ENT_ACTIVE/bin:$PATH"
+ENTANDO_ENT_HOME="$ENTANDO_ENT_HOME_NEW"
+export ENTANDO_ENT_HOME
+PATH="$ENTANDO_ENT_HOME/bin:$PATH"
 export PATH
-unset ENTANDO_ENT_ACTIVE_NEW
+unset ENTANDO_ENT_HOME_NEW
 
-[[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_ACTIVE\" activated"
+[[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_HOME\" activated"

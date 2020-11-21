@@ -27,8 +27,8 @@ RUN() {
     case "$cmd" in
       "config") #H: [--edit] -- attach ent to a ent-managed VM
         case "$1" in
-          --print|"") cat "$ENTANDO_ENT_ACTIVE/w/.cfg";;
-          --edit) edit "$ENTANDO_ENT_ACTIVE/w/.cfg";;
+          --print|"") cat "$ENTANDO_ENT_HOME/w/.cfg";;
+          --edit) edit "$ENTANDO_ENT_HOME/w/.cfg";;
         esac
         ;;
       "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
@@ -47,11 +47,11 @@ RUN() {
         ent-help
         ;;
       *)
-        [ ! -f "${ENTANDO_ENT_ACTIVE}/bin/ent-${cmd}" ] && {
+        [ ! -f "${ENTANDO_ENT_HOME}/bin/ent-${cmd}" ] && {
           _log_i 0 "Unrecognized script"
           return 0
         }
-        "${ENTANDO_ENT_ACTIVE}/bin/ent-${cmd}" "$@"
+        "${ENTANDO_ENT_HOME}/bin/ent-${cmd}" "$@"
         ;;
     esac
     index_of_arg "--AND" "$@"

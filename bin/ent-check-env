@@ -58,7 +58,7 @@ NO_DNS_FIX=false
 
 # PRE
 $M_DEVL && {
-  cd "$ENTANDO_ENT_ACTIVE" || FATAL "Unable to switch to dir \"$ENTANDO_ENT_ACTIVE\""
+  cd "$ENTANDO_ENT_HOME" || FATAL "Unable to switch to dir \"$ENTANDO_ENT_HOME\""
   mkdir -p "lib/node"
 }
 
@@ -217,7 +217,7 @@ check_npm_git_package() {
   _log_i 3 "Checking ENT private installation of $DESC.."
 
   (
-    __cd "$ENTANDO_ENT_ACTIVE"
+    __cd "$ENTANDO_ENT_HOME"
     if [ -d "lib/$FLD/$VER_REQ/" ]; then
       _log_i 3 "\tfound: $VER_REQ => OK"
     else

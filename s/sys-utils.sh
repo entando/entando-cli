@@ -172,9 +172,9 @@ $OS_WIN && {
 function _ent-npm() {
   activate_shell_login_environment
 
-  local P="$ENTANDO_ENT_ACTIVE/lib/node"
+  local P="$ENTANDO_ENT_HOME/lib/node"
 
-  [ ! -d "$ENTANDO_ENT_ACTIVE/lib/node" ] && mkdir -p "$ENTANDO_ENT_ACTIVE/lib/node"
+  [ ! -d "$ENTANDO_ENT_HOME/lib/node" ] && mkdir -p "$ENTANDO_ENT_HOME/lib/node"
   if [ ! -f "$P/package.json" ]; then
     (
       echo "Ent node dir not initialized => INITIALIZING.." 1>&2
@@ -207,7 +207,7 @@ function _ent-npm() {
 # Imports a module from the entando private npm modules
 # the the given mode_modules dir
 function _ent-npm--import-module-to-current-dir() {
-  local BP="$ENTANDO_ENT_ACTIVE/lib/"
+  local BP="$ENTANDO_ENT_HOME/lib/"
   #[ ! -f package.json ] && echo "{}" > package.json
   _npm install "$BP/$1/$2"
 }

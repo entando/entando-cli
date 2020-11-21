@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ENTANDO_ENT_ACTIVE_NEW=$(
+ENTANDO_ENT_HOME_NEW=$(
   if [ -n "$BASH_VERSION" ]; then
     if [ -f "${BASH_SOURCE[0]}.ln" ]; then
       SS="$(cat "${BASH_SOURCE[0]}.ln")"
@@ -15,7 +15,7 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   fi
 )
 
-[ "$ENTANDO_ENT_ACTIVE_NEW" = "" ] && exit 99
+[ "$ENTANDO_ENT_HOME_NEW" = "" ] && exit 99
 
 # shellcheck disable=SC2154
 (
@@ -30,15 +30,15 @@ ENTANDO_ENT_ACTIVE_NEW=$(
   exit
 }
 
-[ "$ENTANDO_ENT_ACTIVE" = "" ] && echo "No instance is currently active" && return 99
-if [ "$ENTANDO_ENT_ACTIVE" != "$ENTANDO_ENT_ACTIVE_NEW" ]; then
+[ "$ENTANDO_ENT_HOME" = "" ] && echo "No instance is currently active" && return 99
+if [ "$ENTANDO_ENT_HOME" != "$ENTANDO_ENT_HOME_NEW" ]; then
   if [[ "$1" = "--force" || "$2" = "--force" ]]; then
-    echo "Forcing deactivation of instance $ENTANDO_ENT_ACTIVE"
+    echo "Forcing deactivation of instance $ENTANDO_ENT_HOME"
   else
     echo "This instance is not currently active (you may want to use --force)" && return 99
   fi
 fi
 
-PATH="${PATH//$ENTANDO_ENT_ACTIVE\/bin:/}"
-unset ENTANDO_ENT_ACTIVE
-[ "$1" != "-p" ] && unset ENTANDO_ENT_ACTIVE_NEW
+PATH="${PATH//$ENTANDO_ENT_HOME\/bin:/}"
+unset ENTANDO_ENT_HOME
+[ "$1" != "-p" ] && unset ENTANDO_ENT_HOME_NEW
