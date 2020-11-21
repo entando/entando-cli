@@ -201,8 +201,10 @@ ask() {
 # QUITS due to a low level fatal error
 #
 FATAL() {
-  echo -e "---"
-  _log_e 0 "FATAL: $*"
+  LOGGER() {
+    _log_e 0 "FATAL: $*"
+  }
+  print_calltrace 1 3 "" LOGGER "$@"
   xu_set_status "FATAL: $*"
   exit 77
 }
@@ -591,7 +593,7 @@ args_or_ask__a_remote() {
   shift
   local TMP
 
-  args_or_ask "$PRE" -n -p  ${HH:+"$HH"} "TMP" "$switch/ext_id?//$msg" "$@"
+  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$switch/ext_id?//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then

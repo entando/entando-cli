@@ -48,20 +48,37 @@ trace_vars() {
   echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
 }
 
-function trace_position() {
-  local pre=""
+function print_calltrace() {
+  local start=0
+  local steps=999
   local title=""
-  [ -n "$1" ] && title=" $1 "
-  [ -n "$2" ] && pre=" -- "
-  local n1="${3:-1}"
-  local n0="$((n1-1))"
-  shift 3
+  [ -n "$1" ] && start="$1"
+  [ -n "$2" ] && steps="$2"
+  [ -n "$3" ] && title=" $3 "
+  ((start++))
 
-  local fn="${FUNCNAME[n1]}"
-  local ln="${BASH_LINENO[n0]}"
-  local fl="${BASH_SOURCE[n0]}"
-
-  echo ">${title}$fl, line $ln -- $fn()${pre}$*" 2>&1
+  local frame=0 fn ln fl
+  if [ -n "$4" ]; then
+    echo ""
+    [ -n "$title" ] && echo " ▕ $title ▏"
+    echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    cmd="$4"
+    shift 4
+    "$cmd" "$@"
+  else
+    echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
+    [ -n "$title" ] && echo " ▕ $title ▏"
+  fi
+  echo "▁"
+  while read -r ln fn fl < <(caller "$frame"); do
+    ((frame++))
+    [ "$frame" -lt "$start" ] && continue
+    printf "▒- %s @ %s:%s\n" "${fn}" "${fl}" "${ln}" 2>&1
+    ((steps--))
+    [ "$steps" -eq 0 ] && break;
+  done
+  echo "▔"
+  echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
 }
 
 function print_current_function_name() {

@@ -112,7 +112,8 @@ print_status_info() {
 
 if [ "$1" = "-h" ] || [ "$1" == "" ]; then
   . s/_base.sh
-  print_status_info "$2"
+
+  [ "$1" == "" ] && print_status_info
   print_ent_tool_help "$2"
   exit 0
 fi

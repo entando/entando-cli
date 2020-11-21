@@ -394,7 +394,6 @@ __mk-cd() {
 __cd() {
   cd "$1" || {
     echo "~~~" 1>&2
-    trace_position "CALLER:" "" 2
     FATAL "Unable to enter dir \"$1\""
   }
 }
