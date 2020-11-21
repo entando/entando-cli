@@ -397,7 +397,7 @@ select_one() {
 # - args_or_ask  "NAME" "name/id//Enter the name" "$@"
 # {argument to look for}/{type}/{default}/{prompt message}
 #
-# Notes the {prompt message} supports the plaveholders:
+# Notes the {prompt message} supports the placeholders:
 # - %sp:  "Please provide " (resolved to "" when printing the help)
 # - %var: the var name
 #
@@ -425,39 +425,17 @@ args_or_ask() {
     return 1
   }
 
+  # pare flags
   while true; do
     case "$1" in
-      -n)
-        NOASK=true
-        shift
-        ;;
-      -f)
-        FLAG=true
-        shift
-        ;;
-      -F)
-        FLAGANDVAR=true
-        shift
-        ;;
-      -a)
-        ARG=true
-        shift
-        ;;
-      -p)
-        PRESERVE=true
-        shift
-        ;;
-      -s)
-        SPACE_SEP=true
-        shift
-        ;;
-      -h)
-        JUST_PRINT_HELP=true
-        shift
-        ;;
-      *)
-        break
-        ;;
+      -n) NOASK=true; shift;;
+      -f) FLAG=true; shift;;
+      -F) FLAGANDVAR=true;shift;;
+      -a) ARG=true;shift;;
+      -p) PRESERVE=true;shift;;
+      -s) SPACE_SEP=true;shift;;
+      -h) JUST_PRINT_HELP=true;shift;;
+      *) break;;
     esac
   done
 
@@ -466,12 +444,9 @@ args_or_ask() {
     shift
   }
 
-  local V="$1/"
+  local val_name val_type val_def val_msgs
+  IFS='/' read -r val_name val_type val_def val_msg <<< "${1}/"
   shift
-  local val_name="$(echo "$V" | cut -d'/' -f 1)"
-  local val_type="$(echo "$V" | cut -d'/' -f 2)"
-  local val_def="$(echo "$V" | cut -d'/' -f 3)"
-  local val_msg="$(echo "$V" | cut -d'/' -f 4)"
 
   ! $FLAG && ! $PRESERVE && {
     _set_var "$var_name" ""

@@ -40,7 +40,7 @@ args_or_ask  ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$
 args_or_ask  ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@" || FATAL "Please provide the app name"
 args_or_ask  ${HH:+"$HH"} -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
 args_or_ask  ${HH:+"$HH"} -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
-args_or_ask  ${HH:+"$HH"} -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug informations" "$@"
+args_or_ask  ${HH:+"$HH"} -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug information" "$@"
 args_or_ask  ${HH:+"$HH"} -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
 args_or_ask  ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
 args_or_ask  ${HH:+"$HH"} -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
