@@ -17,14 +17,16 @@ ent_extract_switch_param_DC7C420E09B4492D() {
 
 ent_cli_register_rc_DC7C420E09B4492D() {
   F="$1"
-  C="$2"
+  CA="$2"
+  CC="$3"
   local SIGN="#ENTANDO-CLI-SIGN-d567d439#"
   if [ -f "$F" ] && ! grep -F "${SIGN}" "$F" > /dev/null; then
     {
       echo ""
       echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
       echo "# ${SIGN}"
-      echo "${C}"
+      echo "${CA}"
+      echo "${CC}"
       echo ""
     } >> "${F}"
     echo "> Entando CLI added to \"${F}\""
@@ -276,15 +278,18 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo ""
 
   if ! "$CURR_DIR"; then
-    local CMD="source $TGT_DIR/$BASE_PREFIX/activate --quiet --force 2>/dev/null"
+    local CMD CCB CCZ
+    CMD="source $TGT_DIR/$BASE_PREFIX/activate --quiet --force 2>/dev/null"
+    CCB="source /dev/stdin <<<$(ent print-completion-setup bash)"   # bash 3.2 compatible syntax
+    CCZ="source <(ent print-completion-setup zsh)"
     if [ ! -f "$HOME/.bashrc" ]; then
       touch "$HOME/.bash_profile"
-      ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bash_profile" "$CMD"
+      ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bash_profile" "$CMD" "$CCB"
     else
-      ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bashrc" "$CMD"
+      ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bashrc" "$CMD" "$CCB"
     fi
-    ent_cli_register_rc_DC7C420E09B4492D "$HOME/.zshrc" "$CMD"
-    ent_cli_register_rc_DC7C420E09B4492D "$HOME/.fizsh/fizsh-miscellaneous.zsh" "$CMD"
+    ent_cli_register_rc_DC7C420E09B4492D "$HOME/.zshrc" "$CMD" "$CCZ"
+    ent_cli_register_rc_DC7C420E09B4492D "$HOME/.fizsh/fizsh-miscellaneous.zsh" "$CMD" "$CCZ"
   fi
 }
 

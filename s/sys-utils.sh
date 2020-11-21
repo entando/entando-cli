@@ -189,12 +189,12 @@ function _ent-npm() {
         ;;
       install-from-source)
         shift
-        [ -d "$P" ] || FATAL "Required dir \"$P\" is missing"
+        [ -d "$P" ] || FATAL -t "Required dir \"$P\" is missing"
         _npm install --prefix "$P" -g .
         ;;
       install-package)
         shift
-        cd "$P" || FATAL "Unable to switch to dir \"$P\""
+        cd "$P" || FATAL -t "Unable to switch to dir \"$P\""
         _npm install --prefix "$P" -g "$@"
         ;;
       *)
@@ -398,7 +398,7 @@ __mk-cd() {
 __cd() {
   cd "$1" || {
     echo "~~~" 1>&2
-    FATAL "Unable to enter dir \"$1\""
+    FATAL -t "Unable to enter dir \"$1\""
   }
 }
 

@@ -204,7 +204,12 @@ FATAL() {
   LOGGER() {
     _log_e 0 "FATAL: $*"
   }
-  print_calltrace 1 3 "" LOGGER "$@"
+  if [ "$1" = "-t" ]; then
+    shift
+    print_calltrace 1 3 "" LOGGER "$@" 1>&2
+  else
+    LOGGER "$@"
+  fi
   xu_set_status "FATAL: $*"
   exit 77
 }

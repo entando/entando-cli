@@ -280,7 +280,7 @@ get_be_info() {
     set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
   }
 
-  [ -z "$IMAGE_FQNAME" ] && FATAL "Unable to determine the image name"
+  [ -z "$IMAGE_FQNAME" ] && FATAL -t "Unable to determine the image name"
   IMAGE_FQNAME_ORG="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[1]}')"
   local tmp="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[2]}')"
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
@@ -489,7 +489,7 @@ init_pub() {
 }
 
 initialize_publication_git_repository() {
-  cd bundle > /dev/null || FATAL "internal error"
+  cd bundle > /dev/null || FATAL -t "internal error"
 
   # Base git init, if required
   [ ! -f .git ] && {
@@ -510,7 +510,7 @@ initialize_publication_git_repository() {
 
   pbs_fe_propose_credentials_cache
 
-  cd - > /dev/null || FATAL "internal error"
+  cd - > /dev/null || FATAL -t "internal error"
 
   # Project: gitignore
   local UP=false
@@ -548,7 +548,7 @@ ensure_valid_location_for_git_publication() {
   fi
 
   if [ "$1" = ":initialized" ]; then
-    cd bundle || FATAL "internal error"
+    cd bundle || FATAL -t "internal error"
 
     # git initialized
     [ -d ".git" ] || FATAL "Publication repository is not initialized"
@@ -564,7 +564,7 @@ ensure_valid_location_for_git_publication() {
     if [ "$(git ls-remote origin master)" ]; then
       # remote already has a master => import it
       _log_w 1 "A remote master has been detected"
-      ask "Do you want to import it?" || FATAL "Unable to proceed; manual intervention required"
+      ask "Do you want to import it?" || FATAL -t "Unable to proceed; manual intervention required"
 
       if [ "$(git status --porcelain)" ]; then
         local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
@@ -590,7 +590,7 @@ ensure_valid_location_for_git_publication() {
       git push --set-upstream origin master
     fi
 
-    cd - > /dev/null || FATAL "internal error"
+    cd - > /dev/null || FATAL -t "internal error"
   fi
 
   return 0
@@ -598,7 +598,7 @@ ensure_valid_location_for_git_publication() {
 
 # If some information is missing tries to read it from the project
 read_missing_pub_info_from_project_sources_git() {
-  cd .. || FATAL "internal error"
+  cd .. || FATAL -t "internal error"
 
   [ -z "$PUB_USER_NAME" ] && {
     PUB_USER_NAME="$(git config user.name 2> /dev/null)"
@@ -610,7 +610,7 @@ read_missing_pub_info_from_project_sources_git() {
     [ -n "$PUB_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$PUB_USER_EMAIL\" from the bundle parent project dir"
   }
 
-  cd - > /dev/null || FATAL "internal error"
+  cd - > /dev/null || FATAL -t "internal error"
 }
 
 pbs_fe_propose_credentials_cache() {
@@ -635,6 +635,6 @@ if [ "$1" = "-h" ] || [ "$1" == "" ]; then
 fi
 
 . s/_base.sh
-cd - > /dev/null || FATAL "internal error"
+cd - > /dev/null || FATAL -t "internal error"
 
 RUN "$@"

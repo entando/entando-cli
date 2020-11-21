@@ -12,5 +12,5 @@ cd "$DIR/.." || {
 }
 . s/_base.sh
 
-cd "$WD" || FATAL "Unable to access the current dir: $WD"
+cd "$WD" || FATAL -t "Unable to access the current dir: $WD"
 _ent-npm "$@"
