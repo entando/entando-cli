@@ -60,6 +60,7 @@ ent_clone_repo_DC7C420E09B4492D() {
         git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
 
         if [ "$UPDATE" -eq 1 ]; then
+          echo "> Updating branch of $DSC \"$TAG\"" 1>&2
           git checkout -f master 1> /dev/null || {
             echo "> Unable to checkout the master branch of $DSC \"$TAG\"" 1>&2
             exit 92

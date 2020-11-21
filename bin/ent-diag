@@ -13,7 +13,7 @@ cd "$DIR/.." || {
 . s/_base.sh
 
 args_or_ask -n -f '--help' "$@" && { HH="-h"; echo "> Parameters:"; }
-args_or_ask -p ${HH:+"HH"} "NS" '--namespace/ext_id/entando/Please provide the namespace' "$@"
+args_or_ask -p  ${HH:+"$HH"} "NS" '--namespace/ext_id/entando/Please provide the namespace' "$@"
 
 # NODES
 NN="entando-diagdata-$(date -u '+%Y-%m-%dT%H:%M:%S%z')"

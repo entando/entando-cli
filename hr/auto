@@ -8,10 +8,6 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 [ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 [ -z "$ENTANDO_INTERACTIVE" ] && ENTANDO_INTERACTIVE=false  && echo "Assuming ENTANDO_INTERACTIVE=\"$ENTANDO_INTERACTIVE\""
 
-if [[ "$ENTANDO_CLI_VERSION" = "develop" || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
-  rm -rf "$HOME/.entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/"
-fi
-
 if [ -z "$ENTANDO_DEV_TTY" ]; then
   if [ -t 0 ]; then
     ENTANDO_DEV_TTY="-"
@@ -42,13 +38,18 @@ else
   fi
 
   # shellcheck disable=SC1091
-  bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
-    --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE"
-
-  if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then
-    echo "> Partial installation detected, trying to recover $ENTANDO_CLI_VERSION.."
+  if [[ "$ENTANDO_CLI_VERSION" = "develop" || "$ENTANDO_CLI_VERSION" = "quickstart" || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
     bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
       --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE" --update
+  else
+    bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+      --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE"
+
+    if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then
+      echo "> Partial installation detected, trying to recover $ENTANDO_CLI_VERSION.."
+      bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+        --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE" --update
+    fi
   fi
 
   if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then

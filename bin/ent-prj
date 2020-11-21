@@ -167,10 +167,10 @@ generate_custom_resource() {
     echo "> Parameters:"
   }
 
-  args_or_ask -n -p ${HH:+"HH"} "NAME" '--name///name of the bundle project' "$@"
-  args_or_ask -n -p ${HH:+"HH"} "REPOSITORY" '--repository///url of the publication repository' "$@"
-  args_or_ask -n -p ${HH:+"HH"} "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
-  args_or_ask -n -p ${HH:+"HH"} "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
+  args_or_ask -n -p  ${HH:+"$HH"} "NAME" '--name///name of the bundle project' "$@"
+  args_or_ask -n -p  ${HH:+"$HH"} "REPOSITORY" '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p  ${HH:+"$HH"} "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p  ${HH:+"$HH"} "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
 
   [ -n "$HH" ] && {
     echo ""

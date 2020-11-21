@@ -27,7 +27,7 @@ RUN() {
       local VM_NAME
 
       if [ -z "$DESIGNATED_VM" ]; then
-        args_or_ask -a ${HH:+"HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
+        args_or_ask -a  ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
       else
         VM_NAME="$DESIGNATED_VM"
       fi
@@ -56,11 +56,11 @@ RUN() {
       }
 
       if [ -z "$DESIGNATED_VM" ]; then
-        args_or_ask -a ${HH:+"HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
+        args_or_ask -a  ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
       else
         VM_NAME="$DESIGNATED_VM"
       fi
-      args_or_ask ${HH:+"HH"} -n RELEASE '--release/any?//Optional ent version' "$@"
+      args_or_ask  ${HH:+"$HH"} -n RELEASE '--release/any?//Optional ent version' "$@"
 
       [ -n "$HH" ] && return 0
 

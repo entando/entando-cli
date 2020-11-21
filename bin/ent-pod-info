@@ -15,9 +15,9 @@ args_or_ask -n -f '--help' "$@" && {
   echo "> Parameters:"
 }
 
-args_or_ask ${HH:+"HH"} ENTANDO_NAMESPACE "--namespace/ext_id//%sp provide the namespace" "$@"
-args_or_ask ${HH:+"HH"} -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
-args_or_ask ${HH:+"HH"} -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
+args_or_ask  ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_id//%sp provide the namespace" "$@"
+args_or_ask  ${HH:+"$HH"} -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
+args_or_ask  ${HH:+"$HH"} -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
 
 [ -n "$HH" ] && return 0
 
