@@ -42,7 +42,6 @@ hostsfile_add_dns() {
   echo "$1 $2    ##ENT-CUSTOM-VALUE##$3" | _sudo tee -a "$C_HOSTS_FILE" > /dev/null
 }
 
-
 # Checks the SemVer of a program
 # > check_ver <program> <expected-semver-pattern> <program-params-for-showing-version\> <mode>
 check_ver() {
@@ -135,7 +134,7 @@ make_safe_resolv_conf() {
 
 # MISC
 
-if [[ ! -t 0 || $OS_WIN = "true" ]]; then
+if [[ ! -t 0 || $OS_WIN == "true" ]]; then
   _watch() {
     if [ "$1" == "-v" ]; then
       echo "ent fake watch UNKNOWN"
@@ -185,7 +184,7 @@ function _ent-npm() {
   (
     case "$1" in
       bin)
-        npm bin --prefix "$P" -g 2>/dev/null
+        npm bin --prefix "$P" -g 2> /dev/null
         ;;
       install-from-source)
         shift
@@ -216,9 +215,9 @@ function _ent-npm--import-module-to-current-dir() {
 function _ent-jhipster() {
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
-      "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2>/dev/null | grep -v INFO
+      "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2> /dev/null | grep -v INFO
     else
-      "$ENT_NPM_BIN_DIR/jhipster" -V 2>/dev/null | grep -v INFO
+      "$ENT_NPM_BIN_DIR/jhipster" -V 2> /dev/null | grep -v INFO
     fi
   else
     require_develop_checked
@@ -402,11 +401,13 @@ __cd() {
   }
 }
 
+# shellcheck disable=SC1090
+# shellcheck disable=SC1091
 activate_shell_login_environment() {
- [ -f /etc/profile ] && . /etc/profile
- [ -f ~/.bash_profile ] && . ~/.bash_profile && return 0
- [ -f ~/.bash_login ] && . ~/.bash_login && return 0
- [ -f ~/.profile ] && . ~/.profile && return 0
+  [ -f /etc/profile ] && . /etc/profile
+  [ -f ~/.bash_profile ] && . ~/.bash_profile && return 0
+  [ -f ~/.bash_login ] && . ~/.bash_login && return 0
+  [ -f ~/.profile ] && . ~/.profile && return 0
 }
 
 return 0

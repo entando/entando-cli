@@ -10,7 +10,7 @@
 #H:: SubCommands:
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
@@ -45,8 +45,10 @@ RUN() {
       clear_kubectl_command --clear
       ;;
     *) #H: any other command is passed to kubectl
-      args_or_ask -n "NAMESPACE" "--namespace" "$@"
-      args_or_ask -n -s -p "NAMESPACE" "-n" "$@"
+      HH="$(parse_help_option "$@")"; show_help_option "$HH"
+      args_or_ask ${HH:+"$HH"} -n "NAMESPACE" "--namespace" "$@"
+      args_or_ask ${HH:+"$HH"} -n -s -p "NAMESPACE" "-n" "$@"
+      [ -n "$HH" ] && exit 0
 
       if [ -z "$DESIGNATED_KUBECTL_CMD" ]; then
         if [[ "$1" = "create" || "$1" = "apply" ]]; then
@@ -79,11 +81,11 @@ clear_kubectl_command() {
 
 set_kubectl_command() {
   args_or_ask -n -f '--help' "$@" && {
-    local HH="-h"
+    local HH="--help"
     echo "> Parameters:"
   }
 
-  args_or_ask -a  ${HH:+"$HH"} "DESIGNATED_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
+  args_or_ask -a ${HH:+"$HH"} "DESIGNATED_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
   save_cfg_value "DESIGNATED_KUBECTL_CMD" "$DESIGNATED_KUBECTL_CMD"
 
   # reset kubeconfig setup
@@ -102,7 +104,7 @@ print_status_info() {
 
   echo ""
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  echo "~ ent-kubectl is currently attached $mode"
+  echo "~ ent kubectl is currently attached $mode"
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 
@@ -110,13 +112,19 @@ print_status_info() {
 # ######################################################################################################################
 # ######################################################################################################################
 
-if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+if [ "$1" = "--help" ] || [ "$1" == "" ]; then
   . s/_base.sh
 
   [ "$1" == "" ] && print_status_info
-  print_ent_tool_help "$2"
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   exit 0
 fi
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands
+  exit 0
+}
 
 . s/_base.sh
 cd - > /dev/null || FATAL -t "internal error"

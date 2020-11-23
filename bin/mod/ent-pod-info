@@ -1,25 +1,26 @@
 #!/bin/bash
 
-[ "$1" = "-h" ] && echo -e "Displays infomations related to a set of pods | Syntax: ${0##*/} namespace pod-name-pattern" && exit 0
+[ "$1" = "--help" ] && {
+  name="${0##*/}"
+  echo -e "Displays infomations related to a set of pods | Syntax: (run \"${name//ent-/ent } --help\")" && exit 0
+}
+
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
 
 . s/_base.sh
 
-args_or_ask -n -f '--help' "$@" && {
-  HH="-h"
-  echo "> Parameters:"
-}
+HH="$(parse_help_option "$@")"; show_help_option "$HH"
 
-args_or_ask  ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_id//%sp provide the namespace" "$@"
-args_or_ask  ${HH:+"$HH"} -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
-args_or_ask  ${HH:+"$HH"} -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
+args_or_ask ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_id//%sp the namespace" "$@"
+args_or_ask ${HH:+"$HH"} -n POD_PATT '--pod-patt/any?//%sp the pod filter pattern' "$@"
+args_or_ask ${HH:+"$HH"} -n LOG_PATT '--log-patt/any?//%sp the log filter pattern' "$@"
 
-[ -n "$HH" ] && return 0
+[ -n "$HH" ] && exit 0
 
 _kubectl-pre-sudo
 

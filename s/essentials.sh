@@ -160,11 +160,12 @@ fi
   # helper function to print the file help
   # shellcheck disable=SC2001
   # shellcheck disable=SC2155
-  print_ent_tool_help() {
+  print_ent_module_help() {
 
     if [ "$1" = "--short" ]; then
-      local short_help=$(grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
-      short_help+=" | Syntax: (run ${0##*/} -h)"
+      local short_help=$(grep '#''H::' "bin/$0" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
+      local name="${0##*/}"
+      short_help+=" | Syntax: (run \"${name//ent-/ent } --help\")"
       echo "$short_help"
       return
     fi
@@ -200,6 +201,10 @@ fi
     done < <(grep '#''H:%' "$0" | _perl_sed "s/^[[:space:]]*#H:%[[:space:]]{0,1}//")
 
     [ -z "$NOTE" ] && echo ""
+  }
+
+  print_ent_module_sub-commands() {
+    grep '#''H: ' "$0" | _perl_sed 's/[[:space:]]*([^|) ]*).*/\1/' | _perl_sed 's/"//g' | grep -v '\*'
   }
 
   var_to_param() {

@@ -51,7 +51,7 @@ save_cfg_value() {
     fi
   fi
   if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
-    FATAL "save_cfg_value: Unsupported multiline value"
+    FATAL "save_cfg_value: Unsupported multiline value $value"
   fi
   if $IS_MAP; then
     local key
@@ -325,7 +325,7 @@ print_entando_banner() {
 # requires that the system environment was checked for development mode
 #
 require_develop_checked() {
-  [ "$WAS_DEVELOP_CHECKED" != "true" ] && FATAL "Run \"ent-check-env develop\" before this command"
+  [ "$WAS_DEVELOP_CHECKED" != "true" ] && FATAL "Run \"ent check-env develop\" before this command"
 }
 
 # requires that the project dir is properly initialized
@@ -414,6 +414,8 @@ args_or_ask() {
   local PRESERVE=false
   local JUST_PRINT_HELP=false
   local SPACE_SEP=false
+  local PRINT_COMPLETION_CODE=false
+  local IS_DEFAULT=false
 
   print_sub_help() {
     local val_name="$1"
@@ -439,7 +441,9 @@ args_or_ask() {
       -a) ARG=true;shift;;
       -p) PRESERVE=true;shift;;
       -s) SPACE_SEP=true;shift;;
-      -h) JUST_PRINT_HELP=true;shift;;
+      -d) IS_DEFAULT=true;shift;;
+      --help) JUST_PRINT_HELP=true;shift;;
+      --cmplt) PRINT_COMPLETION_CODE=true;shift;;
       *) break;;
     esac
   done
@@ -449,16 +453,26 @@ args_or_ask() {
     shift
   }
 
-  local val_name val_type val_def val_msgs
+  local val_name val_type val_def val_msg
   IFS='/' read -r val_name val_type val_def val_msg <<< "${1}/"
   shift
+
+  $PRINT_COMPLETION_CODE && {
+    if $FLAG; then
+      echo "${val_name}"
+    elif $ARG; then
+      :;
+    else
+      echo "${val_name}="
+    fi
+    return 1
+  }
 
   ! $FLAG && ! $PRESERVE && {
     _set_var "$var_name" ""
   }
 
-  val_msg="${val_msg//%var/$dvar}"
-  val_msg="${val_msg//%sp/Please provide the}"
+  $IS_DEFAULT && [ -z "$1" ] && return 0
 
   # user provided value
   if $ARG; then
@@ -476,7 +490,7 @@ args_or_ask() {
     index_of_arg "${val_name}" "$@"
     found_at="$?"
 
-    print_sub_help "$val_name" "$val_msg" && return 0
+    print_sub_help "$val_name" "$val_msg" && return 2
 
     if [ $found_at -ne 255 ]; then
       $FLAGANDVAR && _set_var "$var_name" "true"
@@ -508,12 +522,13 @@ args_or_ask() {
     fi
   fi
 
-  print_sub_help "$val_name" "$val_msg" && return 0
+  print_sub_help "$val_name" "$val_msg" && return 2
 
   if $FLAG; then
     index_of_arg "${val_name}" "$@"
     [ "$?" -eq 255 ] && return 1 || return 0
   fi
+
 
   [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NOASK && return 255
 
@@ -562,9 +577,34 @@ args_or_ask() {
   fi
 }
 
+simple_shell_completion_handler() {
+  if [ "$1" = "--cmplt" ]; then
+    shift
+    for a in "$@"; do echo "$a"; done
+  fi
+}
+
+parse_help_option() {
+  local ARG="${BASH_ARGV[0]}"
+
+  case "$ARG" in
+    "--help") HH="--help";;
+    "--cmplt") HH="--cmplt"
+  esac
+
+  echo "$HH"
+}
+
+show_help_option() {
+  case "$1" in
+    --help) echo "> Parameters:";;
+    --cmplt) echo "--help";;
+  esac
+}
+
 args_or_ask__a_remote() {
   [ "$1" = "-a" ] && local PRE="$1" && shift
-  [ "$1" = "-h" ] && local HH="$1" && shift
+  [ "$1" = "--help" ] && local HH="$1" && shift
   local var_name="$1"
   shift
   local switch="$1"

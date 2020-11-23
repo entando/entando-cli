@@ -21,7 +21,7 @@ _be sure the bash executable is in path_
 _run the environment dependencies checker_
 
 ```
-ent-check-env {mode}
+ent check-env {mode}
 ```
 
 # Installation
@@ -50,7 +50,7 @@ _clone/download the project and then:_
 # Help
 
 ```
-<ent-path>/bin/ent-help
+<ent-path>/bin/ent help
 ```
 
 # Activation

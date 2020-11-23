@@ -13,7 +13,7 @@
 #H:: SubCommands:
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
@@ -38,6 +38,7 @@ RUN() {
         init_project
         ;;
       "build" | "ba") #H: builds both frontend and backend
+        simple_shell_completion_handler "$1" "--all" && return 0
         require_develop_checked
         require_ent_project_dir
         print_entando_banner
@@ -125,7 +126,7 @@ RUN() {
         ext_keycloak "$@"
         ;;
       *)
-        print_ent_tool_help
+        print_ent_module_help
         break
         ;;
     esac
@@ -162,15 +163,15 @@ generate_custom_resource() {
   local THUMBNAIL_FILE="$ENTANDO_ENT_HOME/$C_ENTANDO_LOGO_FILE"
 
   args_or_ask -n -f '--help' "$@" && {
-    local HH="-h"
+    local HH="--help"
     echo ""
     echo "> Parameters:"
   }
 
-  args_or_ask -n -p  ${HH:+"$HH"} "NAME" '--name///name of the bundle project' "$@"
-  args_or_ask -n -p  ${HH:+"$HH"} "REPOSITORY" '--repository///url of the publication repository' "$@"
-  args_or_ask -n -p  ${HH:+"$HH"} "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
-  args_or_ask -n -p  ${HH:+"$HH"} "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "NAME" '--name///name of the bundle project' "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "REPOSITORY" '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
 
   [ -n "$HH" ] && {
     echo ""
@@ -628,11 +629,17 @@ pbs_fe_propose_credentials_cache() {
 # ######################################################################################################################
 # ######################################################################################################################
 
-if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+if [[ "$1" = "--help" || "$1" == "" ]]; then
   . s/essentials.sh
-  print_ent_tool_help "$2"
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   exit 0
 fi
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands
+  exit 0
+}
 
 . s/_base.sh
 cd - > /dev/null || FATAL -t "internal error"

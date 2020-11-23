@@ -115,7 +115,7 @@ cleanup() {
 trap cleanup exit
 
 cat << EOF > "$T"
-  ent-quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+  ent quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
 EOF
 
 if [ "$ENTANDO_DEV_TTY" = "-" ]; then

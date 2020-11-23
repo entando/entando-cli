@@ -1,22 +1,26 @@
 #!/bin/bash
 
-H() {
-  if [ "$1" == "short" ]; then
-    echo -e "Checks the environment for required dependencies and settings | Syntax: ${0##*/} [--lenient] <env-type>"
-  else
-    echo -e "Checks the environment for required dependencies and settings\nSyntax: ${0##*/} [--lenient] <env-type>"
-    echo -e "--lenient:\n    don't fail if a required dependency or setting is missing"
-    echo "env-type:"
-    grep '#''H:' "$0" | sed 's/[[:space:]]*\(.*\))[[:space:]]*#''H:\(.*\)/  - \1: \2/'
-  fi
-}
+# HELP HEADER
+#H::
+#H:: Checks the environment for required dependencies and settings
+#H::
+#H:: Syntax:
+#H::  - {{TOOL-NAME}} [--lenient] {sub-command}
+#H::
+#H:: Options:
+#H::  --lenient:  doesn't fail if a dependency is not available
+#H::
+#H:: SubCommands:
 
-[ "$1" = "-h" ] && {
-  { [ "$2" != "--short" ] && H "full" && exit 0; } || { H "short" && exit 0; }
+[[ "$1" = "--help" || -z "$1" ]] && { print_ent_module_help "${BASH_SOURCE[0]}" "$2"; exit; }
+
+[ "$1" = "--cmplt" ] && {
+  echo -e "develop\nruntime"
+  exit 0
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }

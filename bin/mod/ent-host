@@ -9,31 +9,27 @@
 #H:: Built-in Scripts:
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
 
 RUN() {
-  args_or_ask -n -f '--help' "$@" && {
-    local HH="-h"
-    echo "> Parameters:"
-  }
-
   local CMD="$1";shift
+  HH="$(parse_help_option "$@")"; show_help_option "$HH";
+
   case "$CMD" in
     #---------------------------------------------------------------------------------------------------------------------
     "setup-vm-hostname")  #H: setups the domain name in a single hostname setup (--hostname in quickstart)
-      local VM_NAME
+      local VM_NAME ADDR
 
       if [ -z "$DESIGNATED_VM" ]; then
-        args_or_ask -a  ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
+        args_or_ask -a ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
       else
         VM_NAME="$DESIGNATED_VM"
       fi
-      [ -n "$HH" ] && return 0
 
-      local ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+      ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
 
       _log_i 1 "Setting up hostname \"$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX\" for VM \"$VM_NAME\" to address \"$ADDR\""
 
@@ -48,19 +44,16 @@ RUN() {
       ;;
     #---------------------------------------------------------------------------------------------------------------------
     "fix-vm-ddns")  #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
-      local VM_NAME
+      local VM_NAME ADDR CFG
       #---
-      args_or_ask -n -f '--help' "$@" && {
-        local HH="-h"
-        echo "> Parameters:"
-      }
-
       if [ -z "$DESIGNATED_VM" ]; then
-        args_or_ask -a  ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL -t "Unable to determine the VM name"
+        args_or_ask -a ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || {
+          [ -z "$HH" ] && FATAL -t "Unable to determine the VM name"
+        }
       else
         VM_NAME="$DESIGNATED_VM"
       fi
-      args_or_ask  ${HH:+"$HH"} -n RELEASE '--release/any?//Optional ent version' "$@"
+      args_or_ask ${HH:+"$HH"} -n RELEASE '--release/any?//Optional ent version' "$@"
 
       [ -n "$HH" ] && return 0
 
@@ -77,9 +70,9 @@ RUN() {
 
       #---
       # shellcheck disable=SC2016
-      local ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+      ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
       # shellcheck disable=SC2016
-      local CFG=$(multipass exec "$VM_NAME" -- bash -c '. .entando/ent/'"$RELEASE"'/cli/*/w/.cfg && echo "$ENTANDO_NAMESPACE;$ENTANDO_APPNAME;$ENTANDO_SUFFIX"')
+      CFG=$(multipass exec "$VM_NAME" -- bash -c '. .entando/ent/'"$RELEASE"'/cli/*/w/.cfg && echo "$ENTANDO_NAMESPACE;$ENTANDO_APPNAME;$ENTANDO_SUFFIX"')
 
       IFS=';' read -r -a CFG_ARR <<< "$CFG"
       set_nn_dn "ENTANDO_NAMESPACE" "${CFG_ARR[0]}"
@@ -112,16 +105,22 @@ RUN() {
       _log_i 1 "Operation completed"
       ;;
     *)
-      FATAL -t "unknown options"
+      FATAL -t "unknown option $CMD"
       ;;
   esac
 }
 
-if [ "$1" = "-h" ] || [ "$1" == "" ]; then
+if [[ "$1" = "--help"  ||  "$1" == "" ]]; then
   . s/essentials.sh
-  print_ent_tool_help "$2"
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   exit 0
 fi
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands
+  exit 0
+}
 
 . s/_base.sh
 cd - > /dev/null || FATAL -t "internal error"

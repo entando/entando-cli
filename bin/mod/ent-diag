@@ -1,10 +1,10 @@
 #!/bin/bash
 # shellcheck disable=SC2129
 
-[ "$1" = "-h" ] && echo -e "Runs some diagnostic and collects the related info in a tgz file | Syntax: ${0##*/} namespace" && exit 0
+[ "$1" = "--help" ] && echo -e "Runs some diagnostic and collects the related info in a tgz file | Syntax: ${0##*/} namespace" && exit 0
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
@@ -12,8 +12,9 @@ cd "$DIR/.." || {
 
 . s/_base.sh
 
-args_or_ask -n -f '--help' "$@" && { HH="-h"; echo "> Parameters:"; }
-args_or_ask -p  ${HH:+"$HH"} "NS" '--namespace/ext_id/entando/Please provide the namespace' "$@"
+HH="$(parse_help_option "$@")"; show_help_option "$HH"
+args_or_ask ${HH:+"$HH"} -p "NS" '--namespace/ext_id/entando/%sp the namespace' "$@"
+[ -n "$HH" ] && exit 0
 
 # NODES
 NN="entando-diagdata-$(date -u '+%Y-%m-%dT%H:%M:%S%z')"

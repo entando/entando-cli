@@ -1,17 +1,19 @@
 #!/bin/bash
 
-[ "$1" = "-h" ] && echo -e "Helps in having help | Syntax: ${0##*/}" && exit 0
+[ "$1" = "--help" ] && echo -e "Helps in having help | Syntax: ${0##*/}" && exit 0
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
+[ "$1" = "--cmplt" ] && exit 0
 
 . s/_base.sh
 
-SIMPLE=false; [ "$1" == "--simple" ] && SIMPLE=true
+SIMPLE=false; [ "$1" = "--simple" ] && { SIMPLE=true;shift; }
+SS=false; [ "$1" = "--ent-base-comp" ] && { SIMPLE=true;SS=true;shift; }
 
 ! $SIMPLE && {
   echo ""
@@ -31,13 +33,18 @@ SIMPLE=false; [ "$1" == "--simple" ] && SIMPLE=true
 
 
 cd bin || { echo "Unable to enter directory $PWD/bin"; exit 99; }
-for file in ent-*; do
-  H=$($file -h --short)
-  if $SIMPLE; then
-    file="${file//ent-/}"
-    printf "  - %-21s%s\n" "$file" "$H"
+for file in mod/ent-*; do
+  mod="${file//mod\/ent-/}"
+  if $SS; then
+    echo "$mod "
   else
-    printf "  - %-20s => %s\n" "$file" "$H"
+    H=$($file --help --short)
+    if $SIMPLE; then
+      file="${file//m\/ent-/}"
+      printf "  - %-21s%s\n" "$mod" "$H"
+    else
+      printf "  - %-20s => %s\n" "$mod" "$H"
+    fi
   fi
 done
 
@@ -53,7 +60,7 @@ cd ..
   echo ""
   echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"
 
-  echo -e "  - Check the dependencies (ent-check-env -h)"
+  echo -e "  - Check the dependencies (ent check-env --help)"
 
   echo ""
 }

@@ -48,4 +48,13 @@ PATH="$ENTANDO_ENT_HOME/bin:$PATH"
 export PATH
 unset ENTANDO_ENT_HOME_NEW
 
+if [ -n "$ZSH_VERSION" ]; then
+  # shellcheck disable=SC1090
+  source <(ent print-completion-setup zsh)
+else
+  # shellcheck disable=SC1091
+  source /dev/stdin <<<"$(ent print-completion-setup bash)"   # bash 3.2 compatible syntax
+fi
+
 [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_HOME\" activated"
+

@@ -1,9 +1,16 @@
 #!/bin/bash
+[ "$1" = "--help" ] && {
+  name="${0##*/}"
+  echo -e "Displays information about an entando app | Syntax: (run \"${name//ent-/ent } --help\")" && exit 0
+}
 
-[ "$1" = "-h" ] && echo -e "Displays information about an entando app | Syntax: ${0##*/} [namespace]" && exit 0
+[ "$1" = "--cmplt" ] && {
+  echo -e "watch\nstatus"
+  exit 0
+}
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
+cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
 }
@@ -11,7 +18,7 @@ cd "$DIR/.." || {
 . s/_base.sh
 
 if [ -n "$DESIGNATED_VM" ]; then
-  multipass exec "$DESIGNATED_VM" -- bash -c "source .entando/activate && \"${0##*/}\" $*"
+  multipass exec "$DESIGNATED_VM" -- bash -c "source .entando/activate && ent app-info $*"
   exit
 fi
 
