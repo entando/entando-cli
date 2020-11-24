@@ -161,19 +161,20 @@ fi
   # shellcheck disable=SC2001
   # shellcheck disable=SC2155
   print_ent_module_help() {
+    script="$1"; shift
 
     if [ "$1" = "--short" ]; then
-      local short_help=$(grep '#''H::' "bin/$0" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
-      local name="${0##*/}"
+      local short_help=$(grep '#''H::' "bin/$script" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
+      local name="${script##*/}"
       short_help+=" | Syntax: (run \"${name//ent-/ent } --help\")"
       echo "$short_help"
       return
     fi
 
-    grep '#''H::' "$0" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
-      | _perl_sed 's/^([[:space:]]*)>/\1➤/' | _perl_sed "s/\{\{TOOL-NAME\}\}/${0##*/}/"
+    grep '#''H::' "$script" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
+      | _perl_sed 's/^([[:space:]]*)>/\1➤/' | _perl_sed "s/\{\{TOOL-NAME\}\}/${script##*/}/"
 
-    grep '#''H:' "$0" | while IFS= read -r var; do
+    grep '#''H:' "$script" | while IFS= read -r var; do
       if [[ "$var" =~ "#H::" || "$var" =~ "#H:%" ]]; then
         :
       elif [[ "$var" =~ "#H:>" ]]; then
@@ -204,7 +205,7 @@ fi
   }
 
   print_ent_module_sub-commands() {
-    grep '#''H: ' "$0" | _perl_sed 's/[[:space:]]*([^|) ]*).*/\1/' | _perl_sed 's/"//g' | grep -v '\*'
+    grep '#''H: ' "$1" | _perl_sed 's/[[:space:]]*([^|) ]*).*/\1/' | _perl_sed 's/"//g' | grep -v '\*'
   }
 
   var_to_param() {

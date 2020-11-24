@@ -28,7 +28,7 @@ SS=false; [ "$1" = "--ent-base-comp" ] && { SIMPLE=true;SS=true;shift; }
   echo -e "  - Dectivate using: $PWD/deactivate"
   echo ""
 
-  echo "> Available tools:"
+  echo "> Available commands:"
 }
 
 

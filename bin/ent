@@ -66,10 +66,7 @@ RUN() {
         source ent help
         ;;
       --cmplt)
-        modules=()
-        while IFS='' read -r line; do modules+=("$line"); done < <(ent help --ent-base-comp)
-        modules+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config")
-        printf '%s\n' "${modules[@]}"
+        cmplt
         ;;
       *)
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
@@ -126,6 +123,20 @@ attach_vm() {
   # reset kubectl command setup
   save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
 }
+
+cmplt() {
+  cd "$ENTANDO_ENT_HOME/bin/mod" || { echo "Unable to enter directory $PWD/bin"; exit 99; }
+  for file in ent-*; do
+    mod="${file//ent-/}"
+    echo "$mod "
+  done
+
+  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config")
+
+  for tc  in "${topcmd[@]}"; do
+    echo "$tc "
+  done
+}
 # ######################################################################################################################
 # ######################################################################################################################
 # ######################################################################################################################
@@ -135,6 +146,11 @@ if [[ "$1" = "--help" || "$1" == "" ]]; then
   print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   exit 0
 fi
+
+[ "$1" = "--cmplt" ] && {
+  cmplt
+  exit 0
+}
 
 . s/_base.sh
 cd - > /dev/null || FATAL -t "internal error"

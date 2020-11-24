@@ -12,8 +12,8 @@ ENTANDO_APPNAME="$1"
 [ "$ENTANDO_APPNAME" == "" ] && echo "please provide the app name" 1>&2 && exit 1
 shift
 
+start_time="$1"
 if [ -n "$start_time" ]; then
-  start_time="$1"
   now="$(date -u +%s)"
   elapsed="$((now-start_time))"
   elapsed_mm="$((elapsed/60))"
