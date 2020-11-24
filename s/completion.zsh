@@ -6,15 +6,18 @@ _entando_ent_complete_zsh() {
   _arguments -C "1: :($(ent --cmplt 2>/dev/null))" "*::arg:->args"
 
   count="${#line}"
-  echo $LINENO: "${line[*]}" >> /tmp/t
 
-  local CMPLTCMD=("ent")
-  local i=0
+  local query=("ent")
+  local i=0 V
   while [ $i -lt "$count" ]; do
-    CMPLTCMD+=("${line[$i]}")
+    V="${line[$i]}"
+    query+=("$V")
+    if [ "$V" = "--AND" ]; then
+      query=("ent")
+    fi
     ((i++))
   done
-  CMPLTCMD+=("--cmplt")
+  query+=("--cmplt")
 
   if [[ "$state" == "args" ]]; then
     while IFS= read -r arg; do
@@ -24,7 +27,7 @@ _entando_ent_complete_zsh() {
       else
         compadd -S ' ' -- "${arg}"
       fi
-    done < <(${CMPLTCMD[*]} 2>/dev/null)
+    done < <(${query[*]} 2>/dev/null)
   fi
   return 0
 }

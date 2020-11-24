@@ -3,14 +3,9 @@
 # shellcheck disable=SC2207
 _entando_ent_complete() {
   local curr=${COMP_WORDS[COMP_CWORD]}
-  local partial="${COMP_WORDS[*]}"
+  local partial="${COMP_WORDS[*]}" query=""
   local line last values
-
-  COMPREPLY=()
-
-  if [ "$COMP_CWORD" -eq 1 ]; then
-    values="$(ent --cmplt 2>/dev/null)"
-  else
+  if [ "$COMP_CWORD" -gt 1 ]; then
     if [ -n "$partial" ]; then
       last=${#partial}
       ((last--))
@@ -23,17 +18,26 @@ _entando_ent_complete() {
     fi
 
     if $IS_STUB; then
-      partial=""
-      local i=0
+      query=""
+      local i=0 V
       while [ $i -lt "$COMP_CWORD" ]; do
-        partial+="${COMP_WORDS[$i]} "
+        V="${COMP_WORDS[$i]}"
+        query+="${V} "
+        if [ "$V" = "--AND" ]; then
+          query="ent "
+        fi
         ((i++))
       done
     fi
-
-    values="$($partial --cmplt 2>/dev/null)"
   fi
 
+  if [ -z "$query" ]; then
+    values="$(ent --cmplt 2>/dev/null)"
+  else
+    values="$($query --cmplt 2>/dev/null)"
+  fi
+
+  COMPREPLY=()
   while IFS= read -r line; do
     last=${#line}; ((last--))
     if [ "${line:$last:1}" = "=" ]; then

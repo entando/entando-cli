@@ -128,13 +128,13 @@ cmplt() {
   cd "$ENTANDO_ENT_HOME/bin/mod" || { echo "Unable to enter directory $PWD/bin"; exit 99; }
   for file in ent-*; do
     mod="${file//ent-/}"
-    echo "$mod "
+    echo "$mod"
   done
 
   local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config")
 
   for tc  in "${topcmd[@]}"; do
-    echo "$tc "
+    echo "$tc"
   done
 }
 # ######################################################################################################################
