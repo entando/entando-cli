@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #H::
-#H:: The Entando Command Line Toolset
+#H:: The Entando Command Line
 #H::
 #H:: Syntax:
-#H::  - ent {module} {command} {params}
+#H::  - ent {command} {sub-command} {params}
 #H::
 #H:: Built-in Scripts:
 
@@ -46,7 +46,7 @@ RUN() {
         # shellcheck disable=SC1091
         source ent host "$cmd" "$@"
         ;;
-      "modules") #H: shows the ent modules
+      "commands") #H: shows the ent modules
         # shellcheck disable=SC1091
         source ent help --simple
         ;;

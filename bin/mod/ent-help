@@ -18,7 +18,7 @@ SS=false; [ "$1" = "--ent-base-comp" ] && { SIMPLE=true;SS=true;shift; }
 ! $SIMPLE && {
   echo ""
   echo "~~~~~~~~~~~~~~~~~~~"
-  echo " Entando CLI tools "
+  echo " Entando CLI "
   echo "~~~~~~~~~~~~~~~~~~~"
   echo ""
 

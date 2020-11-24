@@ -193,7 +193,7 @@ fi
       for var in $ln; do
         case "$var" in
           CHAINED) echo -e "$NOTE  - This command supports chained execution (${0##*/} subcmd1 --AND subcmd2)" ;;
-          OPTPAR) echo -e "$NOTE  - Some of the parameters can be omitted or set to \"\", in which case the tool would interactively ask to enter the value if required" ;;
+          OPTPAR) echo -e "$NOTE  - Some of the parameters can be omitted or set to \"\", in which case the command would interactively ask to enter the value if required" ;;
           SHORTS) echo -e "$NOTE  - Shorthands are reported in square brackets just after the main sub-command" ;;
           *) false ;;
         esac && NOTE=""

@@ -1,4 +1,4 @@
-# Entando CLI tools
+# Entando CLI
 
 # Requirements:
 
@@ -63,9 +63,10 @@ _from bash or a zsh variant_
 # Directory structure:
 
 ```
-s/    => support scripts and bins
-w/    => work/status dir (gitignored)
-dist/ => distribution files
-lib/  => additional dependencies installed by ent
-bin/  => the entando cli tools
+s/       => support scripts and bins
+w/       => work/status dir (gitignored)
+dist/    => distribution files
+lib/     => additional dependencies installed by ent
+bin/     => the entando cli main script
+bin/mod  => the implementations of the entando cli commands
 ```
