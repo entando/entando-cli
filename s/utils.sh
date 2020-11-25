@@ -444,6 +444,7 @@ args_or_ask() {
       -d) IS_DEFAULT=true;shift;;
       --help) JUST_PRINT_HELP=true;shift;;
       --cmplt) PRINT_COMPLETION_CODE=true;shift;;
+      --) shift;break;;
       *) break;;
     esac
   done

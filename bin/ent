@@ -28,10 +28,10 @@ RUN() {
     case "$cmd" in
       "config") #H: [--edit] -- attach ent to a ent-managed VM
         HH="$(parse_help_option "$@")"; show_help_option "$HH"
-        args_or_ask ${HH:+"$HH"} -f -d '--print///print the configuration (default)' "$@" && {
+        args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
           cat "$ENTANDO_ENT_HOME/w/.cfg"
         }
-        args_or_ask ${HH:+"$HH"} -f '--edit///edits the configuration' "$@" && {
+        args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
           edit "$ENTANDO_ENT_HOME/w/.cfg"
         }
         [ -n "$HH" ] && exit 0
@@ -93,7 +93,7 @@ detach_vm() {
 }
 
 attach_vm() {
-  args_or_ask -n -f '--help' "$@" && {
+  args_or_ask -n -f -- '--help' "$@" && {
     local HH="--help"
     echo "> Parameters:"
   }

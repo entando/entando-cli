@@ -74,13 +74,13 @@ RUN() {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 clear_kubectl_command() {
-  args_or_ask -f "--clear" "$@" && {
+  args_or_ask -f -- "--clear" "$@" && {
     save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
   }
 }
 
 set_kubectl_command() {
-  args_or_ask -n -f '--help' "$@" && {
+  args_or_ask -n -f -- '--help' "$@" && {
     local HH="--help"
     echo "> Parameters:"
   }

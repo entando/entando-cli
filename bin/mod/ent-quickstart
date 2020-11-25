@@ -63,7 +63,7 @@ args_or_ask -n -F "IN_QUICKSTART_VM" "--in-quickstart-vm///Tells quickstart the 
   ENTANDO_OPT_YES_FOR_ALL=true
 }
 
-args_or_ask -f "--destroy" "$@" && {
+args_or_ask -f -- "--destroy" "$@" && {
   reload_cfg
   prepare_for_privileged_commands
   ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {

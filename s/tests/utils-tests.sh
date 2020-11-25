@@ -109,8 +109,8 @@ test_args_or_ask() {
   args_or_ask -n "RES" "--name" --pos=1 --name --surname=asurname || FATAL "failed! $LINENO"
   [ "$RES" = "" ] || FATAL "failed! $LINENO"
   # Pure Flags
-  args_or_ask -f "--clean" --build --clean || FATAL "failed! $LINENO"
-  args_or_ask -f "--find" --build --clean && FATAL "failed! $LINENO"
+  args_or_ask -f -- "--clean" --build --clean || FATAL "failed! $LINENO"
+  args_or_ask -f -- "--find" --build --clean && FATAL "failed! $LINENO"
   # Flags with assigned var (-a)
   args_or_ask -F "RES" "--clean" --build --clean || FATAL "failed! $LINENO"
   [ "$RES" = "true" ] || FATAL "failed! $LINENO"

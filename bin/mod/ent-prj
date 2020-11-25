@@ -162,7 +162,7 @@ generate_custom_resource() {
   local REPOSITORY="$(get_bundle_repo_url)"
   local THUMBNAIL_FILE="$ENTANDO_ENT_HOME/$C_ENTANDO_LOGO_FILE"
 
-  args_or_ask -n -f '--help' "$@" && {
+  args_or_ask -n -f -- '--help' "$@" && {
     local HH="--help"
     echo ""
     echo "> Parameters:"
