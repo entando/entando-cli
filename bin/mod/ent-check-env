@@ -71,7 +71,9 @@ $M_DEVL && {
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
 check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
-check_ver "awk" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+check_ver "awk" "*.*.*" "--version | head -n 1" "quiet" || {
+  check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || MAYBE_FATAL "Quitting"
+}
 check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
 $M_DEVL && {
