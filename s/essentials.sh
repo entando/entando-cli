@@ -88,6 +88,7 @@ fi
   prepare_for_privileged_commands() {
     # NB: not using "sudo -v" because misbehaves with password-less sudoers
     _sudo true
+    [[ "$1" = "-m" && "$?" -ne 0 ]] && FATAL -t "Unable to obtain the required privileges"
   }
 
   # KUBECTL
@@ -100,7 +101,7 @@ fi
       ENTANDO_KUBECTL_MODE="COMMAND"
       _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
-        _kubectl-pre-sudo() { prepare_for_privileged_commands; }
+        _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       else
         _kubectl-pre-sudo() { :; }
       fi
@@ -119,7 +120,7 @@ fi
           _kubectl-pre-sudo() { :; }
         else
           _kubectl() { sudo k3s kubectl "$@"; }
-          _kubectl-pre-sudo() { prepare_for_privileged_commands true; }
+          _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
         fi
       else
         if $OS_WIN; then
@@ -127,7 +128,7 @@ fi
           _kubectl-pre-sudo() { :; }
         else
           _kubectl() { sudo kubectl "$@"; }
-          _kubectl-pre-sudo() { prepare_for_privileged_commands true; }
+          _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
         fi
       fi
     fi

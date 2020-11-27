@@ -1,4 +1,5 @@
 #!/bin/bash
+
 [ "$1" = "--help" ] && {
   name="${0##*/}"
   echo -e "Displays information about an entando app | Syntax: (run \"${name//ent-/ent } --help\")" && exit 0
@@ -49,7 +50,7 @@ $STATUS && {
   exit
 }
 
-_kubectl-pre-sudo
+_kubectl-pre-sudo -m
 
 _log_i 1 "NODES:"
 _kubectl get nodes
