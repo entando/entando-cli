@@ -38,7 +38,7 @@ RUN() {
         init_project
         ;;
       "build" | "ba") #H: builds both frontend and backend
-        simple_shell_completion_handler "$1" "--all" && return 0
+        simple_shell_completion_handler -- "$1" "--all" && return 0
         require_develop_checked
         require_ent_project_dir
         print_entando_banner
@@ -278,6 +278,8 @@ get_be_info() {
 
   [ -z "$IMAGE_FQNAME" ] && {
     _log_w 0 "Unable to determine the image name"
+    PARSED_POM_CHECKSUM=""
+    save_cfg_value "PARSED_POM_CHECKSUM" "" "$C_ENT_STATE_FILE"
     set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
   }
 
@@ -287,8 +289,12 @@ get_be_info() {
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
   IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
 
-  save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_STATE_FILE"
-  save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_STATE_FILE"
+  if [ -z "$IMAGE_FQNAME" ]; then
+    save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_STATE_FILE"
+    save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_STATE_FILE"
+  else
+    save_cfg_value "PARSED_POM_CHECKSUM" "" "$C_ENT_STATE_FILE"
+  fi
 }
 
 be_info() {
