@@ -591,7 +591,7 @@ ensure_valid_location_for_git_publication() {
     else
       # there is no master on remote
       echo "" > .gitignore
-      git add .gitignore
+      git add .gitignore descriptor.yaml
       git commit -m "init"
       git checkout -b master
       git push --set-upstream origin master
