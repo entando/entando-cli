@@ -71,7 +71,7 @@ RUN() {
       *)
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
         [ ! -f "$mod_script" ] && {
-          _log_i 0 "Unrecognized script"
+          _log_i 0 "Unrecognized ent command \"$cmd\""
           return 0
         }
         # shellcheck disable=SC1090

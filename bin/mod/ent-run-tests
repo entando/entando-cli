@@ -15,6 +15,8 @@ cd "$DIR/../.." || {
 . s/tests/sys-utils-tests.sh
 . s/tests/utils-tests.sh
 . s/tests/var-utils-tests.sh
+. bin/mod/tests/ent-check-env-test.sh
+
 test_var_to_param
 test_check_ver_num
 test_index_of_arg
@@ -24,5 +26,7 @@ test_select_one
 test_args_or_ask
 test_remotes
 test_asserters
+
+test_mod_check-env_find_nvm_node
 
 true

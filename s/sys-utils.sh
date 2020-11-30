@@ -105,29 +105,37 @@ check_ver_num_start() {
 }
 
 check_ver_num() {
-  [[ "$2" == "*" ]] && return 0
-  [[ "$1" == "$2" ]] && return 0
+  L="$1"
+  R="$2"
+  [ "${L:0:1}" = "v" ] && {
+    L="${L:1}"
+  }
+  [ "${R:0:1}" = "v" ] && {
+    R="${R:1}"
+  }
+  [[ "$R" == "*" ]] && return 0
+  [[ "$L" == "$R" ]] && return 0
   [[ "$check_ver_num_op" != "" ]] && return 1
 
   # GTE
   [[ "$2" =~ \>=(.*) ]] && {
     check_ver_num_op=">="
-    [[ "$1" -ge "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+    [[ "$L" -ge "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   }
   # GT
-  [[ "$2" =~ \>(.*) ]] && {
+  [[ "$R" =~ \>(.*) ]] && {
     check_ver_num_op=">"
-    [[ "$1" -gt "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+    [[ "$L" -gt "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   }
   # LTE
-  [[ "$2" =~ \<=(.*) ]] && {
+  [[ "$R" =~ \<=(.*) ]] && {
     check_ver_num_op="<="
-    [[ "$1" -le "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+    [[ "$L" -le "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   }
   # LT
-  [[ "$2" =~ \<(.*) ]] && {
+  [[ "$R" =~ \<(.*) ]] && {
     check_ver_num_op="<"
-    [[ "$1" -lt "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+    [[ "$L" -lt "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   }
   return 1
 }
@@ -237,6 +245,7 @@ function _ent-jhipster() {
         ent-init-project-dir
       }
     }
+
     # RUN
     if $OS_WIN; then
       SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
@@ -414,6 +423,55 @@ activate_shell_login_environment() {
   [ -f ~/.bash_profile ] && . ~/.bash_profile && return 0
   [ -f ~/.bash_login ] && . ~/.bash_login && return 0
   [ -f ~/.profile ] && . ~/.profile && return 0
+}
+
+find_nvm_node() {
+  local found current versions ver
+  local outvar="$1"
+  local preferred="$2"
+  local requested="$3"
+
+  found=""
+  _set_var "$outvar" ""
+
+  current="$(node -v)"
+
+  if $OS_WIN; then
+    versions="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
+  else
+    versions="$(nvm ls --no-colors --no-alias \
+    | _perl_sed 's/->/  /' \
+    | grep -v system \
+    | grep '^\s\+v.*$' \
+    | _perl_sed 's/[^v]*(v\S*).*/\1/')"
+  fi
+
+  if echo "$versions" | grep -q "$current"; then
+    versions="$(echo "$versions" | grep -v "$current")"
+    versions+=$'\n'" $current"
+  fi
+
+  if echo "$versions" | grep -q "$preferred"; then
+    versions="$(echo "$versions" | grep -v "$preferred")"
+    versions+=$'\n'" $preferred"
+  fi
+
+  for ver in $versions; do
+    if check_ver "echo" "$requested" "\"$ver\"" "quiet"; then
+      found="$ver"
+    else
+      _log_d 2 "\t- version \"$ver\" doesn't satisfy the requirements ($requested)"
+    fi
+  done
+
+  if [ "$found" != "" ]; then
+    _log_i 0 "\tfound suitable node version $found"
+    _set_var "$outvar" "$found"
+    return 0
+  else
+    _log_w 0 "No suitable version of node was found"
+    return 1
+  fi
 }
 
 return 0

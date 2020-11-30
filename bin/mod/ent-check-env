@@ -27,8 +27,7 @@ cd "$DIR/../.." || {
 
 . s/_base.sh
 
-if [ "$1" == "--lenient" ]; then
-  shift
+if args_or_ask -n -f -- '--lenient' "$@"; then
   MAYBE_FATAL() {
     prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
   }
@@ -36,10 +35,13 @@ else
   MAYBE_FATAL() { FATAL "$@"; }
 fi
 
+args_or_ask -n -a -- "ARG1" '1///%sp command' "$@"
+args_or_ask -n -a -- "ARG2" '2' "$@"
+
 M_DEVL=false
 M_KUBE=false
 M_QS=false
-case $1 in
+case "$ARG1" in
   develop) #H: environment for bundle developers
     M_DEVL=true ;;
   runtime) #H: kubernetes execution environment
@@ -53,12 +55,12 @@ case $1 in
     M_DEVL=true
     M_KUBE=true
     ;;
-  *) print_ent_module_help "${BASH_SOURCE[0]}" "$2"; exit 0 ;;
+  *) print_ent_module_help "${BASH_SOURCE[0]}" "$ARG2"; exit 0 ;;
 esac
 shift
 
 NO_DNS_FIX=false
-[ "$2" == "--no-dns-fix" ] && NO_DNS_FIX=true
+[ "$ARG2" == "--no-dns-fix" ] && NO_DNS_FIX=true
 
 # PRE
 $M_DEVL && {
@@ -165,9 +167,9 @@ $M_DEVL && {
     activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
     true
   } || {
-    if ask "Should I try to install the preferred version ($VER_NODE_REQ)?" "y"; then
-      _nvm install "$VER_NODE_REQ"
-      _nvm use "$VER_NODE_REQ"
+    if ask "Should I try to install the preferred version ($VER_NODE_DEF)?" "y"; then
+      _nvm install "$VER_NODE_DEF"
+      _nvm use "$VER_NODE_DEF"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
