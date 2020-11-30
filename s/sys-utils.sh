@@ -227,6 +227,8 @@ function _ent-npm--import-module-to-current-dir() {
 
 # Run the ent private installation of jhipster
 function _ent-jhipster() {
+  require_develop_checked
+  activate_designated_node
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
       "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2> /dev/null | grep -v INFO
@@ -234,8 +236,6 @@ function _ent-jhipster() {
       "$ENT_NPM_BIN_DIR/jhipster" -V 2> /dev/null | grep -v INFO
     fi
   else
-    require_develop_checked
-    activate_designated_node
     #require_initialized_dir
     # protection against yeoman's reverse recursive lookup
     #[ ! -f ".yo-rc.json" ] && echo "{}" > ".yo-rc.json"
