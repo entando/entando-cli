@@ -53,7 +53,7 @@ case $1 in
     M_DEVL=true
     M_KUBE=true
     ;;
-  *) H && exit 0 ;;
+  *) print_ent_module_help "${BASH_SOURCE[0]}" "$2"; exit 0 ;;
 esac
 shift
 
@@ -158,48 +158,20 @@ rescan-sys-env force
 # NODE
 $M_DEVL && {
   _log_i 1 "Checking node.."
-  FOUND=""
-  CURRENT="$(node -v)"
-  PREFERRED="$VER_NODE_DEF"
-
-  if $OS_WIN; then
-    VERSIONS="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
-  else
-    VERSIONS="$(nvm ls --no-colors --no-alias | _perl_sed 's/->/  /' | grep -v system  | grep '^\s\+v.*$' | _perl_sed 's/[^v]*(v\S*).*/\1/')"
-  fi
-
-  if echo "$VERSIONS" | grep -q "$CURRENT"; then
-    VERSIONS="$(echo "$VERSIONS" | grep -v "$CURRENT")"
-    VERSIONS+=$'\n'" $CURRENT"
-  fi
-
-  if echo "$VERSIONS" | grep -q "$PREFERRED"; then
-    VERSIONS="$(echo "$VERSIONS" | grep -v "$PREFERRED")"
-    VERSIONS+=$'\n'" $PREFERRED"
-  fi
-
-  for ver in $VERSIONS; do
-    if check_ver "echo" "$VER_NODE_REQ" "\"$ver\"" "quiet"; then
-      FOUND=$ver
-    else
-      _log_d 2 "\t- version \"$ver\" doesn't satisfy the requirements"
-    fi
-  done
-
-  if [ "$FOUND" != "" ]; then
-    _log_i 0 "\tfound suitable node version $FOUND"
-    DESIGNATED_NODE_VERSION="$FOUND"
+  # shellcheck disable=SC2015
+  find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
+    DESIGNATED_NODE_VERSION="$RES"
     save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION"
     activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
-  else
-    _log_w 0 "No suitable version of node was found"
-    if ask "Should I try to install the preferred version ($PREFERRED)?" "y"; then
-      _nvm install "$PREFERRED"
-      _nvm use "$PREFERRED"
+    true
+  } || {
+    if ask "Should I try to install the preferred version ($VER_NODE_REQ)?" "y"; then
+      _nvm install "$VER_NODE_REQ"
+      _nvm use "$VER_NODE_REQ"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
-  fi
+  }
 }
 
 # ENT-LOCAL-JHIPSTER installation
