@@ -1,6 +1,13 @@
 #!/bin/bash
 # SYS-UTILS
 
+perl -e 'print -t 1 ? exit 0 : exit 1;'
+if [ $? -eq 0 ]; then
+  ENTANDO_IS_TTY=true
+else
+  ENTANDO_IS_TTY=false
+fi
+
 netplan_add_custom_ip() {
   F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
@@ -157,8 +164,7 @@ fi
 $OS_WIN && {
   winpty --version 1> /dev/null 2>&1 && {
     SYS_CLI_PRE() {
-      RES="$(perl -e 'print -t 1 ? "Y" : "N";')"
-      if [ "$RES" = 'Y' ]; then
+      if $ENTANDO_IS_TTY; then
         "winpty" "$@"
       else
         "$@"

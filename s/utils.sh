@@ -10,6 +10,15 @@ if [ "$?" != 1 ]; then
   IS_GIT_CREDENTIAL_MANAGER_PRESENT=true
 fi
 
+if [ -z "$ENTANDO_IS_TTY" ]; then
+  perl -e 'print -t 1 ? exit 0 : exit 1;'
+  if [ $? -eq 0 ]; then
+    ENTANDO_IS_TTY=true
+  else
+    ENTANDO_IS_TTY=false
+  fi
+fi
+
 # runs a sed "in place" given the sed command and the file to change
 # (multiplatform wrapper)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -306,20 +315,22 @@ index_of_arg() {
 #
 # shellcheck disable=SC2059
 print_entando_banner() {
-  B() { echo '\033[0;34m'; }
-  W() { echo '\033[0;39m'; }
-  N=''
-  printf "\n"
-  printf " $(B)████████╗$(W)\n"
-  printf " $(B)██╔═════╝$(W)\n"
-  printf " $(B)██║$(W) $(B)███████╗$(W)  ██    █  ███████    ███    ██    █  ██████    █████ \n"
-  printf " $(B)╚═╝${N} $(B)█╔═════╝$(W)  █ █   █     █      █   █   █ █   █  █     █  █     █\n"
-  printf " ${N}${N}    $(B)█████╗  $(W)  █  █  █     █     █     █  █  █  █  █     █  █     █\n"
-  printf " ${N}${N}    $(B)█╔═══╝  $(W)  █   █ █     █     ███████  █   █ █  █     █  █     █\n"
-  printf " ${N}${N}    $(B)███████╗$(W)  █    ██     █     █     █  █    ██  ██████    █████    $(B)██╗$(W)\n"
-  printf " ${N}${N}    $(B)╚══════╝$(W)                                                         $(B)██║$(W)\n"
-  printf " ${N}${N}${N}${N}                                                               $(B)████████║$(W)\n"
-  printf " ${N}${N}${N}${N}                                                               $(B)╚═══════╝$(W)\n"
+  if $ENTANDO_IS_TTY; then
+    B() { echo '\033[0;34m'; }
+    W() { echo '\033[0;39m'; }
+    N=''
+    printf "\n"
+    printf " $(B)████████╗$(W)\n"
+    printf " $(B)██╔═════╝$(W)\n"
+    printf " $(B)██║$(W) $(B)███████╗$(W)  ██    █  ███████    ███    ██    █  ██████    █████ \n"
+    printf " $(B)╚═╝${N} $(B)█╔═════╝$(W)  █ █   █     █      █   █   █ █   █  █     █  █     █\n"
+    printf " ${N}${N}    $(B)█████╗  $(W)  █  █  █     █     █     █  █  █  █  █     █  █     █\n"
+    printf " ${N}${N}    $(B)█╔═══╝  $(W)  █   █ █     █     ███████  █   █ █  █     █  █     █\n"
+    printf " ${N}${N}    $(B)███████╗$(W)  █    ██     █     █     █  █    ██  ██████    █████    $(B)██╗$(W)\n"
+    printf " ${N}${N}    $(B)╚══════╝$(W)                                                         $(B)██║$(W)\n"
+    printf " ${N}${N}${N}${N}                                                               $(B)████████║$(W)\n"
+    printf " ${N}${N}${N}${N}                                                               $(B)╚═══════╝$(W)\n"
+  fi
 }
 
 # requires that the system environment was checked for development mode

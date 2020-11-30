@@ -15,4 +15,5 @@ cd "$DIR/../.." || {
 cd "$WD" || FATAL -t "Unable to access the current dir: $WD"
 
 print_entando_banner
+
 _ent-bundler "$@"
