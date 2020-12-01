@@ -268,9 +268,19 @@ _ent-bundler() {
     activate_designated_node
     # RUN
     if $OS_WIN; then
-      SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+      if "$ENTANDO_IS_TTY"; then
+        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+      else
+        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" \
+          | perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+      fi
     else
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
+      if "$ENTANDO_IS_TTY"; then
+        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
+      else
+        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" \
+          | perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+      fi
     fi
   fi
 }
@@ -367,7 +377,7 @@ git_clone_repo() {
   if [[ "$OPT" =~ "ENTER" ]]; then
     ENTER=true
   fi
-
+-
   [ -z "$FLD" ] && FLD="$(basename "$URL")"
   [ -z "$DSC" ] && DSC="$FLD/$TAG"
 
