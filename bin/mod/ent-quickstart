@@ -1,9 +1,5 @@
 #!/bin/bash
 
-[ "$1" = "--help" ] && {
-  name="${0##*/}"
-  echo -e "Automatically execute the quickstart deployment | Syntax: (run \"${name//ent-/ent } --help\")" && exit 0
-}
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
@@ -37,8 +33,8 @@ echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 HH="$(parse_help_option "$@")"; show_help_option "$HH"
 
 ENTANDO_INTERACTIVE="true"
-args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@" || FATAL "Please provide the namespace"
-args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@" || FATAL "Please provide the app name"
+args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
+args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
 args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
 args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug information" "$@"
@@ -49,10 +45,13 @@ args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 4G" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 12G" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Disk space: ex: 12G" "$@"
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the hostname for the VM into the host system hosts file" "$@"
+args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Allows the quickstart to reuse an existing VM" "$@"
+args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
 
 [ -n "$HH" ] && echo "" && exit 0
+
+[ -z "$ENTANDO_NAMESPACE" ] && FATAL "Please provide the namespace"
+[ -z "$ENTANDO_APPNAME" ] && FATAL "Please provide the namespace"
 
 args_or_ask -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
 args_or_ask -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
