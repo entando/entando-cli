@@ -210,7 +210,11 @@ check_npm_git_package() {
 
         (
           git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
-          _npm install
+          if [ -f "./package.lock" ]; then
+            _npm ci
+          else
+            _npm install
+          fi
           _ent-npm install-from-source
         ) || {
           _log_e 0 "An error occurred while installing $DESC.. rolling back"
