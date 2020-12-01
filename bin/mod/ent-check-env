@@ -9,6 +9,7 @@
 #H::
 #H:: Options:
 #H::  --lenient:  doesn't fail if a dependency is not available
+#H::  --yes:      assumes yes for all yes-no questions
 #H::
 #H:: SubCommands:
 
@@ -27,6 +28,8 @@ cd "$DIR/../.." || {
 
 . s/_base.sh
 
+args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+
 if args_or_ask -n -f -- '--lenient' "$@"; then
   MAYBE_FATAL() {
     prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
@@ -36,7 +39,7 @@ else
 fi
 
 args_or_ask -n -a -- "ARG1" '1///%sp command' "$@"
-args_or_ask -n -a -- "ARG2" '2' "$@"
+args_or_ask -n -a -- "ARG2" '2///context dependent parameter' "$@"
 
 M_DEVL=false
 M_KUBE=false
