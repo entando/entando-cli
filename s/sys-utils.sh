@@ -377,7 +377,7 @@ git_clone_repo() {
   if [[ "$OPT" =~ "ENTER" ]]; then
     ENTER=true
   fi
--
+
   [ -z "$FLD" ] && FLD="$(basename "$URL")"
   [ -z "$DSC" ] && DSC="$FLD/$TAG"
 
