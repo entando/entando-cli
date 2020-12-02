@@ -38,7 +38,7 @@ RUN() {
         init_project
         ;;
       "build" | "ba") #H: builds both frontend and backend
-        simple_shell_completion_handler -- "$1" "--all" && return 0
+        simple_shell_completion_handler "$1" "--all" && return 0
         require_develop_checked
         require_ent_project_dir
         print_entando_banner

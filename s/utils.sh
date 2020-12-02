@@ -593,7 +593,9 @@ simple_shell_completion_handler() {
   if [ "$1" = "--cmplt" ]; then
     shift
     for a in "$@"; do echo "$a"; done
+    return 0
   fi
+  return 1
 }
 
 parse_help_option() {
