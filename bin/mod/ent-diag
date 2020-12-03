@@ -9,12 +9,16 @@ cd "$DIR/../.." || {
   exit
 }
 
-
 . s/_base.sh
 
 HH="$(parse_help_option "$@")"; show_help_option "$HH"
 args_or_ask ${HH:+"$HH"} -p "NS" '--namespace/ext_id/entando/%sp the namespace' "$@"
 [ -n "$HH" ] && exit 0
+
+LOG() {
+  echo "$1"
+  echo -e "\n$1" >>basics.txt
+}
 
 # NODES
 NN="entando-diagdata-$(date -u '+%Y-%m-%dT%H:%M:%S%z')"
@@ -23,11 +27,24 @@ mkdir -p "$TT"
 __cd "$TT"
 
 echo "# $NN" >basics.txt
-_kubectl get nodes >basics.txt
+echo ""
+LOG "## NODES"
+_kubectl get nodes >>basics.txt
+
+#  Config map
+LOG "## CONFIG MAP"
+_kubectl get configmap entando-docker-image-info  -n "$NS" -o yaml >>basics.txt
+
+#  CRDs
+LOG "## CRD list"
+_kubectl get crd >>basics.txt
+
+#  PODs
+LOG "## POD list"
+_kubectl get pods  -n "$NS" >>basics.txt
 
 # DNS rebinding protection TEST
-echo "## DNS rebinding protection TEST"
-echo "## DNS rebinding protection TEST" >>basics.txt
+LOG "## DNS rebinding protection TEST"
 echo "# Test 1:" >>basics.txt 2>&1
 dig +short 192.168.1.1.nip.io >>basics.txt 2>&1
 echo "# Test 2:" >>basics.txt 2>&1
@@ -35,8 +52,7 @@ dig +short 192.168.1.1.nip.io @8.8.8.8 >>basics.txt 2>&1
 echo "" >>basics.txt
 
 # Local info
-echo "## LOCAL INFO"
-echo "## LOCAL INFO" >>basics.txt
+LOG "## LOCAL INFO"
 echo "# Hostname" >>basics.txt
 hostname -I >>basics.txt 2>&1
 echo "# OS Info" >>basics.txt
