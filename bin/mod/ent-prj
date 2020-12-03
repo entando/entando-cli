@@ -60,13 +60,13 @@ RUN() {
         # ~~~~~~~~~~~~~~~~~~~~
       "pbs-init") #H: (url, username, email) initializes the publication system
         require_develop_checked
-        require_initialized_dir
+        #require_initialized_dir
         print_entando_banner
         init_pub "$@"
         ;;
       "pbs-publish" | "pub") #H: [--force] (VERSION_NUMBER, VERSION_COMMENT) bumps and publishes a new version
         require_develop_checked
-        require_ent_project_dir
+        #require_ent_project_dir
         publish_version "$@"
         ;;
         # ~~~~~~~~~~~~~~~~~~~~
