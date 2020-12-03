@@ -342,12 +342,16 @@ fe_push() {
 }
 
 be_push() {
-  local PPWD="$PWD"
-  get_be_info
-  push_docker "$IMAGE_FQNAME"
-  local R=$?
-  __cd "$PPWD"
-  return $R
+  if [ -f "pom.xml" ]; then
+    local PPWD="$PWD"
+    get_be_info
+    push_docker "$IMAGE_FQNAME"
+    local R=$?
+    __cd "$PPWD"
+    return $R
+  else
+    return 0
+  fi
 }
 
 push_docker() {
