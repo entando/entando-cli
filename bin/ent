@@ -30,14 +30,7 @@ RUN() {
         which_ent
         ;;
       "config") #H: [--edit] -- attach ent to a ent-managed VM
-        HH="$(parse_help_option "$@")"; show_help_option "$HH"
-        args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
-          cat "$ENTANDO_ENT_HOME/w/.cfg"
-        }
-        args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
-          edit "$ENTANDO_ENT_HOME/w/.cfg"
-        }
-        [ -n "$HH" ] && exit 0
+        handle_config "$@"
         ;;
       "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
         attach_vm "$@"
@@ -103,6 +96,18 @@ which_ent() {
     echo "$ENTANDO_VERSION"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
   ) 1>&2
+}
+
+handle_config() {
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
+    cat "$ENTANDO_ENT_HOME/w/.cfg"
+  }
+  args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
+    edit "$ENTANDO_ENT_HOME/w/.cfg"
+  }
+  [ -n "$HH" ] && exit 0
 }
 
 detach_vm() {
