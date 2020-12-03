@@ -26,6 +26,9 @@ RUN() {
     cmd="$1"
     shift
     case "$cmd" in
+      "which") #H: shows the location of the current ent
+        which_ent
+        ;;
       "config") #H: [--edit] -- attach ent to a ent-managed VM
         HH="$(parse_help_option "$@")"; show_help_option "$HH"
         args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
@@ -85,6 +88,22 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+which_ent() {
+  echo "$ENTANDO_ENT_HOME"
+
+  (
+    echo ""
+    echo "> More Info:"
+    cd "$ENTANDO_ENT_HOME"
+    echo "- CLI:"
+    echo "$ENTANDO_CLI_VERSION"
+    git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
+    echo "- REL:"
+    cd "dist"
+    echo "$ENTANDO_VERSION"
+    git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
+  ) 1>&2
+}
 
 detach_vm() {
   rm "$ENT_KUBECONF_FILE_PATH"
@@ -98,7 +117,7 @@ attach_vm() {
     echo "> Parameters:"
   }
 
-  args_or_ask__a_remote -a  ${HH:+"$HH"} "VM_NAME" "1" "%sp VM to which ent kubectl should attach" "$@"
+  args_or_ask__a_remote -a ${HH:+"$HH"} "VM_NAME" "1" "%sp VM to which ent kubectl should attach" "$@"
 
   [ -n "$HH" ] && return 0
 
@@ -125,15 +144,18 @@ attach_vm() {
 }
 
 cmplt() {
-  cd "$ENTANDO_ENT_HOME/bin/mod" || { echo "Unable to enter directory $PWD/bin"; exit 99; }
+  cd "$ENTANDO_ENT_HOME/bin/mod" || {
+    echo "Unable to enter directory $PWD/bin"
+    exit 99
+  }
   for file in ent-*; do
     mod="${file//ent-/}"
     echo "$mod"
   done
 
-  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config")
+  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which")
 
-  for tc  in "${topcmd[@]}"; do
+  for tc in "${topcmd[@]}"; do
     echo "$tc"
   done
 }
@@ -141,7 +163,7 @@ cmplt() {
 # ######################################################################################################################
 # ######################################################################################################################
 
-if [[ "$1" = "--help" || "$1" == "" ]]; then
+if [[ "$1" == "--help" || "$1" == "" ]]; then
   . s/essentials.sh
   print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   exit 0
