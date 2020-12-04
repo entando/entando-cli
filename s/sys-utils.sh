@@ -449,17 +449,17 @@ find_nvm_node() {
   if $OS_WIN; then
     versions="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
   else
-    versions="$(nvm ls --no-colors --no-aliasx 2>/dev/null \
-    | _perl_sed 's/->/  /' \
-    | grep -v system \
-    | grep '^\s\+v.*$' \
-    | _perl_sed 's/[^v]*(v\S*).*/\1/')"
-    if [[ $? -ne 0 || -z "$versions" ]]; then
-      versions="$(nvm ls --no-colors \
+    versions="$(nvm ls --no-colors --no-aliasx 2> /dev/null \
       | _perl_sed 's/->/  /' \
       | grep -v system \
       | grep '^\s\+v.*$' \
       | _perl_sed 's/[^v]*(v\S*).*/\1/')"
+    if [[ $? -ne 0 || -z "$versions" ]]; then
+      versions="$(nvm ls --no-colors \
+        | _perl_sed 's/->/  /' \
+        | grep -v system \
+        | grep '^\s\+v.*$' \
+        | _perl_sed 's/[^v]*(v\S*).*/\1/')"
     fi
   fi
 
@@ -489,6 +489,77 @@ find_nvm_node() {
     _log_w 0 "No suitable version of node was found"
     return 1
   fi
+}
+
+list_compatible_installations() {
+  local curr="$1"
+  local patt="${curr%.*}"
+
+  [ -n "$curr" ] && {
+    (
+      __cd "$ENTANDO_ENT_HOME/.."
+      # shellcheck disable=SC2010
+      # shellcheck disable=SC2154
+      ls -d "$patt"* | grep -v "^$curr\$"
+    )
+  }
+}
+
+import_ent_config() {
+  local src="$1"
+  [ "$src" = "<skip this import>" ] && return 0
+  (
+    __cd "$ENTANDO_ENT_HOME"
+    if [ -d "../$src" ]; then
+      cp "../$src/w/.cfg" "w/.cfg" && exit 0
+      exit 1
+    else
+      _log_e 0 "Unable to import the cfg from $src"
+      exit 99
+    fi
+  )
+}
+
+import_ent_library() {
+  local src="$1"
+  [ "$src" = "<skip this import>" ] && return 0
+  local mode="$2"
+  (
+    __cd "$ENTANDO_ENT_HOME"
+    if [ -d "../$src" ]; then
+      if [ "$mode" = "copy" ]; then
+        rm lib -r
+        cp -ra "../$src/lib" "." && exit 0
+        exit 1
+      elif [ "$mode" = "link" ]; then
+        rm lib -r
+        ln -s "../$src/lib" "." && exit 0
+        exit 1
+      fi
+    fi
+    _log_e 0 "Unable to import the cfg from $src"
+    exit 99
+  )
+}
+
+import_ent_installation() {
+  local VERS=("$(list_compatible_installations "$ENTANDO_CLI_VERSION")")
+  VERS+=( "<skip this import>" )
+
+  select_one "Select the configuration to import" "${VERS[@]}" && {
+    # shellcheck disable=SC2154
+    VER_TO_IMPORT="$select_one_res_alt"
+    import_ent_config "$VER_TO_IMPORT" && {
+      _log_i 0 "done"
+
+      ask "Should I try to import the library?" && {
+        _log_i 0 "This may take a while"
+        import_ent_library "$VER_TO_IMPORT" "copy" && {
+          _log_i 0 "done."
+        }
+      }
+    }
+  }
 }
 
 return 0

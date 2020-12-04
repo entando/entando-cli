@@ -29,6 +29,9 @@ RUN() {
       "which") #H: shows the location of the current ent
         which_ent
         ;;
+      "import") #H: imports configuration and library from another compatible ENT installation
+        import_ent_installation
+        ;;
       "config") #H: [--edit] -- attach ent to a ent-managed VM
         handle_config "$@"
         ;;
@@ -158,7 +161,7 @@ cmplt() {
     echo "$mod"
   done
 
-  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which")
+  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import")
 
   for tc in "${topcmd[@]}"; do
     echo "$tc"

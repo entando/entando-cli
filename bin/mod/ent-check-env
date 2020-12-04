@@ -13,7 +13,10 @@
 #H::
 #H:: SubCommands:
 
-[[ "$1" = "--help" || -z "$1" ]] && { print_ent_module_help "${BASH_SOURCE[0]}" "$2"; exit; }
+[[ "$1" == "--help" || -z "$1" ]] && {
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit
+}
 
 [ "$1" = "--cmplt" ] && {
   echo -e "develop\nruntime"
@@ -44,9 +47,14 @@ args_or_ask -n -a -- "ARG2" '2///context dependent parameter' "$@"
 M_DEVL=false
 M_KUBE=false
 M_QS=false
+M_CFG=false
 case "$ARG1" in
+  config) #H: just the current installation
+    M_CFG=true ;;
   develop) #H: environment for bundle developers
-    M_DEVL=true ;;
+    M_DEVL=true
+    M_CFG=true
+    ;;
   runtime) #H: kubernetes execution environment
     M_KUBE=true ;;
   qs-runtime) #H: kubernetes execution environment for the quickstart
@@ -58,9 +66,28 @@ case "$ARG1" in
     M_DEVL=true
     M_KUBE=true
     ;;
-  *) print_ent_module_help "${BASH_SOURCE[0]}" "$ARG2"; exit 0 ;;
+  *)
+    print_ent_module_help "${BASH_SOURCE[0]}" "$ARG2"
+    exit 0
+    ;;
 esac
 shift
+
+$M_CFG && {
+  check_ver_cfg() {
+    if [ ! -f "$ENTANDO_ENT_HOME/w/.cfg" ]; then
+      local VERS;
+      VERS="$(list_compatible_installations "$ENTANDO_CLI_VERSION")"
+      if [ -n "$VERS" ]; then
+        _log_w 0 "This installation has no config"
+        ask "Should I try to import from another one?" && {
+          import_ent_installation
+        }
+      fi
+    fi
+    exit
+  }
+}
 
 NO_DNS_FIX=false
 [ "$ARG2" == "--no-dns-fix" ] && NO_DNS_FIX=true
@@ -269,6 +296,5 @@ $M_KUBE && {
 $M_DEVL && {
   save_cfg_value "WAS_DEVELOP_CHECKED" "true"
 }
-
 
 _log_i 0 "${0##*/} completed"
