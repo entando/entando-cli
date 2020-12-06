@@ -166,8 +166,6 @@ fi
 
     if [ "$1" = "--short" ]; then
       local short_help=$(grep '#''H::' "bin/$script" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
-      local name="${script##*/}"
-      short_help+=" | Syntax: (run \"${name//ent-/ent } --help\")"
       echo "$short_help"
       return
     fi

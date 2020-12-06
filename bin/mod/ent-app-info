@@ -2,7 +2,7 @@
 
 [ "$1" = "--help" ] && {
   name="${0##*/}"
-  echo -e "Displays information about an entando app | Syntax: (run \"${name//ent-/ent } --help\")" && exit 0
+  echo -e "Displays information about an entando app" && exit 0
 }
 
 [ "$1" = "--cmplt" ] && {

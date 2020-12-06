@@ -2,7 +2,7 @@
 
 [ "$1" = "--help" ] && {
   name="${0##*/}"
-  echo -e "Displays infomations related to a set of pods | Syntax: (run \"${name//ent-/ent } --help\")" && exit 0
+  echo -e "Displays information related to a set of pods" && exit 0
 }
 
 

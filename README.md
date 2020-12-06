@@ -33,12 +33,15 @@ curl https://<ent-url>/auto-install | ENTANDO_RELEASE={entando-release-tag} bash
 ```
 or
 ```
-source <(curl "https://<ent-url>/entando/entando-cli/develop/auto-install") --release "{entando-release-tag}" [--cli-version "{entando-release-tag}"]
+bash <(curl "https://<ent-url>/entando/entando-cli/develop/auto-install") --release "{entando-release-tag}" 
+[--cli-version "{entando-release-tag}"]
 ```
 
 
-please note that the {entando-release-tag} is the tag of the Entando release under:  
-`https://github.com/entando/entando-releases/`
+please note that the {entando-release-tag} is the tag of the Entando release under:
+
+- https://github.com/entando/entando-releases/
+
 
 ## Manual download:
 
@@ -50,7 +53,13 @@ _clone/download the project and then:_
 # Help
 
 ```
-<ent-path>/bin/ent help
+ent help
+```
+
+or
+
+```
+ent {command} --help
 ```
 
 # Activation
@@ -58,6 +67,7 @@ _clone/download the project and then:_
 ```
 source <ent-path>/activate
 ```
+
 _from bash or a zsh variant_
 
 # Directory structure:

@@ -13,11 +13,6 @@
 #H::
 #H:: SubCommands:
 
-[[ "$1" == "--help" || -z "$1" ]] && {
-  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-  exit
-}
-
 [ "$1" = "--cmplt" ] && {
   echo -e "develop\nruntime"
   exit 0
@@ -30,6 +25,11 @@ cd "$DIR/../.." || {
 }
 
 . s/_base.sh
+
+[[ "$1" == "--help" || -z "$1" ]] && {
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit
+}
 
 args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
 
