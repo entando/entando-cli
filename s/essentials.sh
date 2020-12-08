@@ -88,7 +88,9 @@ fi
   prepare_for_privileged_commands() {
     # NB: not using "sudo -v" because misbehaves with password-less sudoers
     _sudo true
-    [[ "$1" = "-m" && "$?" -ne 0 ]] && FATAL -t "Unable to obtain the required privileges"
+    local RES="$?"
+    [[ "$1" = "-m" && "$RES" -ne 0 ]] && FATAL -t "Unable to obtain the required privileges"
+    return "$RES"
   }
 
   # KUBECTL
