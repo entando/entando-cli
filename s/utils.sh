@@ -508,7 +508,11 @@ args_or_ask() {
       $FLAGANDVAR && _set_var "$var_name" "true"
       return 0
     else
-      $FLAGANDVAR && _set_var "$var_name" "${val_def:-false}"
+      if $FLAGANDVAR; then
+        if [ -n "$val_def" ] || ! $PRESERVE; then
+           _set_var "$var_name" "${val_def:-false}"
+        fi
+      fi
       return 1
     fi
   else

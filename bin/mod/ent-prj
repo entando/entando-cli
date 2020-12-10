@@ -197,7 +197,7 @@ generate_custom_resource() {
 }
 
 bundle_all() {
-  ./prepareBundle.sh
+  bash ./prepareBundle.sh
 }
 
 fe_build() {
@@ -205,11 +205,12 @@ fe_build() {
     shift
     require_ent_project_dir
     activate_designated_node
-    ./prepareMicrofrontends.sh
+    bash ./prepareMicrofrontends.sh
   else
     fe_select_widget "build" && (
       __cd "$SELECTED_WIDGET"
       _npm install
+      _npm run build --production
     )
   fi
 }

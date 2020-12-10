@@ -237,7 +237,7 @@ RUN_WITH_VM() {
       _log_w 2 "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
       _log_w 2 "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
     else
-      _log_i 2 "> Creating the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
+      _log_i 2 "> Creating the hostname DNS \"$ENTANDO_VM_NAME\" on the hosts file"
       ent host setup-vm-hostname "$ENTANDO_VM_NAME"
     fi
   }
