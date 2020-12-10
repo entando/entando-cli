@@ -446,17 +446,47 @@ args_or_ask() {
   # pare flags
   while true; do
     case "$1" in
-      -n) NOASK=true; shift;;
-      -f) FLAG=true; shift;;
-      -F) FLAGANDVAR=true;shift;;
-      -a) ARG=true;shift;;
-      -p) PRESERVE=true;shift;;
-      -s) SPACE_SEP=true;shift;;
-      -d) IS_DEFAULT=true;shift;;
-      --help) JUST_PRINT_HELP=true;shift;;
-      --cmplt) PRINT_COMPLETION_CODE=true;shift;;
-      --) shift;break;;
-      *) break;;
+      -n)
+        NOASK=true
+        shift
+        ;;
+      -f)
+        FLAG=true
+        shift
+        ;;
+      -F)
+        FLAGANDVAR=true
+        shift
+        ;;
+      -a)
+        ARG=true
+        shift
+        ;;
+      -p)
+        PRESERVE=true
+        shift
+        ;;
+      -s)
+        SPACE_SEP=true
+        shift
+        ;;
+      -d)
+        IS_DEFAULT=true
+        shift
+        ;;
+      --help)
+        JUST_PRINT_HELP=true
+        shift
+        ;;
+      --cmplt)
+        PRINT_COMPLETION_CODE=true
+        shift
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *) break ;;
     esac
   done
 
@@ -473,7 +503,7 @@ args_or_ask() {
     if $FLAG; then
       echo "${val_name}"
     elif $ARG; then
-      :;
+      :
     else
       echo "${val_name}="
     fi
@@ -499,21 +529,31 @@ args_or_ask() {
       val_from_args=""
     fi
   elif $FLAG || $FLAGANDVAR; then
+    print_sub_help "$val_name" "$val_msg" && return 2
+
     index_of_arg "${val_name}" "$@"
     found_at="$?"
 
-    print_sub_help "$val_name" "$val_msg" && return 2
-
-    if [ $found_at -ne 255 ]; then
-      $FLAGANDVAR && _set_var "$var_name" "true"
-      return 0
+    if [ $found_at -eq 255 ]; then
+      index_of_arg -p "${val_name}=" "$@"
+      found_at="$?"
+      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
     else
-      if $FLAGANDVAR; then
-        if [ -n "$val_def" ] || ! $PRESERVE; then
-           _set_var "$var_name" "${val_def:-false}"
+      val_from_args=""
+    fi
+
+    if [ -z "$val_from_args" ]; then
+      if [ $found_at -ne 255 ]; then
+        $FLAGANDVAR && _set_var "$var_name" "true"
+        return 0
+      else
+        if $FLAGANDVAR; then
+          if [ -n "$val_def" ] || ! $PRESERVE; then
+            _set_var "$var_name" "${val_def:-false}"
+          fi
         fi
+        return 1
       fi
-      return 1
     fi
   else
     if $SPACE_SEP; then
@@ -544,7 +584,6 @@ args_or_ask() {
     index_of_arg "${val_name}" "$@"
     [ "$?" -eq 255 ] && return 1 || return 0
   fi
-
 
   [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NOASK && return 255
 
@@ -606,8 +645,8 @@ parse_help_option() {
   local ARG="${BASH_ARGV[0]}"
 
   case "$ARG" in
-    "--help") HH="--help";;
-    "--cmplt") HH="--cmplt"
+    "--help") HH="--help" ;;
+    "--cmplt") HH="--cmplt" ;;
   esac
 
   echo "$HH"
@@ -615,8 +654,8 @@ parse_help_option() {
 
 show_help_option() {
   case "$1" in
-    --help) echo "> Parameters:";;
-    --cmplt) echo "--help";;
+    --help) echo "> Parameters:" ;;
+    --cmplt) echo "--help" ;;
   esac
 }
 
