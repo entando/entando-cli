@@ -149,7 +149,7 @@ make_safe_resolv_conf() {
 
 # MISC
 
-if [[ ! -t 0 || $OS_WIN == "true" ]]; then
+if ! $ENTANDO_IS_TTY || $OS_WIN; then
   _watch() {
     if [ "$1" == "-v" ]; then
       echo "ent fake watch UNKNOWN"

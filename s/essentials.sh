@@ -19,9 +19,11 @@ fi
   ENTANDO_KUBECTL_MODE=""
   DESIGNATED_KUBECONFIG=""
 
-
-  if [[ -z "$ENTANDO_DEV_TTY" && -t 0 ]]; then
-    ENTANDO_DEV_TTY="$(tty)"
+  perl -e 'print -t 1 ? exit 0 : exit 1;'
+  if [ $? -eq 0 ]; then
+    if [[ -z "$ENTANDO_DEV_TTY" ]]; then
+      ENTANDO_DEV_TTY="$(tty)"
+    fi
   fi
 
   # shellcheck disable=SC2034

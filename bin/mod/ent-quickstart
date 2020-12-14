@@ -44,8 +44,8 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes fo
 args_or_ask ${HH:+"$HH"} -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 4G" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 12G" "$@"
+args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 5G" "$@"
+args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 15G" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Allows the quickstart to reuse an existing VM" "$@"
 args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
 
@@ -73,7 +73,6 @@ args_or_ask -f -- "--destroy" "$@" && {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-
 if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
   assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
 fi
@@ -105,16 +104,18 @@ FOUND=false
   }
 
   # AUTO HOSTNAME MODE ----
-  if ! $WITH_HOSTNAME; then
-    _log_i 0 "Checking if user is admin (skippable with CTRL+C)"
-    if $ENTANDO_INTERACTIVE; then
-        ENTANDO_AUTO_HOSTNAME=true
-        _log_i 0 "Non-interactive mode, auto-hostname not enabled"
-    elif prepare_for_privileged_commands; then
-        ENTANDO_AUTO_HOSTNAME=true
-        _log_i 0 "User is an admin, auto-hostname enabled"
-    else
-      _log_i 0 "User admin check failed, auto-hostname not enabled"
+  if $ENTANDO_AUTO_HOSTNAME; then
+    if ! $WITH_HOSTNAME; then
+      _log_i 0 "Checking if user is admin (skippable with CTRL+C)"
+      if ! $ENTANDO_INTERACTIVE; then
+          ENTANDO_AUTO_HOSTNAME=false
+          _log_i 0 "Non-interactive mode, auto-hostname not enabled"
+      elif prepare_for_privileged_commands; then
+          ENTANDO_AUTO_HOSTNAME=true
+          _log_i 0 "User is an admin, auto-hostname enabled"
+      else
+        _log_i 0 "User admin check failed, auto-hostname not enabled"
+      fi
     fi
   fi
 
@@ -194,6 +195,7 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="12G"
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
+
   $ENTANDO_OPT_YES_FOR_ALL && VM_OPT+=" --yes"
   ! $ENTANDO_INTERACTIVE && {
     VM_OPT+=" --interactive=false"
@@ -245,16 +247,21 @@ RUN_WITH_VM() {
   #~
   _log_i 2 "> Checking the environment on the VM"
   if ! $ENTANDO_NO_CHECK; then
+    local YES_OPT=""
+    if $ENTANDO_OPT_YES_FOR_ALL; then
+      YES_OPT="--yes"
+    fi
+
     if $WITH_HOSTNAME; then
       multipass exec "$ENTANDO_VM_NAME" -- bash -c "
         cd \
         && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
-        && $VM_VAR ent check-env runtime --no-dns-fix"
+        && $VM_VAR ent check-env runtime --no-dns-fix ${YES_OPT:+"$YES_OPT"}"
     else
       multipass exec "$ENTANDO_VM_NAME" -- bash -c "
         cd \
         && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
-        && $VM_VAR ent check-env runtime"
+        && $VM_VAR ent check-env runtime ${YES_OPT:+"$YES_OPT"}"
     fi
   fi
 
@@ -284,10 +291,15 @@ RUN_DIRECT() {
   _log_i 2 "> Checking environment"
 
   ! $JUST_SET_CFG && ! $ENTANDO_NO_CHECK && {
+    local YES_OPT=""
+    if $ENTANDO_OPT_YES_FOR_ALL; then
+      YES_OPT="--yes"
+    fi
+
     if $WITH_HOSTNAME; then
-      . bin/mod/ent-check-env runtime --no-dns-fix
+      bash bin/mod/ent-check-env runtime --no-dns-fix ${YES_OPT:+"$YES_OPT"}
     else
-      . bin/mod/ent-check-env runtime
+      bash bin/mod/ent-check-env runtime ${YES_OPT:+"$YES_OPT"}
     fi
   }
 

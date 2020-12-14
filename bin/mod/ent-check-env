@@ -76,7 +76,7 @@ shift
 $M_CFG && {
   check_ver_cfg() {
     if [ ! -f "$ENTANDO_ENT_HOME/w/.cfg" ]; then
-      local VERS;
+      local VERS
       VERS="$(list_compatible_installations "$ENTANDO_CLI_VERSION")"
       if [ -n "$VERS" ]; then
         _log_w 0 "This installation has no config"
@@ -185,7 +185,9 @@ $M_DEVL && {
   nvm_activate
 }
 
-rescan-sys-env force
+$M_DEVL && {
+  rescan-sys-env force
+}
 
 # NODE
 $M_DEVL && {

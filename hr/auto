@@ -8,8 +8,9 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 [ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 [ -z "$ENTANDO_INTERACTIVE" ] && ENTANDO_INTERACTIVE=false  && echo "Assuming ENTANDO_INTERACTIVE=\"$ENTANDO_INTERACTIVE\""
 
-if [ -z "$ENTANDO_DEV_TTY" ]; then
-  if [ -t 0 ]; then
+if [ -z "$ENTANDO_IS_TTY" ]; then
+  perl -e 'print -t 1 ? exit 0 : exit 1;'
+  if [ $? -eq 0 ]; then
     ENTANDO_DEV_TTY="-"
   else
     case "$OSTYPE" in
