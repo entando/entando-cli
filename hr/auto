@@ -8,18 +8,6 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 [ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
 [ -z "$ENTANDO_INTERACTIVE" ] && ENTANDO_INTERACTIVE=false  && echo "Assuming ENTANDO_INTERACTIVE=\"$ENTANDO_INTERACTIVE\""
 
-if [ -z "$ENTANDO_IS_TTY" ]; then
-  perl -e 'print -t 1 ? exit 0 : exit 1;'
-  if [ $? -eq 0 ]; then
-    ENTANDO_DEV_TTY="-"
-  else
-    case "$OSTYPE" in
-      darwin*) ENTANDO_DEV_TTY="-";;
-      *) ENTANDO_DEV_TTY="/dev/tty";;
-    esac
-  fi
-fi
-
 if [ "$1" = "--local-test" ]; then
   shift
   . s/essentials.sh
@@ -100,7 +88,7 @@ OPTS=(
   "$(var_to_param "release" "$ENTANDO_RELEASE")"
   "$(var_to_param "cli-version" "$ENTANDO_CLI_VERSION")"
   "$(var_to_param -f "yes" "$ENTANDO_OPT_YES_FOR_ALL")"
-  "$(var_to_param -f "interactive" "$ENTANDO_INTERACTIVE")"
+  "$(var_to_param "interactive" "$ENTANDO_INTERACTIVE")"
   "$(var_to_param -f "auto-hostname" "$ENTANDO_AUTO_HOSTNAME")"
 )
 
@@ -119,8 +107,4 @@ cat << EOF > "$T"
   ent quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
 EOF
 
-if [ "$ENTANDO_DEV_TTY" = "-" ]; then
-  bash "$T"
-else
-  bash "$T" < "$ENTANDO_DEV_TTY"
-fi
+bash "$T"
