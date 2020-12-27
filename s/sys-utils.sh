@@ -142,9 +142,13 @@ check_ver_num() {
 
 make_safe_resolv_conf() {
   [ ! -f /etc/resolv.conf.orig ] && sudo cp -ap /etc/resolv.conf /etc/resolv.conf.orig
-  sudo cp -a /etc/resolv.conf /etc/resolv.conf.tmp
-  sudo _sed_in_place 's/nameserver.*/nameserver 8.8.8.8/' /etc/resolv.conf.tmp
-  sudo mv /etc/resolv.conf.tmp /etc/resolv.conf
+  
+  # shellcheck disable=SC2002
+  cat "/etc/resolv.conf" \
+  | _perl_sed 's/nameserver.*/nameserver 8.8.8.8/' \
+  > /tmp/resolv.conf.tmp
+  
+  sudo mv /tmp/resolv.conf.tmp /etc/resolv.conf
 }
 
 # MISC
