@@ -156,7 +156,7 @@ $M_KUBE && {
         if $NO_DNS_FIX; then
           ask "Do you want to proceed anyway?" || FATAL "Quitting"
         else
-          ask "Should alter the resolv.conf?" && {
+          ask "Should I alter the resolv.conf?" && {
             make_safe_resolv_conf
           }
         fi
