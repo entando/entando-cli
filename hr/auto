@@ -27,7 +27,10 @@ else
   fi
 
   # shellcheck disable=SC1091
-  if [[ "$ENTANDO_CLI_VERSION" = "develop" || "$ENTANDO_CLI_VERSION" = "quickstart" || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
+  if [[ "$ENTANDO_RELEASE" = "quickstart" \
+     || "$ENTANDO_CLI_VERSION" = "quickstart" \
+     || "$ENTANDO_CLI_VERSION" = "develop" \
+     || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
     bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
       --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE" --update
   else
