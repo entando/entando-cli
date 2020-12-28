@@ -31,7 +31,12 @@ test_asserters() {
   assert_spc_id "SPC ID" "myObject" "$OPT" || FATAL "failed! $LINENO"
   assert_spc_id "SPC ID" "MyObject" "$OPT" || FATAL "failed! $LINENO"
   assert_spc_id "SPC ID" "my object" "$OPT" || FATAL "failed! $LINENO"
+  assert_spc_id "SPC ID" "My Object" "$OPT" || FATAL "failed! $LINENO"
   assert_spc_id "SPC ID" "my.Object" "$OPT" && FATAL "failed! $LINENO"
+
+  assert_ext_ic_id_spc "IC ID SPC" "My Object" "$OPT" || FATAL "failed! $LINENO"
+  assert_ext_ic_id_spc "IC ID SPC" "My-Object" "$OPT" || FATAL "failed! $LINENO"
+  assert_ext_ic_id_spc "IC ID SPC" "My- Object" "$OPT" || FATAL "failed! $LINENO"
 
   assert_dn "DN" "domain" "$OPT" || FATAL "failed! $LINENO"
   assert_dn "DN" "domai@n" "$OPT" && FATAL "failed! $LINENO"

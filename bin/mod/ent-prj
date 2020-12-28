@@ -469,7 +469,7 @@ init_project__commit_all() {
   if $user_global; then
     git init
   else
-    set_or_ask "FE_PUB_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id"
+    set_or_ask "FE_PUB_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id_spc"
     set_or_ask "FE_PUB_USER_EMAIL" "" "Please provide the user email for the $desc" "$prj_user_email" "assert_email"
     git init
     git config user.name "$FE_PUB_USER_NAME"
@@ -491,7 +491,7 @@ init_pub() {
   read_missing_pub_info_from_project_sources_git
 
   set_or_ask "URL_OF_ORIGIN" "$1" "Please provide the URL of the publication repository" "" "assert_url"
-  set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_ext_ic_id"
+  set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_ext_ic_id_spc"
   set_or_ask "PUB_USER_EMAIL" "$3" "%sp Git %var" "$PUB_USER_EMAIL" "assert_email"
 
   initialize_publication_git_repository

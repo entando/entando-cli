@@ -92,7 +92,11 @@ assert_ic_id() {
 }
 
 assert_ext_ic_id() {
-  _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_-]*$" "" "identifier" "$3"
+  _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_-]*$" "" "extended identifier" "$3"
+}
+
+assert_ext_ic_id_spc() {
+  _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9 _-]*$" "" "extended-identifier-with-spaces" "$3"
 }
 
 assert_ext_ic_id_with_arr() {
