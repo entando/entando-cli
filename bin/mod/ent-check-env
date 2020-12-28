@@ -141,20 +141,20 @@ $M_KUBE && {
       ;;
     "no-dns")
       _log_e 1 "SEVERE: This system appears to have no DNS."
-      ask "Do you want to proceed anyway?" || FATAL "Quitting"
+      ask "Should I proceed anyway?" || FATAL "Quitting"
       ;;
     "filtered[RR]")
       _log_e 1 "SEVERE: DNS query for local addresses appears to be actively filtered."
-      ask "Do you want to proceed anyway?" || FATAL "Quitting"
+      ask "Should I proceed anyway?" || FATAL "Quitting"
       ;;
     "filtered[R]")
       if $M_QS; then
         _log_e 1 "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
-        ask "Workaround doesn't seem to work. Do you want to proceed anyway?" || FATAL "Quitting"
+        ask "Workaround doesn't seem to work. Should I proceed anyway?" || FATAL "Quitting"
       else
         _log_e 1 "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
         if $NO_DNS_FIX; then
-          ask "Do you want to proceed anyway?" || FATAL "Quitting"
+          ask "Should I proceed anyway?" || FATAL "Quitting"
         else
           ask "Should I alter the resolv.conf?" && {
             make_safe_resolv_conf

@@ -56,11 +56,11 @@ test_ask() {
   print_current_function_name "> " ".."
 
   {
-    (echo "y" | ask "Do you want to continue?") || FATAL "failed! $LINENO"
-    (echo "n" | ask "Do you want to continue?") && FATAL "failed! $LINENO"
-    (echo "" | ask "Do you want to continue?" "Y") || FATAL "failed! $LINENO"
+    (echo "y" | ask "Should I proceed anyway?") || FATAL "failed! $LINENO"
+    (echo "n" | ask "Should I proceed anyway?") && FATAL "failed! $LINENO"
+    (echo "" | ask "Should I proceed anyway?" "Y") || FATAL "failed! $LINENO"
     echo ""
-    (echo "n" | ask "Do you want to continue?" "Y") && FATAL "failed! $LINENO"
+    (echo "n" | ask "Should I proceed anyway?" "Y") && FATAL "failed! $LINENO"
     echo ""
   } > /dev/null
 }

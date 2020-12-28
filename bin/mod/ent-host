@@ -98,7 +98,7 @@ RUN() {
 
       _log_i 1 "Done"
 
-      ask "Do you want to restart the VM?" Y && {
+      ask "Should I restart the VM?" Y && {
         multipass restart "$VM_NAME"
       }
 

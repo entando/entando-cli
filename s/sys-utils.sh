@@ -292,7 +292,7 @@ _ent-bundler() {
 function ent-init-project-dir() {
   [ -f "$C_ENT_PRJ_FILE" ] && {
     _log_w 0 "The project seems to be already initialized"
-    ask "Do you want to init it again?" "n" || return 1
+    ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
   _ent-npm--import-module-to-current-dir "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \

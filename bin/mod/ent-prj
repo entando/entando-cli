@@ -461,7 +461,7 @@ init_project__commit_all() {
   local user_global=false
 
   if [ -n "$prj_user_name" ] && [ -n "$prj_user_email" ]; then
-    if ask "Do you want to use you global git user?"; then
+    if ask "Should I use you global git user?"; then
       user_global=true
     fi
   fi
@@ -576,7 +576,7 @@ ensure_valid_location_for_git_publication() {
     if [ "$(git ls-remote origin master)" ]; then
       # remote already has a master => import it
       _log_w 1 "A remote master has been detected"
-      ask "Do you want to import it?" || FATAL -t "Unable to proceed; manual intervention required"
+      ask "Should I import it?" || FATAL -t "Unable to proceed; manual intervention required"
 
       if [ "$(git status --porcelain)" ]; then
         local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
@@ -629,7 +629,7 @@ pbs_fe_propose_credentials_cache() {
   ! $IS_GIT_CREDENTIAL_MANAGER_PRESENT && return 99
 
   local TIMEOUT=""
-  ask "Do you want to enable the credentials cache for the publication of the frontend?" && {
+  ask "Should I enable the credentials cache for the publication of the frontend?" && {
     set_or_ask TIMEOUT "" "Expiration in seconds?" "$((3600 * 24))" && {
       git_enable_credentials_cache "$TIMEOUT"
     }
