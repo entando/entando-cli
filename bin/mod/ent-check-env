@@ -164,7 +164,7 @@ $M_KUBE && {
       ;;
     "*")
       _log_e 1 "SEVERE: Unable to precisely determine the status of the DNS."
-      ask " Do you what to proceed anyway?" || FATAL "Quitting"
+      ask " Should I proceed anyway?" || FATAL "Quitting"
       ;;
   esac
 }

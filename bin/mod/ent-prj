@@ -511,7 +511,8 @@ initialize_publication_git_repository() {
   # Set origin, if required
   ORIG="$(git remote get-url origin 2> /dev/null)"
   [ -n "$ORIG" ] && {
-    ask "An origin is already present ($ORIG) do you want ot overwrite it?" || EXIT_UE "User abort"
+    _log_w 0 "An origin is already present ($ORIG)"
+    ask "Should I overwrite it?" || EXIT_UE "User abort"
     git remote remove origin
   }
   git remote add origin "$URL_OF_ORIGIN"
@@ -576,8 +577,28 @@ ensure_valid_location_for_git_publication() {
     if [ "$(git ls-remote origin master)" ]; then
       # remote already has a master => import it
       _log_w 1 "A remote master has been detected"
-      ask "Should I import it?" || FATAL -t "Unable to proceed; manual intervention required"
+      ask "Should I import it?"
 
+      if [ $? -ne 0 ]; then
+        # USER CHOSE TO NOT IMPORT
+        MSG="PLEASE NOTE: You chose to not import the remote repository, however in this condition the local copy of "
+        MSG+="your build artifacts will collide with the remote one. In order to proceed, the collision "
+        MSG+="should be resolved by applying one of these solutions: 1) import the remote artifacts repository "
+        MSG+="2) reset the remote artifacts repository 3) provide a new, empty artifacts repository"
+        echo ""
+        _log_w 0 "$MSG"
+        EXIT_UE "Unable to proceed; manual intervention required"
+      fi
+
+      # USER CHOSE TO IMPORT
+      MSG="PLEASE NOTE: You chose to import the remote master."
+      MSG+="Your local build artifacts may be discarded. "
+      MSG+="If you just run a build, you'd better run it again."
+      echo ""
+      _log_w 0 "$MSG"
+      ask "Should I proceed?" "Y" || EXIT_UE "User interrupted"
+
+      # LOCAL BRANCH BACKUP
       if [ "$(git status --porcelain)" ]; then
         local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
         _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
@@ -587,6 +608,7 @@ ensure_valid_location_for_git_publication() {
           && git commit -m "$BBN"
       fi
 
+      # IMPORT
       _log_d 1 "Checking out the remote master"
       git branch -m master master_old 1> /dev/null 2>&1
       git branch -D master 1> /dev/null 2>&1

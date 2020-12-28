@@ -52,7 +52,7 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automa
 [ -n "$HH" ] && echo "" && exit 0
 
 [ -z "$ENTANDO_NAMESPACE" ] && FATAL "Please provide the namespace"
-[ -z "$ENTANDO_APPNAME" ] && FATAL "Please provide the namespace"
+[ -z "$ENTANDO_APPNAME" ] && FATAL "Please provide the appname"
 
 args_or_ask -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
 args_or_ask -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
