@@ -364,15 +364,13 @@ push_docker() {
 push_git() {
   ensure_valid_location_for_git_publication
 
-  [ "$1" == "--force" ] && {
-    shift
-    FORCE=true
-  } || FORCE=false
+  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
+    _log_i 0 "Force mode active"
+  }
+  args_or_ask -a "VERSION_NUMBER" "1/ver/$LATEST_VERSION_NUMBER/%sp bundle version number" "$@"
+  DEF="$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')"
+  args_or_ask -a "VERSION_COMMENT" "2/nn/$DEF/%sp bundle version comment" "$@"
 
-  set_or_ask "VERSION_NUMBER" "$1" "Please provide the bundle version number" \
-    "$LATEST_VERSION_NUMBER" "assert_ver"
-  set_or_ask "VERSION_COMMENT" "$2" "Please provide the bundle version comment" \
-    "$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')" "assert_nn"
   save_cfg_value "LATEST_VERSION_NUMBER" "$VERSION_NUMBER" "$C_ENT_STATE_FILE"
 
   __cd bundle
@@ -619,6 +617,7 @@ ensure_valid_location_for_git_publication() {
       # there is no master on remote
       echo "" > .gitignore
       git add .gitignore descriptor.yaml
+      ls plugins/*.yaml 1>/dev/null && git add plugins/*.yaml
       git commit -m "init"
       git checkout -b master
       git push --set-upstream origin master
