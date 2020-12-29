@@ -256,6 +256,13 @@ function _ent-jhipster() {
     else
       "$ENT_NPM_BIN_DIR/jhipster" "$@"
     fi
+
+    _log_i 0 "Updating the entando generator"
+
+    _ent-npm--import-module-to-current-dir \
+      "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
+      "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+      | grep -v 'No description\|No repository field.\|No license field.'
   fi
 }
 
@@ -295,8 +302,8 @@ function ent-init-project-dir() {
     ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
-  _ent-npm--import-module-to-current-dir "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
-    | grep -v 'No description\|No repository field.\|No license field.'
+  #_ent-npm--import-module-to-current-dir "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+  #  | grep -v 'No description\|No repository field.\|No license field.'
   generate_ent_project_file
 }
 
