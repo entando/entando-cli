@@ -191,8 +191,8 @@ $JUST_SET_CFG && echo "Config has been written" && exit 0
 
 RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
-  [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="4G"
-  [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="12G"
+  [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
+  [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
 
