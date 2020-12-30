@@ -235,12 +235,12 @@ RUN_WITH_VM() {
 
   #~
   $ENTANDO_AUTO_HOSTNAME && {
-    if $ENTANDO_OPT_YES_FOR_ALL || ! $ENTANDO_INTERACTIVE; then
-      _log_w 2 "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
-      _log_w 2 "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
-    else
+    if prepare_for_privileged_commands; then
       _log_i 2 "> Creating the hostname DNS \"$ENTANDO_VM_NAME\" on the hosts file"
       ent host setup-vm-hostname "$ENTANDO_VM_NAME"
+    else
+      _log_w 2 "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
+      _log_w 2 "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
     fi
   }
 

@@ -24,7 +24,7 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 C_ENTANDO_LOGO_FILE="res/entando.png"
 
 C_WIN_VM_HOSTNAME_SUFFIX="mshome.net"
-C_AUTO_VM_HOSTNAME_SUFFIX="multipass"
+C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 
 # More dynamic configurations
 
