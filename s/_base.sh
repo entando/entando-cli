@@ -170,12 +170,12 @@ reload_cfg
 
 setup_kubectl
 
-ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
-[[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {
-  # keep this as simple as possible, only native commands
-  echo "Internal Error: Unable to create the tmp dir" 2>&1
-  exit 99
-}
+#ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
+#[[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {
+#  # keep this as simple as possible, only native commands
+#  echo "Internal Error: Unable to create the tmp dir" 2>&1
+#  exit 99
+#}
 
 # ----------------------------------------------------------------------------------------------------------------------
 
