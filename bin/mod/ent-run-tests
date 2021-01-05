@@ -15,6 +15,8 @@ cd "$DIR/../.." || {
 . s/tests/sys-utils-tests.sh
 . s/tests/utils-tests.sh
 . s/tests/var-utils-tests.sh
+. s/tests/quickstart-mocks-tests.sh
+
 . bin/mod/tests/ent-check-env-test.sh
 
 test_var_to_param
@@ -26,6 +28,7 @@ test_select_one
 test_args_or_ask
 test_remotes
 test_asserters
+test_multipass_mocks
 
 test_mod_check-env_find_nvm_node
 
