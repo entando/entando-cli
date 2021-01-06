@@ -31,13 +31,14 @@ ENTANDO_ENT_HOME_NEW=$(
 }
 
 [ "$ENTANDO_ENT_HOME" != "" ] && {
-  [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "An instance at location \"$ENTANDO_ENT_HOME\" is already active (force with --force)"
-  if [[ "$1" = "--force" || "$2" = "--force" ]]; then
-    [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
+  [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && \
+    echo "An instance at location \"$ENTANDO_ENT_HOME\" is already active (force with --force)"
+  if [[ "$1" = "--force" || "$2" = "--force" || "$3" = "--force" ]]; then
+    [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
     # shellcheck disable=SC1090
     . "$ENTANDO_ENT_HOME_NEW/deactivate" -p --force > /dev/null 2>&1
   else
-    [[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Quitting"
+    [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "Quitting"
     return 91
   fi
 }
@@ -48,13 +49,15 @@ PATH="$ENTANDO_ENT_HOME/bin:$PATH"
 export PATH
 unset ENTANDO_ENT_HOME_NEW
 
-if [ -n "$ZSH_VERSION" ]; then
-  # shellcheck disable=SC1090
-  source <(ent print-completion-setup zsh)
-else
-  # shellcheck disable=SC1091
-  source /dev/stdin <<<"$(ent print-completion-setup bash)"   # bash 3.2 compatible syntax
-fi
+[[ "$1" = "--enable-autocompletion" || "$2" = "--enable-autocompletion" || "$3" = "--enable-autocompletion" ]] && {
+  if [ -n "$ZSH_VERSION" ]; then
+    # shellcheck disable=SC1090
+    source <(ent print-completion-setup zsh)
+  else
+    # shellcheck disable=SC1091
+    source /dev/stdin <<<"$(ent print-completion-setup bash)"   # bash 3.2 compatible syntax
+  fi
+}
 
-[[ "$1" != "--quiet" && "$2" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_HOME\" activated"
+[[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_HOME\" activated"
 
