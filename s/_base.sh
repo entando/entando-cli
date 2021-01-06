@@ -197,10 +197,14 @@ activate_designated_node() {
 
   [[ -z "$ACTIVATED_NODE_VERSION" || "$ACTIVATED_NODE_VERSION" != "$DESIGNATED_NODE_VERSION" ]] && {
     check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
-      nvm use "$DESIGNATED_NODE_VERSION" > /dev/null || {
-        _log_w 1 "Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\")"
+      local ERRMSG="Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\"): "
+      ERRMSG+="The required node version is not present anymore or it's corrupted,"
+      ERRMSG+="you may try to reinstall it using nvm."
+      nvm use "$DESIGNATED_NODE_VERSION" > /dev/null
+      if [[ "$(node -v)" != "$DESIGNATED_NODE_VERSION" ]]; then
+        _log_e 1 "$ERRMSG"
         return 1
-      }
+      fi
     }
     ACTIVATED_NODE_VERSION="$DESIGNATED_NODE_VERSION"
   }
