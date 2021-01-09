@@ -423,6 +423,7 @@ args_or_ask() {
   local FLAGANDVAR=false
   local ARG=false
   local PRESERVE=false
+  local PRINT_HELP=false
   local JUST_PRINT_HELP=false
   local SPACE_SEP=false
   local PRINT_COMPLETION_CODE=false
@@ -431,7 +432,7 @@ args_or_ask() {
   print_sub_help() {
     local val_name="$1"
     local val_msg="$2"
-    $JUST_PRINT_HELP && {
+    $PRINT_HELP && {
       if [ -z "$val_msg" ]; then
         val_msg="$val_name"
       else
@@ -474,8 +475,13 @@ args_or_ask() {
         IS_DEFAULT=true
         shift
         ;;
-      --help)
+      --help-only)
+        PRINT_HELP=true
         JUST_PRINT_HELP=true
+        shift
+        ;;
+      --help)
+        PRINT_HELP=true
         shift
         ;;
       --cmplt)
@@ -521,7 +527,7 @@ args_or_ask() {
     assert_num "POSITIONAL_ARGUMENT_INDEX" "$val_name"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
-    val_name="Argument #$val_name"
+    val_name="Argument #$((val_name))"
 
     if [ $found_at -ne 255 ]; then
       val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
@@ -529,7 +535,7 @@ args_or_ask() {
       val_from_args=""
     fi
   elif $FLAG || $FLAGANDVAR; then
-    print_sub_help "$val_name" "$val_msg" && return 2
+    print_sub_help "$val_name" "$val_msg" && $JUST_PRINT_HELP && return 2
 
     index_of_arg "${val_name}" "$@"
     found_at="$?"
@@ -578,7 +584,7 @@ args_or_ask() {
     fi
   fi
 
-  print_sub_help "$val_name" "$val_msg" && return 2
+  print_sub_help "$val_name" "$val_msg" && $JUST_PRINT_HELP && return 2
 
   if $FLAG; then
     index_of_arg "${val_name}" "$@"
@@ -642,7 +648,9 @@ simple_shell_completion_handler() {
 }
 
 parse_help_option() {
-  local ARG="${BASH_ARGV[0]}"
+  # shellcheck disable=SC2124
+  local ARG="${!#}"
+  local HH
 
   case "$ARG" in
     "--help") HH="--help" ;;
@@ -654,7 +662,13 @@ parse_help_option() {
 
 show_help_option() {
   case "$1" in
-    --help) echo "> Parameters:" ;;
+    --help)
+      if [ -n "$2" ]; then
+        echo "> Arguments of $2:"
+      else
+        echo "> Arguments:"
+      fi
+      ;;
     --cmplt) echo "--help" ;;
   esac
 }
@@ -696,6 +710,17 @@ args_or_ask__a_remote() {
     _set_var "$var_name" "$TMP"
   }
 }
+
+stdin_to_arr() {
+  local i=0
+  local arr
+  IFS="$1" read -d '' -r -a arr
+  for line in "${arr[@]}"; do
+    _set_var "$2[$i]" "$line"
+    ((i++))
+  done
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 
 remotes-clear() {

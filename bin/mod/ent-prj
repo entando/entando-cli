@@ -272,7 +272,7 @@ get_be_info() {
         -Dexec.executable="echo" \
         -Dexec.args="'$IMAGE_FQNAME_expr'" 2> /dev/null
     )"
-    if grep -F "[ERROR]" <($IMAGE_FQNAME); then
+    if echo "$IMAGE_FQNAME" | grep -F "[ERROR]"; then
       IMAGE_FQNAME=""
     fi
   fi
@@ -365,7 +365,7 @@ push_git() {
   ensure_valid_location_for_git_publication
 
   args_or_ask -n -F -- "FORCE" '--force' "$@" && {
-    _log_i 0 "Force mode active"
+    _log_i 0 "push_git: Force mode active"
   }
   args_or_ask -a "VERSION_NUMBER" "1/ver/$LATEST_VERSION_NUMBER/%sp bundle version number" "$@"
   DEF="$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')"
@@ -448,7 +448,7 @@ get_bundle_repo_url() {
   __cd "./bundle"
   git remote get-url origin
   # shellcheck disable=SC2164
-  cd - >/dev/null
+  cd - > /dev/null
 }
 
 # shellcheck disable=SC2155
@@ -492,14 +492,19 @@ init_pub() {
   set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_ext_ic_id_spc"
   set_or_ask "PUB_USER_EMAIL" "$3" "%sp Git %var" "$PUB_USER_EMAIL" "assert_email"
 
-  initialize_publication_git_repository
-  ensure_valid_location_for_git_publication :initialized
+  initialize_publication_git_repository "$@"
+  ensure_valid_location_for_git_publication :initialized "$@"
 
   _log_i 1 "bundle publication repository initialized"
 }
 
 initialize_publication_git_repository() {
   cd bundle > /dev/null || FATAL -t "internal error"
+
+  local FORCE
+  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
+    _log_i 0 "pub_init: Force mode active"
+  }
 
   # Base git init, if required
   [ ! -f .git ] && {
@@ -510,7 +515,9 @@ initialize_publication_git_repository() {
   ORIG="$(git remote get-url origin 2> /dev/null)"
   [ -n "$ORIG" ] && {
     _log_w 0 "An origin is already present ($ORIG)"
-    ask "Should I overwrite it?" || EXIT_UE "User abort"
+    ! $FORCE && {
+      ask "Should I overwrite it?" || EXIT_UE "User abort"
+    }
     git remote remove origin
   }
   git remote add origin "$URL_OF_ORIGIN"
@@ -549,6 +556,11 @@ require_ent_project_dir() {
 }
 
 ensure_valid_location_for_git_publication() {
+  local FORCE
+  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
+    _log_i 0 "valid_loc: Force mode active"
+  }
+
   # valid path
   if [ ! -f "$C_ENT_PRJ_FILE" ]; then
     if [ -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ]; then
@@ -571,56 +583,79 @@ ensure_valid_location_for_git_publication() {
     [ -z "$(git config user.name 2> /dev/null)" ] && FATAL 'Publication user name is not set'
     [ -z "$(git config user.email 2> /dev/null)" ] && FATAL 'Publication user email is not set'
 
+    local MODE="NORMAL"
+
     # git master branch
     if [ "$(git ls-remote origin master)" ]; then
       # remote already has a master => import it
       _log_w 1 "A remote master has been detected"
       ask "Should I import it?"
 
+
       if [ $? -ne 0 ]; then
         # USER CHOSE TO NOT IMPORT
-        MSG="PLEASE NOTE: You chose to not import the remote repository, however in this condition the local copy of "
-        MSG+="your build artifacts will collide with the remote one. In order to proceed, the collision "
-        MSG+="should be resolved by applying one of these solutions: 1) import the remote artifacts repository "
-        MSG+="2) reset the remote artifacts repository 3) provide a new, empty artifacts repository"
+        if $FORCE; then
+          MSG="PLEASE NOTE: You chose to not import the remote repository and the force flag was provided, "
+          MSG+="therefore I will now DESTROY the remote repository content and replace it with the local content"
+          echo ""
+          _log_w 0 "$MSG"
+          echo ""
+          ask "Should I DESTROY the remote repository content and proceed?" "N" || EXIT_UE "User interrupted"
+          MODE="OVERRIDE"
+        else
+          MSG="PLEASE NOTE: You chose to not import the remote repository, however in this condition the local copy of "
+          MSG+="your build artifacts will collide with the remote one. In order to proceed, the collision "
+          MSG+="should be resolved by applying one of these solutions: 1) import the remote artifacts repository "
+          MSG+="2) reset the remote artifacts repository 3) provide a new, empty artifacts repository"
+          echo ""
+          _log_w 0 "$MSG"
+          EXIT_UE "Unable to proceed; manual intervention required"
+        fi
+      else
+        # USER CHOSE TO IMPORT
+        MSG="PLEASE NOTE: You chose to import the remote master."
+        MSG+="Your local build artifacts may be discarded. "
+        MSG+="If you just run a build, you'd better run it again."
         echo ""
         _log_w 0 "$MSG"
-        EXIT_UE "Unable to proceed; manual intervention required"
+        echo ""
+        ask "Should I proceed?" "Y" || EXIT_UE "User interrupted"
+        MODE="IMPORT"
       fi
 
-      # USER CHOSE TO IMPORT
-      MSG="PLEASE NOTE: You chose to import the remote master."
-      MSG+="Your local build artifacts may be discarded. "
-      MSG+="If you just run a build, you'd better run it again."
-      echo ""
-      _log_w 0 "$MSG"
-      ask "Should I proceed?" "Y" || EXIT_UE "User interrupted"
+      if [ "$MODE" = "IMPORT" ]; then
+        # LOCAL BRANCH BACKUP
+        if [ "$(git status --porcelain)" ]; then
+          local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
+          _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
+          git reset HEAD 2> /dev/null
+          git checkout -b "$BBN" \
+            && git add -A \
+            && git commit -m "$BBN"
 
-      # LOCAL BRANCH BACKUP
-      if [ "$(git status --porcelain)" ]; then
-        local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
-        _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
-        git reset HEAD 2> /dev/null
-        git checkout -b "$BBN" \
-          && git add -A \
-          && git commit -m "$BBN"
+          # IMPORT
+          _log_d 1 "Checking out the remote master"
+          git branch -m master master_old 1> /dev/null 2>&1
+          git branch -D master 1> /dev/null 2>&1
+          git fetch origin master
+          git checkout -b master origin/master
+          git branch -D master_old 1> /dev/null 2>&1
+        fi
       fi
+    fi
 
-      # IMPORT
-      _log_d 1 "Checking out the remote master"
-      git branch -m master master_old 1> /dev/null 2>&1
-      git branch -D master 1> /dev/null 2>&1
-      git fetch origin master
-      git checkout -b master origin/master
-      git branch -D master_old 1> /dev/null 2>&1
-    else
+    if [[ "$MODE" = "NORMAL" || "$MODE" = "OVERRIDE" ]]; then
       # there is no master on remote
       echo "" > .gitignore
       git add .gitignore descriptor.yaml
-      ls plugins/*.yaml 1>/dev/null && git add plugins/*.yaml
+      ls plugins/*.yaml 1> /dev/null && git add plugins/*.yaml
       git commit -m "init"
       git checkout -b master
-      git push --set-upstream origin master
+      if [ "$MODE" = "OVERRIDE" ]; then
+        git push --set-upstream origin master --force
+      else
+        git push --set-upstream origin master
+      fi
     fi
 
     cd - > /dev/null || FATAL -t "internal error"
@@ -661,7 +696,7 @@ pbs_fe_propose_credentials_cache() {
 # ######################################################################################################################
 # ######################################################################################################################
 
-if [[ "$1" = "--help" || "$1" == "" ]]; then
+if [[ "$1" == "--help" || "$1" == "" ]]; then
   . s/essentials.sh
   print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   exit 0
