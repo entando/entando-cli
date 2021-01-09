@@ -10,7 +10,7 @@ test_multipass_mocks() {
     multipass info "test-vm" && FATAL "FAILED $LINENO"
     multipass launch --name "test-vm" --cpus "4" --mem "8G" --disk "20G"
     multipass info "test-vm" || FATAL "FAILED $LINENO"
-  )
+  ) &>/dev/null
 }
 
 true

@@ -12,29 +12,45 @@ cd "$DIR/../.." || {
 debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     trace_vars \
-      AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME \
+      ENTANDO_STANDARD_QUICKSTART ENTANDO_PRE_EXISTING K8S_TEMPLATE \
+      AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME\
       ENTANDO_DEBUG ENTANDO_RELEASE ENTANDO_CLI_VERSION WITH_VM ENTANDO_OPT_YES_FOR_ALL ENTANDO_INTERACTIVE \
       JUST_SET_CFG ENTANDO_NAMESPACE ENTANDO_APPNAME \
       ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK ENTANDO_VM_REUSE \
-      ENTANDO_AUTO_HOSTNAME ENTANDO_CONFIGMAP_OVERRIDE_FILE ENTANDO_COCOO_VERSION_OVERRIDE
+      ENTANDO_AUTO_HOSTNAME ENTANDO_CONFIGMAP_OVERRIDE_FILE ENTANDO_COCOO_VERSION_OVERRIDE EDIT_MANIFEST \
+      DESIGNATED_KUBECTL_CMD
   fi
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
 . s/_base.sh
 
-echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-echo "~ STARTING QUICKSTART"
-echo "~ NAME OF THIS HOST: $(hostname)"
-echo "~ ARGUMENTS: $*"
-echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-
-#-----------------------------------------------------------------------------------------------------------------------
-
 HH="$(parse_help_option "$@")"
 show_help_option "$HH"
 
-ENTANDO_INTERACTIVE="true";
+args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
+  "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create CRDs and namespace" "$@"
+
+args_or_ask ${HH:+"$HH"} -n "DESIGNATED_KUBECTL_CMD" \
+  "--kubectl-cmd///Forces the quickstart to use the given kubectl command" "$@"
+
+if [ -z "$HH" ]; then
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  if ! $ENTANDO_PRE_EXISTING && [ -z "$DESIGNATED_KUBECTL_CMD" ]; then
+    echo "~ STARTING QUICKSTART"
+    ENTANDO_STANDARD_QUICKSTART=true
+  else
+    echo "~ STARTING NON-STANDARD QUICKSTART"
+    ENTANDO_STANDARD_QUICKSTART=false
+  fi
+  echo "~ NAME OF THIS HOST: $(hostname)"
+  echo "~ ARGUMENTS: $*"
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+fi
+
+#-----------------------------------------------------------------------------------------------------------------------
+
+ENTANDO_INTERACTIVE="true"; EDIT_MANIFEST=false
 args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
 args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
 args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
@@ -47,12 +63,22 @@ args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 5G" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 15G" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_REUSE" "--vm-reuse/giga//Allows the quickstart to reuse an existing VM" "$@"
+args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_VM_REUSE" "--vm-reuse///Allows the quickstart to reuse an existing VM" "$@"
 args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_COCOO_VERSION_OVERRIDE" \
   "--override-cocoo-version///Overrides the version of the controller coordinator with the supplied version" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
   "--override-configmap///Overrides the configmap with the supplied file content" "$@"
+args_or_ask ${HH:+"$HH"} -n -p -F "ENTANDO_STANDARD_QUICKSTART" \
+  "--standard///Forces the standard behaviour in case of special kubectl setup or pre-existing k8s targets" "$@"
+args_or_ask ${HH:+"$HH"} -n "K8S_TEMPLATE" "--use-template///Forces the use of a specific manifest template type" "$@"
+args_or_ask ${HH:+"$HH"} -n -p -F "EDIT_MANIFEST" \
+  "--edit-manifest///Allows the user to manually customize the manifest yaml file" "$@"
+args_or_ask ${HH:+"$HH"} -n -p "EDIT_MANIFEST" \
+  "--edit-manifest-with///Allows the user to manually customize the manifest yaml file" "$@"
+args_or_ask ${HH:+"$HH"} -n "OVERRIDE_DB_TYPE" \
+  "--override-db-type///Forces the use of the given DB type" "$@"
+
 
 [ -n "$HH" ] && echo "" && exit 0
 
@@ -66,12 +92,19 @@ args_or_ask -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
 args_or_ask -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
 args_or_ask -n -F "JUST_SET_CFG" "--config" "$@"
 args_or_ask -n -F "IN_QUICKSTART_VM" "--in-quickstart-vm///Tells quickstart the it's being run in a VM designed to run it" "$@"
-args_or_ask -n -F "ENTANDO_MOCK_TEST_RUN" "--use-mocks/num/0/enables the mocks" "$@"
+args_or_ask -n -F "ENTANDO_MOCK_TEST_RUN" "--use-mocks///enables the mocks" "$@"
 
 ent-attach-vm() { ent attach-vm "$@"; }
 ent-check-env() { bash bin/mod/ent-check-env "$@"; }
 ent-app-info() { ent app-info "$@"; }
 ent-host() { ent host "$@"; }
+handle-edit-manifest() {
+  if [ "$1" = "true" ]; then
+    _edit "$2"
+  elif [[ "$1" != "false" && "$1" != "" ]]; then
+    "$1" "$2"
+  fi
+}
 
 $ENTANDO_MOCK_TEST_RUN && {
   . s/quickstart-mocks.sh
@@ -79,6 +112,8 @@ $ENTANDO_MOCK_TEST_RUN && {
 
 ! $ENTANDO_INTERACTIVE && {
   ENTANDO_OPT_YES_FOR_ALL=true
+  [[ -n "$EDIT_MANIFEST" && "$EDIT_MANIFEST" != "false" ]] && \
+    FATAL "It's impossible to satisfy \"--edit-manifest\" or \"--edit-manifest-with\" due to non-interactive session"
 }
 
 args_or_ask -f -- "--destroy" "$@" && {
@@ -95,7 +130,13 @@ if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
   assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
 fi
 
+if "$ENTANDO_PRE_EXISTING"; then
+  $WITH_VM && FATAL "Flag \"--pre-existing\" is incompatible with \"--with-vm\""
+  $IN_QUICKSTART_VM && FATAL "Flag \"--pre-existing\" is incompatible with \"--in-quickstart-vm\""
+fi
+
 WITH_HOSTNAME=false
+WITH_SINGLE_HOSTNAME=false
 FOUND=false
 
 ! $JUST_SET_CFG && {
@@ -116,6 +157,7 @@ FOUND=false
     fi
 
     WITH_HOSTNAME=true
+    WITH_SINGLE_HOSTNAME=true
     if $WITH_VM; then
       VM_OPT="--hostname=\"$ADDR\""
     fi
@@ -143,6 +185,7 @@ FOUND=false
     if $WITH_VM; then
       VM_OPT="--auto-hostname"
       WITH_HOSTNAME=true
+      WITH_SINGLE_HOSTNAME=true
       FOUND=true
     else
       ADDR="$ENTANDO_VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX"
@@ -150,6 +193,7 @@ FOUND=false
       assert_fdn "HOSTNAME" "$ADDR"
       FOUND=true
       WITH_HOSTNAME=true
+      WITH_SINGLE_HOSTNAME=true
     fi
   }
 
@@ -170,13 +214,21 @@ FOUND=false
     fi
   }
 
-  # CUSTOM MODE ----
+  # CUSTOM MODE: IP ----
   args_or_ask -n -p "ADDR" "--custom/ip?" "$@" && {
     FOUND=true
     AUTO_ADD_ADDR=true
     [[ -z "$ADDR" ]] && {
       FATAL "Please provide the custom ip address"
     }
+    VM_OPT="--custom=\"$ADDR\""
+  }
+  # CUSTOM MODE: FQDN ----
+  ! $FOUND && args_or_ask -n -p "ADDR" "--custom/fdn" "$@" && {
+    FOUND=true
+    AUTO_ADD_ADDR=false
+    WITH_HOSTNAME=true
+    WITH_SINGLE_HOSTNAME=false
     VM_OPT="--custom=\"$ADDR\""
   }
 }
@@ -255,6 +307,12 @@ RUN_WITH_VM() {
     OPT_OVERRIDE+=" --override-cocoo-version=$ENTANDO_COCOO_VERSION_OVERRIDE"
   }
 
+  case "$EDIT_MANIFEST" in
+    true) OPT_OVERRIDE+=" --edit-manifest";;
+    "") ;;
+    *) OPT_OVERRIDE+=" --edit-manifest-with='$EDIT_MANIFEST'"
+  esac
+
   #~ INSTALL ENT IN THE VM
   _log_i 2 "> Installing Ent on the VM"
   multipass exec "$ENTANDO_VM_NAME" -- bash -c "
@@ -329,10 +387,12 @@ RUN_DIRECT() {
       YES_OPT="--yes"
     fi
 
-    if $WITH_HOSTNAME; then
-      ent-check-env runtime --no-dns-fix ${YES_OPT:+"$YES_OPT"}
-    else
-      ent-check-env runtime ${YES_OPT:+"$YES_OPT"}
+    if $ENTANDO_STANDARD_QUICKSTART; then
+      if $WITH_HOSTNAME; then
+        ent-check-env runtime --no-dns-fix ${YES_OPT:+"$YES_OPT"}
+      else
+        ent-check-env runtime ${YES_OPT:+"$YES_OPT"}
+      fi
     fi
   }
 
@@ -364,71 +424,99 @@ RUN_DIRECT() {
     _log_d 5 "> Using ip address: $ADDR"
   else
     FQADDR="$ADDR"
-    SINGLE_HOSTNAME="$FQADDR"
+    if $WITH_SINGLE_HOSTNAME; then
+      SINGLE_HOSTNAME="$FQADDR"
+    else
+      SINGLE_HOSTNAME="~"
+    fi
 
     _log_d 5 "> Using domain: $ADDR"
   fi
 
-  # -- GENERATES THE YAML MANIFEST_FILE FILE
+  # -- GENERATES THE YAML TGT_FILE FILE
+  determine_template_filename "MANIFEST_TEMPLATE_FILENAME" "$DEPL_SPEC_YAML_FILE" "$K8S_TEMPLATE"
+
+  if [ -f "dist/$MANIFEST_TEMPLATE_FILENAME" ]; then
+    _log_i 1 "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILENAME\""
+  else
+    FATAL "Unable to find manifest template file \"dist/$MANIFEST_TEMPLATE_FILENAME\""
+  fi
 
   _log_i 2 "> Generating the kubernetes specification file \"w/$DEPL_SPEC_YAML_FILE\" for the deployment"
 
   # shellcheck disable=SC2002
-  cat "dist/$DEPL_SPEC_YAML_FILE.tpl" \
+  cat "dist/$MANIFEST_TEMPLATE_FILENAME" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOSTNAME/$SINGLE_HOSTNAME/" \
     | _perl_sed "s/PLACEHOLDER_ENTANDO_DOMAIN_SUFFIX/$FQADDR/" \
       > "w/$DEPL_SPEC_YAML_FILE"
 
+  [ -n "$OVERRIDE_DB_TYPE" ] && {
+    _sed_in_place "s/dbms: .*/dbms: $OVERRIDE_DB_TYPE/g" "w/$DEPL_SPEC_YAML_FILE"
+  }
+
   _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
 
-  ask "Should I register the CRDs?" && {
-    _kubectl apply -f "dist/crd"
+  $ENTANDO_STANDARD_QUICKSTART && {
+    ask "Should I register the CRDs?" && {
+      _kubectl apply -f "dist/crd"
+    }
   }
 
   # -- APPLIES OVERRIDES
 
   if [ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE$ENTANDO_COCOO_VERSION_OVERRIDE" ]; then
-    local MANIFEST_FILE="w/$DEPL_SPEC_YAML_FILE"
+    local TGT_FILE="w/$DEPL_SPEC_YAML_FILE"
     local TMP_FILE="w/$DEPL_SPEC_YAML_FILE.tmp"
 
     # ConfigMap override
     [ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ] && {
       _log_i 0 "Applying the ConfigMap override"
       s/entando-quickstart-yaml-helper.sh set-configmap \
-          "$MANIFEST_FILE" \
-          "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
-          > "$TMP_FILE"
+        "$TGT_FILE" \
+        "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
+        > "$TMP_FILE"
     }
-    mv "$TMP_FILE" "$MANIFEST_FILE"
+    mv "$TMP_FILE" "$TGT_FILE"
     # CoCoo override
     [ -n "$ENTANDO_COCOO_VERSION_OVERRIDE" ] && {
       _log_i 0 "Applying the Controller Coordinator override"
       s/entando-quickstart-yaml-helper.sh set-cocoo-version \
-          "$MANIFEST_FILE" \
-          "$ENTANDO_COCOO_VERSION_OVERRIDE" \
-          > "$TMP_FILE"
+        "$TGT_FILE" \
+        "$ENTANDO_COCOO_VERSION_OVERRIDE" \
+        > "$TMP_FILE"
     }
-    mv "$TMP_FILE" "$MANIFEST_FILE"
+    mv "$TMP_FILE" "$TGT_FILE"
   fi
+
+  handle-edit-manifest "$EDIT_MANIFEST" "w/$DEPL_SPEC_YAML_FILE"
 
   # -- DEPLOYMENT
   ask "Should I start the deployment?" && {
-    _kubectl create namespace "$ENTANDO_NAMESPACE"
-    _kubectl create -f "w/$DEPL_SPEC_YAML_FILE"
+    $ENTANDO_STANDARD_QUICKSTART && {
+      _kubectl create namespace "$ENTANDO_NAMESPACE"
+    }
+    _kubectl create -f "w/$DEPL_SPEC_YAML_FILE" -n "$ENTANDO_NAMESPACE"
   }
 
   # -- POST-DEPLOYMENT
 
   # shellcheck disable=SC2015
   ask "Should I start the monitor?" && {
+    export ENTANDO_DESIGNATED_KUBECTL_CMD="$DESIGNATED_KUBECTL_CMD"
     ent-app-info watch || true
   } || {
     echo -e "\n~~~\nUse the command:\n  - ent app-info.sh watch\nto check the status of the app"
   }
 }
 
+determine_template_filename() {
+  local dst_var="$1"
+  local base_template_name="$2"
+  local template_variant="$3"
+  _set_var "$dst_var" "${base_template_name}${template_variant:+".$template_variant"}.tpl"
+}
 #-----------------------------------------------------------------------------------------------------------------------
 debug_trace_vars
 

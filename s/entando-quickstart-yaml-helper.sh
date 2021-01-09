@@ -23,6 +23,7 @@ case "$CMD" in
 
     perl -p0e 's/(.*)apiVersion: v1.*\nkind: ConfigMap.*/\1/msg' "$YAML_FILE"
     cat "$CONFIGMAP_FILE"
+    echo -n "---"
     perl -p0e 's/.*apiVersion: v1.*\nkind: ConfigMap.*?^---$//msg' "$YAML_FILE"
     ;;
   "set-cocoo-version")

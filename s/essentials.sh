@@ -1,11 +1,6 @@
 #!/bin/bash
 # ESSENTIALS
 
-if [ "$1" = "--with-state" ]; then
-  DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
-  DESIGNATED_KUBECTL_CMD=$(grep DESIGNATED_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECTL_CMD=//")
-fi
-
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
   # OS DETECT
@@ -18,6 +13,11 @@ fi
   DESIGNATED_KUBECTL_CMD=""
   ENTANDO_KUBECTL_MODE=""
   DESIGNATED_KUBECONFIG=""
+
+  if [ "$1" = "--with-state" ]; then
+    DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
+    DESIGNATED_KUBECTL_CMD=$(grep DESIGNATED_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECTL_CMD=//")
+  fi
 
   perl -e 'print -t 1 ? exit 0 : exit 1;'
   if [ $? -eq 0 ]; then

@@ -18,6 +18,16 @@ cd "$DIR/../.." || {
 
 . s/_base.sh
 
+if [ -n "$ENTANDO_DESIGNATED_KUBECTL_CMD" ]; then
+  DESIGNATED_KUBECTL_CMD="$ENTANDO_DESIGNATED_KUBECTL_CMD"
+fi
+
+if [ -z "$DESIGNATED_KUBECTL_CMD" ]; then
+  ENTANDO_STANDARD_QUICKSTART=true
+else
+  ENTANDO_STANDARD_QUICKSTART=false
+fi
+
 if [ -n "$DESIGNATED_VM" ]; then
   multipass exec "$DESIGNATED_VM" -- bash -c "source .entando/activate && ent app-info $*"
   exit
@@ -35,9 +45,15 @@ STATUS=false
 }
 
 reload_cfg
-[ "$1" != "" ] && ENTANDO_NAMESPACE="$1"
+
+[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift 
+[ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
+[ -n "$1" ] && ENTANDO_APPNAME="$1" && shift 
+[ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 
 export SYS_GNU_LIKE
+export ENTANDO_DESIGNATED_KUBECTL_CMD
+export ENTANDO_STANDARD_QUICKSTART
 
 $WATCH && {
   start_time="$(date -u +%s)"
@@ -60,16 +76,9 @@ _kubectl get pods -A
 
 _log_i 1 "Application Ingress path:"
 
-J0='{.items[0].spec.rules[*].host}{.items[0].spec.rules[*].http.paths[2].path}{"\n"}'
-J1='{.items[1].spec.rules[*].host}{.items[1].spec.rules[*].http.paths[2].path}{"\n"}'
-J2='{.items[2].spec.rules[*].host}{.items[2].spec.rules[*].http.paths[2].path}{"\n"}'
-
-RES="$(
-    _kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$J0" 2> /dev/null
-    _kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$J1" 2> /dev/null
-    _kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$J2" 2> /dev/null
-)"
-
-[ -z "$RES" ] && FATAL "Application Ingress path not found"
+JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                          # selector
+JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}'     # host+path
+RES="http://$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$JP" 2> /dev/null)"
+[[ "$?" -ne 0 || -z "$RES" ]] && FATAL "Application Ingress path not found"
 
 echo "$RES"

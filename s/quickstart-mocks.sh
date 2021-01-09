@@ -98,20 +98,30 @@ new-mock-call-id() {
 _kubectl() {
   new-mock-call-id
 
+  if [ -n "$DESIGNATED_KUBECTL_CMD" ]; then
+    local KD="$DESIGNATED_KUBECTL_CMD"
+  else
+    local KD="Kubectl"
+  fi
+
   case "$1::$2" in
     "create::-f")
-      mock-log "## Kubectl executing Create of resource(s) from source file/dir \"$3\""
+      mock-log "## $KD executing \"Create\" on resource(s) from source file/dir \"$3\"\n## ($*)"
       cp -r "$3" "$TEST_WORKDIR/kubectl-create-${MOCK_CALL_NUM}"
       ;;
     "apply::-f")
-      mock-log "## Kubectl executing Apply of resource(s) from source file/dir \"$3\""
+      mock-log "## $KD executing \"Apply\" on resource(s) from source file/dir \"$3\"\n## ($*)"
+      mock-log "($*)"
       cp -r "$3" "$TEST_WORKDIR/kubectl-apply-${MOCK_CALL_NUM}"
       ;;
     "create::namespace")
-      mock-log "## Kubectl executing Create of namespace \"$3\""
+      mock-log "## $KD executing \"Create\" of namespace \"$3\""
       ;;
     "delete::namespace")
-      mock-log "## Kubectl executing Delete of namespace \"$3\""
+      mock-log "## $KD executing \"Delete\" of namespace \"$3\""
+      ;;
+    *)
+      FATAL"MOCK: not supported by the mock"
       ;;
   esac
 }
@@ -148,16 +158,25 @@ ent-host() {
 
 ent-app-info() {
   new-mock-call-id
-  mock-log "## Run ent app-info params: $*"
+  mock-log "## Run ent app-info params: $* with ENTANDO_DESIGNATED_KUBECTL_CMD=\"$ENTANDO_DESIGNATED_KUBECTL_CMD\""
   true;
 }
 
 ent-attach-vm() {
   new-mock-call-id
-  VMNAME="$1"
+  local VMNAME="$1"
   mock-log "## Attaching VM \"$VMNAME\""
   multipass info "$VMNAME" || FATAL "Unable to attach nonexistent VM \"$VMNAME\""
   true;
+}
+
+handle-edit-manifest() {
+  if [ "$1" = "true" ]; then
+    mock-log "## Run edit-manifest of file \"$2\""
+    _edit "$2"
+  elif [[ "$1" != "false" && "$1" != "" ]]; then
+    mock-log "## Run edit-manifest of file \"$2\" with editor \"$3\""
+  fi
 }
 
 net_is_address_present() {
