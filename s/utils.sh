@@ -369,11 +369,20 @@ git_enable_credentials_cache() {
 select_one() {
   local i=1
   local SELECTED=""
-  [ "$1" == "-a" ] && ALL=true && shift
+  local ALL=false
+  local AUTO_SET_IF_SINGLE=false
+  [ "$1" = "-s" ] && AUTO_SET_IF_SINGLE=true && shift
+  [ "$1" = "-a" ] && ALL=true && shift
   P="$1"
   shift
   select_one_res=""
   select_one_res_alt=""
+
+  if $AUTO_SET_IF_SINGLE && [ "$#" -eq 1 ]; then
+    select_one_res="1"
+    select_one_res_alt="$1"
+    return 0
+  fi
 
   for item in "$@"; do
     echo "$i) $item"
@@ -565,7 +574,9 @@ args_or_ask() {
     if $SPACE_SEP; then
       index_of_arg -- "${val_name}" "$@"
       found_at="$?"
-      found_at=$((found_at + 1))
+      if [ $found_at -ne 255 ]; then
+        found_at=$((found_at + 1))
+      fi
     else
       index_of_arg -p "${val_name}=" "$@"
       found_at="$?"

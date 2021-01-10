@@ -1,0 +1,93 @@
+#!/bin/bash
+
+[[ "$1" == "--help" && "$2" == "--short" ]] && {
+  echo -e "Helps managing an EntandoApp" && exit 0
+}
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+. s/_base.sh
+
+RUN() {
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH" "the base command"
+  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
+
+  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+
+  [[ -n "$HH" && -z "$CMD" ]] && exit
+
+  show_help_option "$HH" "\"$CMD\""
+
+  case "$CMD" in
+    "images")
+      print_images "$@"
+      ;;
+    "configmap")
+      print_configmap "$@"
+      ;;
+    "info")
+      [ -n "$HH" ] && exit 0
+      shift
+      ent app-info "$@"
+      ;;
+    "")
+      "${BASH_SOURCE[0]}" "--help"
+      ;;
+    *)
+      [ -n "$HH" ] && exit 0
+      FATAL "Unknown command \"$CMD\""
+      ;;
+  esac
+}
+
+print_configmap() {
+  [ -n "$HH" ] && exit 0
+  _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get configmap "entando-docker-image-info" -o yaml \
+    | perl -p0e 's/.*\n(data:.*)/\1/msg' | perl -p0e 's/\n[^ ].*//msg'
+}
+
+print_images() {
+  local FILTER="$ENTANDO_IMAGES_FILTER"
+  args_or_ask ${HH:+"$HH"} -n -f '--all/// prints all the images' "$@" && {
+    FILTER=".*"
+  }
+
+  [ -n "$HH" ] && exit 0
+  # shellcheck disable=SC2021 disable=SC2155
+  local RES=$(
+    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get pods -o jsonpath="{..image}" \
+      | \tr -s '[[:space:]]' '\n' | \sort -u \
+      | \grep "$FILTER"
+  )
+  [ -z "$RES" ] && FATAL "Unable fetch the images list"
+
+  echo "$RES"
+  echo ""
+  if $OS_WIN; then
+    echo "$RES" | sha256sum
+  else
+    echo "$RES" | shasum -a 256
+  fi
+}
+
+ENTANDO_IMAGES_FILTER=""
+ENTANDO_IMAGES_FILTER+="entando-component-manager\|"
+ENTANDO_IMAGES_FILTER+="entando-de-app-wildfly\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-app-controller\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-app-plugin-link-controller\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-cluster-infrastructure-controller\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-composite-app-controller\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-controller-coordinator\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-dbjob\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-keycloak-controller\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-plugin-controller\|"
+ENTANDO_IMAGES_FILTER+="entando-k8s-service\|"
+ENTANDO_IMAGES_FILTER+="entando-keycloak\|"
+ENTANDO_IMAGES_FILTER+="entando-plugin-sidecar"
+
+RUN "$@"

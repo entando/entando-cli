@@ -68,14 +68,21 @@ test_ask() {
 # HELPER "SELECT ONE"
 test_select_one() {
   print_current_function_name "> " ".."
+  local select_one_res select_one_res_alt
 
   declare -a arr
   arr[0]="test1"
   arr[1]="test2"
   echo "2" | (
     select_one "TestValue" "${arr[@]}" >/dev/null
-    # shellcheck disable=SC2154
     [ "$select_one_res:$select_one_res_alt" = "2:test2" ] || FATAL "failed! $LINENO"
+  ) || return "$?"
+
+  declare -a arr2
+  arr2[0]="test1"
+  echo "2" | (
+    select_one -s "TestValue" "${arr2[@]}" >/dev/null
+    [ "$select_one_res:$select_one_res_alt" = "1:test1" ] || FATAL "failed! $LINENO"
   ) || return "$?"
 }
 

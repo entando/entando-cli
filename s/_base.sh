@@ -170,6 +170,7 @@ reload_cfg
 rescan-sys-env
 reload_cfg
 
+[ -n "$LOG_LEVEL" ] && XU_LOG_LEVEL="$LOG_LEVEL"
 [ -n "$DESIGNATED_JAVA_HOME" ] && export JAVA_HOME="$DESIGNATED_JAVA_HOME"
 
 setup_kubectl
@@ -228,12 +229,13 @@ kubectl_update_once_options() {
 
     if [ -n "$NS" ]; then
       args_or_ask -n dummy "--namespace///" "$@" ||
-      args_or_ask -n dummy "-n///" "$@" ||
+      args_or_ask -n -s dummy "-n///" "$@" ||
       args_or_ask -n -f "--all-namespaces///" "$@" ||
       args_or_ask -n -f dummy "-A///" "$@" || {
-        assert_ext_ic_id "dummy" "$NS" "silent" || {
+        assert_ext_ic_id "" "$NS" "silent" || {
           FATAL "The configured default namespace is not valid"
         }
+        _log_i 3 "Assuming default namespace \"$NS\"" 1>&2
         # shellcheck disable=SC2034 disable=SC2027
         KUBECTL_ONCE_OPTIONS="--namespace=$NS"
       }
