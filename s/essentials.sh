@@ -13,6 +13,7 @@
   DESIGNATED_KUBECTL_CMD=""
   ENTANDO_KUBECTL_MODE=""
   DESIGNATED_KUBECONFIG=""
+  KUBECTL_ONCE_OPTIONS=""
 
   if [ "$1" = "--with-state" ]; then
     DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
@@ -95,6 +96,9 @@
     return "$RES"
   }
 
+  # Overwritten by utils.sh
+  kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
+
   # KUBECTL
   setup_kubectl() {
     [ -n "$DESIGNATED_KUBECTL_CMD" ] && {
@@ -103,7 +107,11 @@
 
     if [ -n "$ENTANDO_KUBECTL" ]; then
       ENTANDO_KUBECTL_MODE="COMMAND"
-      _kubectl() { "$ENTANDO_KUBECTL" "$@"; }
+      _kubectl() {
+        kubectl_update_once_options "$@"
+        # shellcheck disable=SC2086
+        "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+      }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       else
@@ -112,7 +120,9 @@
     elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
       ENTANDO_KUBECTL_MODE="CONFIG"
       _kubectl() {
-        KUBECONFIG="$DESIGNATED_KUBECONFIG" kubectl "$@"
+        kubectl_update_once_options "$@"
+        # shellcheck disable=SC2086
+        KUBECONFIG="$DESIGNATED_KUBECONFIG" kubectl $KUBECTL_ONCE_OPTIONS "$@"
       }
       _kubectl-pre-sudo() { :; }
     else
@@ -120,18 +130,34 @@
       ENTANDO_KUBECTL_MODE="AUODETECT"
       if command -v "k3s" > /dev/null; then
         if $OS_WIN; then
-          _kubectl() { k3s kubectl "$@"; }
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            k3s kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
           _kubectl-pre-sudo() { :; }
         else
-          _kubectl() { sudo k3s kubectl "$@"; }
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            sudo k3s kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
           _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
         fi
       else
         if $OS_WIN; then
-          _kubectl() { kubectl "$@"; }
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
           _kubectl-pre-sudo() { :; }
         else
-          _kubectl() { sudo kubectl "$@"; }
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
           _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
         fi
       fi

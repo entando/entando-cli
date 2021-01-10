@@ -127,6 +127,7 @@ detach_vm() {
   rm "$ENT_KUBECONF_FILE_PATH"
   save_cfg_value "DESIGNATED_KUBECONFIG" ""
   save_cfg_value "DESIGNATED_VM" ""
+  save_cfg_value "DESIGNATED_VM_NAMESPACE" ""
 }
 
 attach_vm() {

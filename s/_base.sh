@@ -162,6 +162,10 @@ mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/var-utils.sh
 . s/logger.sh
 
+DESIGNATED_VM=""
+DESIGNATED_VM_NAMESPACE=""
+DEFAULT_NAMESPACE=""
+
 reload_cfg
 rescan-sys-env
 reload_cfg
@@ -209,4 +213,29 @@ activate_designated_node() {
     ACTIVATED_NODE_VERSION="$DESIGNATED_NODE_VERSION"
   }
   return 0
+}
+
+# overrides the essential.sh base
+kubectl_update_once_options() {
+    # shellcheck disable=SC2034
+    local dummy
+    KUBECTL_ONCE_OPTIONS=""
+    if [ -n "$DESIGNATED_VM" ]; then
+      local NS="${DESIGNATED_VM_NAMESPACE:-$DEFAULT_NAMESPACE}"
+    else
+      local NS="${DEFAULT_NAMESPACE}"
+    fi
+
+    if [ -n "$NS" ]; then
+      args_or_ask -n dummy "--namespace///" "$@" ||
+      args_or_ask -n dummy "-n///" "$@" ||
+      args_or_ask -n -f "--all-namespaces///" "$@" ||
+      args_or_ask -n -f dummy "-A///" "$@" || {
+        assert_ext_ic_id "dummy" "$NS" "silent" || {
+          FATAL "The configured default namespace is not valid"
+        }
+        # shellcheck disable=SC2034 disable=SC2027
+        KUBECTL_ONCE_OPTIONS="--namespace=$NS"
+      }
+    fi
 }
