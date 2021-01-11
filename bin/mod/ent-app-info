@@ -18,11 +18,11 @@ cd "$DIR/../.." || {
 
 . s/_base.sh
 
-if [ -n "$ENTANDO_DESIGNATED_KUBECTL_CMD" ]; then
-  DESIGNATED_KUBECTL_CMD="$ENTANDO_DESIGNATED_KUBECTL_CMD"
+if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then
+  ENT_KUBECTL_CMD="$ENTANDO_ENT_KUBECTL_CMD"
 fi
 
-if [ -z "$DESIGNATED_KUBECTL_CMD" ]; then
+if [ -z "$ENT_KUBECTL_CMD" ]; then
   ENTANDO_STANDARD_QUICKSTART=true
 else
   ENTANDO_STANDARD_QUICKSTART=false
@@ -52,7 +52,7 @@ reload_cfg
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 
 export SYS_GNU_LIKE
-export ENTANDO_DESIGNATED_KUBECTL_CMD
+export ENTANDO_ENT_KUBECTL_CMD
 export ENTANDO_STANDARD_QUICKSTART
 
 $WATCH && {
@@ -72,7 +72,7 @@ _log_i 1 "NODES:"
 _kubectl get nodes
 
 _log_i 1 "PODS:"
-_kubectl get pods -A
+_kubectl get pods -n "$NAMESPACE"
 
 _log_i 1 "Application Ingress path:"
 
