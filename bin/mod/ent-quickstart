@@ -18,7 +18,7 @@ debug_trace_vars() {
       JUST_SET_CFG ENTANDO_NAMESPACE ENTANDO_APPNAME \
       ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK ENTANDO_VM_REUSE \
       ENTANDO_AUTO_HOSTNAME ENTANDO_CONFIGMAP_OVERRIDE_FILE ENTANDO_COCOO_VERSION_OVERRIDE EDIT_MANIFEST \
-      DESIGNATED_KUBECTL_CMD
+      ENT_KUBECTL_CMD
   fi
 }
 
@@ -31,12 +31,12 @@ show_help_option "$HH"
 args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
   "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create CRDs and namespace" "$@"
 
-args_or_ask ${HH:+"$HH"} -n "DESIGNATED_KUBECTL_CMD" \
+args_or_ask ${HH:+"$HH"} -n "ENT_KUBECTL_CMD" \
   "--kubectl-cmd///Forces the quickstart to use the given kubectl command" "$@"
 
 if [ -z "$HH" ]; then
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  if ! $ENTANDO_PRE_EXISTING && [ -z "$DESIGNATED_KUBECTL_CMD" ]; then
+  if ! $ENTANDO_PRE_EXISTING && [ -z "$ENT_KUBECTL_CMD" ]; then
     echo "~ STARTING QUICKSTART"
     ENTANDO_STANDARD_QUICKSTART=true
   else
@@ -506,7 +506,7 @@ RUN_DIRECT() {
 
   # shellcheck disable=SC2015
   ask "Should I start the monitor?" && {
-    export ENTANDO_DESIGNATED_KUBECTL_CMD="$DESIGNATED_KUBECTL_CMD"
+    export ENTANDO_ENT_KUBECTL_CMD="$ENT_KUBECTL_CMD"
     ent-app-info watch || true
   } || {
     echo -e "\n~~~\nUse the command:\n  - ent app-info.sh watch\nto check the status of the app"

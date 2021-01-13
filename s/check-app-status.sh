@@ -8,8 +8,8 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 [ -n "$1" ] && ENTANDO_APPNAME="$1" && shift 
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 
-if [ -n "$ENTANDO_DESIGNATED_KUBECTL_CMD" ]; then
-  DESIGNATED_KUBECTL_CMD="$ENTANDO_DESIGNATED_KUBECTL_CMD"
+if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then
+  ENT_KUBECTL_CMD="$ENTANDO_ENT_KUBECTL_CMD"
 fi
 
 setup_kubectl

@@ -98,8 +98,8 @@ new-mock-call-id() {
 _kubectl() {
   new-mock-call-id
 
-  if [ -n "$DESIGNATED_KUBECTL_CMD" ]; then
-    local KD="$DESIGNATED_KUBECTL_CMD"
+  if [ -n "$ENT_KUBECTL_CMD" ]; then
+    local KD="$ENT_KUBECTL_CMD"
   else
     local KD="Kubectl"
   fi
@@ -158,7 +158,7 @@ ent-host() {
 
 ent-app-info() {
   new-mock-call-id
-  mock-log "## Run ent app-info params: $* with ENTANDO_DESIGNATED_KUBECTL_CMD=\"$ENTANDO_DESIGNATED_KUBECTL_CMD\""
+  mock-log "## Run ent app-info params: $* with ENTANDO_ENT_KUBECTL_CMD=\"$ENTANDO_ENT_KUBECTL_CMD\""
   true;
 }
 

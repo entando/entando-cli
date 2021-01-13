@@ -442,6 +442,11 @@ args_or_ask() {
     local val_name="$1"
     local val_msg="$2"
     $PRINT_HELP && {
+      if [ -n "$ENT_HELP_SECTION_TITLE" ]; then
+        echo "$ENT_HELP_SECTION_TITLE"
+        ENT_HELP_SECTION_TITLE=""
+      fi
+
       if [ -z "$val_msg" ]; then
         val_msg="$val_name"
       else
@@ -674,10 +679,15 @@ parse_help_option() {
 show_help_option() {
   case "$1" in
     --help)
+      echo ""
       if [ -n "$2" ]; then
-        echo "> Arguments of $2:"
+        if [ "$2" = ":main" ]; then
+          ENT_HELP_SECTION_TITLE="> Main arguments:"
+        else
+          ENT_HELP_SECTION_TITLE="> Arguments of $2:"
+        fi
       else
-        echo "> Arguments:"
+        ENT_HELP_SECTION_TITLE="> Arguments:"
       fi
       ;;
     --cmplt) echo "--help" ;;
