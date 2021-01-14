@@ -154,22 +154,22 @@ test_args_or_ask() {
 
 test_remotes() {
     print_current_function_name "> " ".."
-    remotes-clear
-    remotes-save
-    remotes-count N
+    map-clear REMOTES
+    map-save REMOTES
+    map-count REMOTES N
     [ "$N" = 0 ] || FATAL "failed! $LINENO"
-    remotes-set "test" "a-test"
-    remotes-set "test2" "another test"
-    remotes-count N
+    map-set REMOTES "test" "a-test"
+    map-set REMOTES "test2" "another test"
+    map-count REMOTES N
     [ "$N" = 2 ] || FATAL "failed! $LINENO"
-    remotes-save
-    remotes-clear
+    map-save REMOTES
+    map-clear REMOTES
     reload_cfg
-    remotes-count N
+    map-count REMOTES N
     [ "$N" = 2 ] || FATAL "failed! $LINENO"
-    remotes-get V "test"
+    map-get REMOTES V "test"
     [ "$V" = "a-test" ] || FATAL "failed! $LINENO"
-    remotes-get V "test2"
+    map-get REMOTES V "test2"
     [ "$V" = "another test" ] || FATAL "failed! $LINENO"
 }
 

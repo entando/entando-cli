@@ -75,6 +75,62 @@ print_images() {
   fi
 }
 
+select_app_ctx() {
+  # shellcheck disable=SC2034
+  local application_context RES
+  local apps_base_dir="$ENTANDO_HOME/apps/"
+
+  (
+    __cd "$apps_base_dir"
+    # shellcheck disable=SC2035
+    map-from-stdin "application_context" $'\n\r' < <(ls -d *)
+
+    args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
+    local app_dir="$ENTANDO_HOME/apps/$APP_CTX/"
+
+    if [ ! -d "$app_dir" ]; then
+      _log_w 0 "Application context \"$APP_CTX\" not found"
+      _log_i 0 "Application context \"$APP_CTX\" created"
+      $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
+      mkdir -p "${app_dir}"
+      cp -r "$ENT_WORK_DIR" "${app_dir}" || true
+      _log_i 0 "Current configuration and state imported under \"$APP_CTX\""
+    fi
+
+    save_cfg_value "THIS_APP_CTX" "${APP_CTX}"
+    save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${APP_CTX}" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+  )
+  reload_cfg "$ENTANDO_GLOBAL_CFG"
+  activate_application_workdir
+}
+
+delete_app_ctx() {
+  # shellcheck disable=SC2034
+  local application_context RES
+  local apps_base_dir="$ENTANDO_HOME/apps/"
+
+  (
+    __cd "$apps_base_dir"
+    # shellcheck disable=SC2035
+    args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
+    [ ! -d "$APP_CTX" ] && FATAL "Application not found"
+    [ ! -d "$APP_CTX/w" ] && FATAL "Invalid application context dir"
+    _log_w 0 "Application context \"$APP_CTX\" found"
+    $AUTO_YES || ask "Should I really delete it?" || EXIT_UE "User interrupted"
+    rm -rf "$APP_CTX"
+    _log_i 0 "Application context \"$APP_CTX\" deleted"
+
+    save_cfg_value "THIS_APP_CTX" ""
+    save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    true
+  ) && {
+    reload_cfg "$ENTANDO_GLOBAL_CFG"
+    _log_i 0 "Switched to the default application context"
+  }
+}
+
 ENTANDO_IMAGES_FILTER=""
 ENTANDO_IMAGES_FILTER+="entando-component-manager\|"
 ENTANDO_IMAGES_FILTER+="entando-de-app-wildfly\|"

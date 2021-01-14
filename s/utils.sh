@@ -694,36 +694,39 @@ show_help_option() {
   esac
 }
 
-args_or_ask__a_remote() {
+args_or_ask__a_map() {
+  local arr_name="$1"
+  shift
   [ "$1" = "-a" ] && local PRE="$1" && shift
   [ "$1" = "--help" ] && local HH="$1" && shift
   local var_name="$1"
   shift
-  local switch="$1"
+  local arg_num="$1"
   shift
   local msg="$1"
   shift
   local TMP
 
-  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$switch/ext_id?//$msg" "$@"
+  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_num/ext_id?//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
       local count
-      remotes-count count
+      map-count "${arr_name}" count
       if [ "$count" -eq 0 ]; then
         TMP=""
       else
-        TITLES="$(remotes-list)"
+        # shellcheck disable=SC2207
+        TITLES=($(map-list "${arr_name}" -k))
         TITLES+=("other..")
-        select_one "Select the remote" "${TITLES[@]}"
+        select_one "Select the ${arr_name}" "${TITLES[@]}"
         local TMP="$select_one_res_alt"
-        [ $TMP = "other.." ] && TMP=""
+        [ "$TMP" = "other.." ] && TMP=""
       fi
     fi
 
     if [ -z "$TMP" ]; then
-      args_or_ask -p "TMP" "$switch/ext_id/$TMP/$msg" "$@"
+      args_or_ask -p "TMP" "$arg_num/ext_id/$TMP/$msg" "$@"
     else
       assert_ext_id "$var_name" "$TMP"
     fi
@@ -744,66 +747,115 @@ stdin_to_arr() {
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-remotes-clear() {
-  for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    unset "${name}"
+map-clear() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      unset "${name}"
+    fi
   done
 }
 
-remotes-count() {
+map-count() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
   local i=0
-  for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    i=$((i + 1))
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      i=$((i + 1))
+    fi
   done
   _set_var "$1" "$i"
   [ "$i" -gt 0 ] && return 0
   return 255
 }
 
-remotes-set() {
+map-set() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
   local name="$1"
   local address="$2"
-  _set_var "__AA_ENTANDO_REMOTES__${name}" "$address"
+  _set_var "${arr_var_name}${name}" "$address"
 }
 
-remotes-get() {
+map-get() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name
+
   if [ "$1" = "--first" ]; then
     shift
     local dst_var_name="$1"
-    local name="$(remotes-list | head -n 1)"
+    name="$(map-list REMOTES | head -n 1)"
   else
     local dst_var_name="$1"
-    local name="$2"
+    name="$2"
   fi
   local tmp
-  tmp="__AA_ENTANDO_REMOTES__${name}"
+  tmp="${arr_var_name}${name}"
   value="${!tmp}"
   _set_var "$dst_var_name" "$value"
   [ -n "$value" ] && return 0
   return 255
 }
 
-remotes-del() {
+map-del() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
   local name="$1"
-  unset "__AA_ENTANDO_REMOTES__${name}"
+  unset "${arr_var_name}${name}"
 }
 
 # shellcheck disable=SC2120
-remotes-list() {
+map-list() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
   local SEP="$1"
   local tmp
-  for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    {
-      if [ -z "$SEP" ]; then
-        echo "$name"
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      if [ "$SEP" == "-k" ]; then
+        tmp="${name}"
+        echo "${!tmp}"
+      elif [ -z "$SEP" ]; then
+        echo "${name/${arr_var_name}/}"
       else
         tmp="${name}"
-        echo "${name}${SEP}${!tmp}"
+        echo "${name/${arr_var_name}/}${SEP}${!tmp}"
       fi
-    } | sed "s/__AA_ENTANDO_REMOTES__//"
+    fi
   done
 }
 
-remotes-save() {
-  save_cfg_value -m "ENTANDO_REMOTES"
+map-get-keys() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  local dst_var_name="$2"
+  shift
+  local i=0
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      _set_var "dst_var_name[$i]" "$line"
+    fi
+  done
+}
+
+
+map-save() {
+  local arrname="$1"
+  shift
+  save_cfg_value -m "ENTANDO_${arrname}"
+}
+
+map-from-stdin() {
+  local arrname="$1"
+  local SEP="$2"
+  local i=0
+  local arr
+  IFS="$SEP" read -d '' -r -a arr
+
+  for line in "${arr[@]}"; do
+    map-set "$arrname" "$i" "$line"
+    ((i++))
+  done
 }

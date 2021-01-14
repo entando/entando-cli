@@ -55,7 +55,7 @@ RUN() {
           if [ -z "$NAMESPACE" ]; then
             if [ -n "$DESIGNATED_VM" ]; then
               CMD="$1";shift
-              remotes-get TMP "$DESIGNATED_VM"
+              map-get REMOTES TMP "$DESIGNATED_VM"
               NAMESPACE="$(echo "$TMP" | cut -d'/' -f 1)"
             fi
             [ -z "$NAMESPACE" ] && FATAL "Please provide the namespace"
