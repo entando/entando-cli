@@ -32,7 +32,7 @@ RUN() {
       "import") #H: imports configuration and library from another compatible ENT installation
         import_ent_installation
         ;;
-      "config") #H: [--edit] -- attach ent to a ent-managed VM
+      "config") #H: [--edit] -- helps dealing with ent configurations
         handle_config_command "$@"
         ;;
       "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
