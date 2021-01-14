@@ -460,7 +460,7 @@ find_nvm_node() {
   if $OS_WIN; then
     versions="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
   else
-    versions="$(nvm ls --no-colors --no-aliasx 2> /dev/null \
+    versions="$(nvm ls --no-colors --no-alias 2> /dev/null \
       | _perl_sed 's/->/  /' \
       | grep -v system \
       | grep '^\s\+v.*$' \
