@@ -1,0 +1,66 @@
+#!/bin/bash
+
+[ "$1" = "--help" ] && echo -e "Helps in having help" && exit 0
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+[ "$1" = "--cmplt" ] && exit 0
+
+. s/_base.sh
+
+SIMPLE=false; [ "$1" = "--simple" ] && { SIMPLE=true;shift; }
+SS=false; [ "$1" = "--ent-base-comp" ] && { SIMPLE=true;SS=true;shift; }
+
+! $SIMPLE && {
+  echo ""
+  echo "~~~~~~~~~~~~~~~~~~~"
+  echo " Entando CLI "
+  echo "~~~~~~~~~~~~~~~~~~~"
+  echo ""
+
+  echo "> Essentials:"
+
+  echo -e "  - Activate using:  $PWD/activate"
+  echo -e "  - Dectivate using: $PWD/deactivate"
+  echo ""
+
+  echo "> Available commands:"
+}
+
+
+cd bin || { echo "Unable to enter directory $PWD/bin"; exit 99; }
+for file in mod/ent-*; do
+  mod="${file//mod\/ent-/}"
+  if $SS; then
+    echo "$mod "
+  else
+    H=$($file --help --short)
+    if $SIMPLE; then
+      file="${file//m\/ent-/}"
+      printf "  - %-21s%s\n" "$mod" "$H"
+    else
+      printf "  - %-20s => %s\n" "$mod" "$H"
+    fi
+  fi
+done
+
+cd ..
+
+! $SIMPLE && {
+  echo ""
+  echo "> Further info about entando:"
+  echo -e "  - $PWD/README.md"
+  echo -e "  - https://www.entando.com/"
+  echo -e "  - https://dev.entando.org/"
+
+  echo ""
+  echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"
+
+  echo -e "  - Check the dependencies (ent check-env --help)"
+
+  echo ""
+}

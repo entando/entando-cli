@@ -1,0 +1,113 @@
+#!/bin/bash
+
+C_QUICKSTART_DEFAULT_RELEASE="quickstart"
+
+[ -z "$ENTANDO_NAMESPACE" ] && ENTANDO_NAMESPACE="entando" && echo "Assuming ENTANDO_NAMESPACE=\"$ENTANDO_NAMESPACE\""
+[ -z "$ENTANDO_APPNAME" ] && ENTANDO_APPNAME="quickstart" && echo "Assuming ENTANDO_APPNAME=\"$ENTANDO_APPNAME\""
+[ -z "$ENTANDO_WITH_VM" ] && ENTANDO_WITH_VM="true" && echo "Assuming ENTANDO_WITH_VM=\"$ENTANDO_WITH_VM\""
+[ -z "$ENTANDO_RELEASE" ] && ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE" && echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
+[ -z "$ENTANDO_INTERACTIVE" ] && ENTANDO_INTERACTIVE=false  && echo "Assuming ENTANDO_INTERACTIVE=\"$ENTANDO_INTERACTIVE\""
+
+if [ "$1" = "--local-test" ]; then
+  shift
+  . s/essentials.sh
+  . activate --force
+else
+
+  if [ -z "$ENTANDO_CLI_VERSION" ]; then
+    echo "$ENTANDO_CLI_VERSION";
+
+    ENTANDO_CLI_VERSION="$(
+      # shellcheck disable=SC1091
+      source /dev/stdin <<<"$(curl "https://raw.githubusercontent.com/entando/entando-releases/$ENTANDO_RELEASE/manifest" 2> /dev/null)";
+      echo "$ENTANDO_CLI_VERSION";
+    )"
+
+    [ -z "$ENTANDO_CLI_VERSION" ] && echo "Unable to determine the CLI version of release \"$ENTANDO_RELEASE\"" 1>&2 && exit 99
+  fi
+
+  # shellcheck disable=SC1091
+  if [[ "$ENTANDO_RELEASE" = "quickstart" \
+     || "$ENTANDO_CLI_VERSION" = "quickstart" \
+     || "$ENTANDO_CLI_VERSION" = "develop" \
+     || "$ENTANDO_CLI_VERSION" =~ ^exp-.+ ]]; then
+    bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+      --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE" --update
+  else
+    bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+      --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE"
+
+    if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then
+      echo "> Partial installation detected, trying to recover $ENTANDO_CLI_VERSION.."
+      bash <(curl "https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install") \
+        --cli-version="$ENTANDO_CLI_VERSION" --release="$ENTANDO_RELEASE" --update
+    fi
+  fi
+
+  if [ ! -d ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION" ]; then
+    echo "> Unable to recover the CLI installation.." 1>&2
+    exit 99
+  fi
+
+  # shellcheck source=deactivate
+  . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/deactivate --force > /dev/null
+  # shellcheck source=activate
+  . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/activate
+
+  # shellcheck source=s/essentials.sh
+  . ~/.entando/ent/"$ENTANDO_RELEASE"/cli/"$ENTANDO_CLI_VERSION"/s/essentials.sh
+fi
+
+# shellcheck disable=SC2034
+if [ -n "$ENTANDO_VM_MODE_SIMPLE" ]; then
+  P_ENTANDO_INST_MODE="$(var_to_param -d "simple" "$ENTANDO_VM_MODE_SIMPLE")"
+elif [ -n "$ENTANDO_VM_MODE_CUSTOM" ]; then
+  P_ENTANDO_INST_MODE="$(var_to_param -d "custom" "$ENTANDO_VM_MODE_CUSTOM")"
+elif [ -n "$ENTANDO_VM_MODE_HOSTNAME" ]; then
+  P_ENTANDO_INST_MODE="$(var_to_param -d "hostname" "$ENTANDO_VM_MODE_HOSTNAME")"
+else
+  if $OS_WIN; then
+    P_ENTANDO_INST_MODE="--hostname"
+  else
+    P_ENTANDO_INST_MODE="--simple"
+  fi
+  echo "Assuming SIMPLE INSTALLATION MODE"
+fi
+
+if [[ "$ENTANDO_WITH_VM" = "true"  || "$ENTANDO_WITH_VM" == "multipass" ]]; then
+  WITH_VM=true
+else
+  WITH_VM=false
+fi
+
+OPTS=(
+  "$(var_to_param -f "with-vm" "$WITH_VM")"
+  "$(var_to_param "debug" "$ENTANDO_DEBUG")"
+  "$(var_to_param "vm-name" "$ENTANDO_VM_NAME")"
+  "$(var_to_param "vm-cpu" "$ENTANDO_VM_CPU")"
+  "$(var_to_param "vm-disk" "$ENTANDO_VM_DISK")"
+  "$(var_to_param "vm-mem" "$ENTANDO_VM_MEM")"
+  "$(var_to_param -f "vm-reuse" "$ENTANDO_VM_REUSE")"
+  "$(var_to_param "release" "$ENTANDO_RELEASE")"
+  "$(var_to_param "cli-version" "$ENTANDO_CLI_VERSION")"
+  "$(var_to_param -f "yes" "$ENTANDO_OPT_YES_FOR_ALL")"
+  "$(var_to_param "interactive" "$ENTANDO_INTERACTIVE")"
+  "$(var_to_param -f "auto-hostname" "$ENTANDO_AUTO_HOSTNAME")"
+)
+
+declare -a NNOPTS
+for i in "${OPTS[@]}"; do
+  [ -n "$i" ] && NNOPTS+=("${i}")
+done
+
+T="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+cleanup() {
+  rm "$T"
+}
+trap cleanup exit
+
+cat << EOF > "$T"
+  ent quickstart $P_ENTANDO_INST_MODE ${NNOPTS[@]} "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+EOF
+
+bash "$T"

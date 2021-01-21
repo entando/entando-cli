@@ -1,0 +1,302 @@
+#!/bin/bash
+
+# HELP HEADER
+#H::
+#H:: Checks the environment for required dependencies and settings
+#H::
+#H:: Syntax:
+#H::  - {{TOOL-NAME}} [--lenient] {sub-command}
+#H::
+#H:: Options:
+#H::  --lenient:  doesn't fail if a dependency is not available
+#H::  --yes:      assumes yes for all yes-no questions
+#H::
+#H:: SubCommands:
+
+[ "$1" = "--cmplt" ] && {
+  echo -e "develop\nruntime"
+  exit 0
+}
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+. s/_base.sh
+
+[[ "$1" == "--help" || -z "$1" ]] && {
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit
+}
+
+args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+
+if args_or_ask -n -f -- '--lenient' "$@"; then
+  MAYBE_FATAL() {
+    prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
+  }
+else
+  MAYBE_FATAL() { FATAL "$@"; }
+fi
+
+args_or_ask -n -a -- "ARG1" '1///%sp command' "$@"
+args_or_ask -n -a -- "ARG2" '2///context dependent parameter' "$@"
+
+M_DEVL=false
+M_KUBE=false
+M_QS=false
+M_CFG=false
+case "$ARG1" in
+  config) #H: just the current installation
+    M_CFG=true ;;
+  develop) #H: environment for bundle developers
+    M_DEVL=true
+    M_CFG=true
+    ;;
+  runtime) #H: kubernetes execution environment
+    M_KUBE=true ;;
+  qs-runtime) #H: kubernetes execution environment for the quickstart
+    ask "I need to alter your resolv.conf. Can I proceed?" || FATAL "Quitting"
+    M_KUBE=true
+    M_QS=true
+    ;;
+  all) #H: all checks
+    M_DEVL=true
+    M_KUBE=true
+    ;;
+  *)
+    print_ent_module_help "${BASH_SOURCE[0]}" "$ARG2"
+    exit 0
+    ;;
+esac
+shift
+
+$M_CFG && {
+  check_ver_cfg() {
+    if [ ! -f "$ENTANDO_ENT_HOME/w/.cfg" ]; then
+      local VERS
+      VERS="$(list_compatible_installations "$ENTANDO_CLI_VERSION")"
+      if [ -n "$VERS" ]; then
+        _log_w 0 "This installation has no config"
+        ask "Should I try to import from another one?" && {
+          import_ent_installation
+        }
+      fi
+    fi
+    exit
+  }
+}
+
+NO_DNS_FIX=false
+[ "$ARG2" == "--no-dns-fix" ] && NO_DNS_FIX=true
+
+# PRE
+$M_DEVL && {
+  cd "$ENTANDO_ENT_HOME" || FATAL "Unable to switch to dir \"$ENTANDO_ENT_HOME\""
+  mkdir -p "lib/node"
+}
+
+# MISC
+
+check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
+check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
+check_ver "awk" "*.*.*" "--version | head -n 1" "quiet" || {
+  check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || MAYBE_FATAL "Quitting"
+}
+check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
+$M_DEVL && {
+  [ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
+  check_ver "java" "$VER_JDK_REQ" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
+    _log_e 0 "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this command"
+    MAYBE_FATAL "Quitting"
+  }
+  save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
+}
+$M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"; }
+$M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"; }
+check_ver "curl" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+$M_DEVL && {
+  check_ver "watch" "*.*.*" "-v" || {
+    prompt "Recommended dependency not found, workaround will be applied.\nPress enter to continue.."
+  }
+}
+
+# DNS
+$M_QS && ! $NO_DNS_FIX && {
+  make_safe_resolv_conf
+}
+
+$M_KUBE && {
+  _log_i 1 "Checking DNS"
+
+  dns_state="$(s/check-dns-state.sh)"
+
+  case ${dns_state:-""} in
+    "full")
+      true
+      ;;
+    "no-dns")
+      _log_e 1 "SEVERE: This system appears to have no DNS."
+      ask "Should I proceed anyway?" || FATAL "Quitting"
+      ;;
+    "filtered[RR]")
+      _log_e 1 "SEVERE: DNS query for local addresses appears to be actively filtered."
+      ask "Should I proceed anyway?" || FATAL "Quitting"
+      ;;
+    "filtered[R]")
+      if $M_QS; then
+        _log_e 1 "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
+        ask "Workaround doesn't seem to work. Should I proceed anyway?" || FATAL "Quitting"
+      else
+        _log_e 1 "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
+        if $NO_DNS_FIX; then
+          ask "Should I proceed anyway?" || FATAL "Quitting"
+        else
+          ask "Should I alter the resolv.conf?" && {
+            make_safe_resolv_conf
+          }
+        fi
+      fi
+      ;;
+    "*")
+      _log_e 1 "SEVERE: Unable to precisely determine the status of the DNS."
+      ask " Should I proceed anyway?" || FATAL "Quitting"
+      ;;
+  esac
+}
+
+# NVM
+$M_DEVL && {
+  nvm_activate
+  check_ver "nvm" "$VER_NVM_REQ" "--version | grep -v '^$' | head -1" verbose || {
+    $OS_WIN && FATAL "Please install nvm for windows (nvm-windows)"
+    # shellcheck disable=SC2015
+    ask "Should I try to install it?" "y" && {
+      curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$VER_NVM_DEF/install.sh" | bash
+      return 0
+    } || {
+      MAYBE_FATAL "Mandatory dependency not available"
+    }
+  }
+  nvm_activate
+}
+
+$M_DEVL && {
+  rescan-sys-env force
+}
+
+# NODE
+$M_DEVL && {
+  _log_i 1 "Checking node.."
+  # shellcheck disable=SC2015
+  find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
+    DESIGNATED_NODE_VERSION="$RES"
+    save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION"
+    activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
+    true
+  } || {
+    if ask "Should I try to install the preferred version ($VER_NODE_DEF)?" "y"; then
+      _nvm install "$VER_NODE_DEF"
+      _nvm use "$VER_NODE_DEF"
+    else
+      MAYBE_FATAL "Mandatory dependency not available"
+    fi
+  }
+}
+
+# ENT-LOCAL-JHIPSTER installation
+$M_DEVL && {
+  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" verbose "ENT private jhipster installation is not available" || {
+    if ask "Should I try to install it?" "y"; then
+      _ent-npm install-package "generator-jhipster@$VER_JHIPSTER_DEF"
+    else
+      MAYBE_FATAL "Mandatory dependency not available"
+    fi
+  }
+}
+
+check_npm_git_package() {
+  local ADDR="$1"
+  local VER_REQ="$2"
+  local VER_DEF="$3"
+  local FLD="$4"
+  local DESC="$5"
+
+  _log_i 3 "Checking ENT private installation of $DESC.."
+
+  (
+    __cd "$ENTANDO_ENT_HOME"
+    if [ -d "lib/$FLD/$VER_REQ/" ]; then
+      _log_i 3 "\tfound: $VER_REQ => OK"
+    else
+      _log_i 2 "Version \"$VER_REQ\" of \"$DESC\" was not found"
+
+      if ask "Should I try to install it?" "y"; then
+        __mk-cd "lib/$FLD/"
+
+        local OD="$PWD"
+
+        (
+          git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
+          if [ -f "./package-lock.json" ]; then
+            _npm ci
+          else
+            _npm install
+          fi
+          _ent-npm install-from-source
+        ) || {
+          _log_e 0 "An error occurred while installing $DESC.. rolling back"
+          local EC="$?"
+          __cd "$OD"
+          if [ -n "${VER_DEF}" ]; then
+            rm -rf "$VER_DEF" 2> /dev/null
+          fi
+          exit $EC
+        }
+      else
+        MAYBE_FATAL "Mandatory dependency not available"
+      fi
+    fi
+  ) || exit "$?"
+}
+
+$M_DEVL && {
+  # ENTANDO-GENERATOR-JHIPSTER (entando blueprint for jhipster)
+  check_npm_git_package \
+    "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
+    "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" \
+    "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+    "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
+    "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+
+  # ENTANDO-BUNDLER (entando bundle management tool)
+  check_npm_git_package \
+    "$REPO_ENTANDO_BUNDLER_ADDR" \
+    "$VER_ENTANDO_BUNDLER_REQ" \
+    "$VER_ENTANDO_BUNDLER_DEF" \
+    "$C_ENTANDO_BUNDLER_DIR" \
+    "$C_ENTANDO_BUNDLER_DIR"
+}
+
+#---
+$M_KUBE && {
+  if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | _perl_sed 's/k3s version (.*)\+k.*/\1/'"; then
+    _log_i 3 "\tfound: $check_ver_res => OK"
+  else
+    if ask "Should I try to install it?" "y"; then
+      curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$VER_K3S_DEF" sh -
+    else
+      prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
+    fi
+  fi
+}
+
+$M_DEVL && {
+  save_cfg_value "WAS_DEVELOP_CHECKED" "true"
+}
+
+_log_i 0 "${0##*/} completed"

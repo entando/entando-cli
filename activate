@@ -1,0 +1,63 @@
+#!/bin/bash
+
+ENTANDO_ENT_HOME_NEW=$(
+  if [ -n "$BASH_VERSION" ]; then
+    if [ -f "${BASH_SOURCE[0]}.ln" ]; then
+      SS="$(cat "${BASH_SOURCE[0]}.ln")"
+    fi
+    [ -z "$SS" ] && SS="${BASH_SOURCE[0]}";
+    cd "$( dirname "${SS}" )" >/dev/null 2>&1 && pwd
+  elif [ -n "$ZSH_VERSION" ]; then
+    dirname "$0:A"
+  else
+    echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
+    echo ""
+  fi
+)
+
+[ "$ENTANDO_ENT_HOME_NEW" = "" ] && exit 99
+
+# shellcheck disable=SC2154
+(
+ [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] || 
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] || 
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
+) || {
+  P="$0"
+  [[ ! "$P" =~ / ]] && P="./$P"
+  echo "You need to source-execute me (\"source $P\")" 1>&2
+  exit
+}
+
+[ "$ENTANDO_ENT_HOME" != "" ] && {
+  [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && \
+    echo "An instance at location \"$ENTANDO_ENT_HOME\" is already active (force with --force)"
+  if [[ "$1" = "--force" || "$2" = "--force" || "$3" = "--force" ]]; then
+    [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
+    # shellcheck disable=SC1090
+    . "$ENTANDO_ENT_HOME_NEW/deactivate" -p --force > /dev/null 2>&1
+  else
+    [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "Quitting"
+    return 91
+  fi
+}
+
+ENTANDO_ENT_HOME="$ENTANDO_ENT_HOME_NEW"
+export ENTANDO_ENT_HOME
+PATH="$ENTANDO_ENT_HOME/bin:$PATH"
+export PATH
+unset ENTANDO_ENT_HOME_NEW
+
+[[ "$1" = "--enable-autocompletion" || "$2" = "--enable-autocompletion" || "$3" = "--enable-autocompletion" ]] && {
+  if [ -n "$ZSH_VERSION" ]; then
+    # shellcheck disable=SC1090
+    source <(ent print-completion-setup zsh)
+  else
+    # shellcheck disable=SC1091
+    source /dev/stdin <<<"$(ent print-completion-setup bash)"   # bash 3.2 compatible syntax
+  fi
+}
+
+[[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "Version \"$ENTANDO_ENT_HOME\" activated"
+

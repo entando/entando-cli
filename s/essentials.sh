@@ -1,0 +1,275 @@
+#!/bin/bash
+# ESSENTIALS
+
+! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
+  ENT_ESSENTIALS_ALREADY_RUN=true
+  # OS DETECT
+  OS_LINUX=false
+  OS_MAC=false
+  OS_WIN=false
+  OS_BSD=false
+  SYS_GNU_LIKE=false
+  SYS_OS_UNKNOWN=false
+  ENT_KUBECTL_CMD=""
+  ENTANDO_KUBECTL_MODE=""
+  DESIGNATED_KUBECONFIG=""
+  KUBECTL_ONCE_OPTIONS=""
+
+  if [ "$1" = "--with-state" ]; then
+    DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
+    ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
+  fi
+
+  perl -e 'print -t 1 ? exit 0 : exit 1;'
+  if [ $? -eq 0 ]; then
+    if [[ -z "$ENTANDO_DEV_TTY" ]]; then
+      ENTANDO_DEV_TTY="$(tty)"
+    fi
+  fi
+
+  # shellcheck disable=SC2034
+  case "$OSTYPE" in
+    linux*)
+      SYS_OS_TYPE="linux"
+      SYS_GNU_LIKE=true
+      OS_LINUX=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
+      C_HOSTS_FILE="/etc/hosts"
+      ;;
+    darwin*)
+      SYS_OS_TYPE="mac"
+      SYS_GNU_LIKE=true
+      OS_MAC=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="-"
+      C_HOSTS_FILE="/private/etc/hosts"
+      ;;
+    "cygwin" | "msys")
+      SYS_OS_TYPE="win"
+      SYS_GNU_LIKE=true
+      OS_WIN=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
+      C_HOSTS_FILE="/etc/hosts"
+      ;;
+    win*)
+      SYS_OS_TYPE="win"
+      SYS_GNU_LIKE=false
+      OS_WIN=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
+      C_HOSTS_FILE="%SystemRoot%\System32\drivers\etc\hosts"
+      ;;
+    "freebsd" | "openbsd")
+      SYS_OS_TYPE="bsd"
+      SYS_GNU_LIKE=true
+      OS_BSD=true
+      [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
+      C_HOSTS_FILE="/etc/hosts"
+      ;;
+    *)
+      SYS_OS_TYPE="UNKNOWN"
+      SYS_OS_UNKNOWN=true
+      ;;
+  esac
+
+  # SUDO
+  IS_SUDO_PRESENT=false; command -v "sudo" > /dev/null && IS_SUDO_PRESENT=true
+
+  privileged_commands_needs_sudo() {
+    ! $IS_SUDO_PRESENT && echo 255
+    $OS_WIN && return 255
+    [ $UID -eq 0 ] && return 255
+    return 0
+  }
+
+  _sudo() {
+    if privileged_commands_needs_sudo; then
+      sudo "$@"
+    else
+      "$@"
+    fi
+  }
+
+  prepare_for_privileged_commands() {
+    # NB: not using "sudo -v" because misbehaves with password-less sudoers
+    _sudo true
+    local RES="$?"
+    [[ "$1" = "-m" && "$RES" -ne 0 ]] && FATAL -t "Unable to obtain the required privileges"
+    return "$RES"
+  }
+
+  # Overwritten by utils.sh
+  kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
+
+  # KUBECTL
+  setup_kubectl() {
+    [ -n "$ENT_KUBECTL_CMD" ] && {
+      ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
+    }
+
+    if [ -n "$ENTANDO_KUBECTL" ]; then
+      ENTANDO_KUBECTL_MODE="COMMAND"
+      _kubectl() {
+        kubectl_update_once_options "$@"
+        # shellcheck disable=SC2086
+        "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+      }
+      if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
+        _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
+      else
+        _kubectl-pre-sudo() { :; }
+      fi
+    elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
+      ENTANDO_KUBECTL_MODE="CONFIG"
+      _kubectl() {
+        kubectl_update_once_options "$@"
+        # shellcheck disable=SC2086
+        KUBECONFIG="$DESIGNATED_KUBECONFIG" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+      }
+      _kubectl-pre-sudo() { :; }
+    else
+      # shellcheck disable=SC2034
+      ENTANDO_KUBECTL_MODE="AUODETECT"
+      if command -v "k3s" > /dev/null; then
+        if $OS_WIN; then
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            k3s kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
+          _kubectl-pre-sudo() { :; }
+        else
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            sudo k3s kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
+          _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
+        fi
+      else
+        if $OS_WIN; then
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
+          _kubectl-pre-sudo() { :; }
+        else
+          _kubectl() {
+            kubectl_update_once_options "$@"
+            # shellcheck disable=SC2086
+            sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          }
+          _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
+        fi
+      fi
+    fi
+  }
+
+  setup_kubectl
+
+  # NOP
+  nop() {
+    :
+  }
+
+  # Alignment a <left><sep><right> value sequence given the separator and the left column size
+  _align_by_sep() {
+    local sep="$1"
+    local alg="$2"
+    perl -ne 'printf "%-'"$alg"'s %-5s\n", "$1", "$2" while /([^'"$sep"']+)'"$sep"'(.+)/g;'
+  }
+
+  # sed multiplatform and limited reimplementation
+  # - implies "-E"
+  # - doesn't support file operations
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # $@ the sed in place args *without* the "-i
+  #
+  _perl_sed() {
+    perl -pe "$@"
+  }
+
+  # helper function to print the file help
+  # shellcheck disable=SC2001
+  # shellcheck disable=SC2155
+  print_ent_module_help() {
+    script="$1"; shift
+
+    if [ "$1" = "--short" ]; then
+      local short_help=$(grep '#''H::' "bin/$script" | _perl_sed 's/^[[:space:]]*#H::[[:space:]]{0,1}//' | grep -v "^[[:space:]]*$" | head -n 1)
+      echo "$short_help"
+      return
+    fi
+
+    grep '#''H::' "$script" | _perl_sed 's/^[[:space:]]*#H::\h{0,1}//' \
+      | _perl_sed 's/^([[:space:]]*)>/\1➤/' | _perl_sed "s/\{\{TOOL-NAME\}\}/${script##*/}/"
+
+    grep '#''H:' "$script" | while IFS= read -r var; do
+      if [[ "$var" =~ "#H::" || "$var" =~ "#H:%" ]]; then
+        :
+      elif [[ "$var" =~ "#H:>" ]]; then
+        echo ""
+        echo "$var" | _perl_sed 's/^[[:space:]]*#H:>[[:space:]]{0,1}/➤ /' | _perl_sed 's/"//g'
+      elif [[ "$var" =~ "#H:-" ]]; then
+        echo "$var" | _perl_sed 's/#H:-/ :  -/' | _align_by_sep ":" 22
+      else
+        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/' | _align_by_sep ":" 22
+      fi
+    done
+
+    echo ""
+
+    local NOTE="Notes:\n"
+    while IFS= read -r ln; do
+      for var in $ln; do
+        case "$var" in
+          CHAINED) echo -e "$NOTE  - This command supports chained execution (${0##*/} subcmd1 --AND subcmd2)" ;;
+          OPTPAR) echo -e "$NOTE  - Some of the parameters can be omitted or set to \"\", in which case the command would interactively ask to enter the value if required" ;;
+          SHORTS) echo -e "$NOTE  - Shorthands are reported in square brackets just after the main sub-command" ;;
+          *) false ;;
+        esac && NOTE=""
+      done
+    done < <(grep '#''H:%' "$0" | _perl_sed "s/^[[:space:]]*#H:%[[:space:]]{0,1}//")
+
+    [ -z "$NOTE" ] && echo ""
+  }
+
+  print_ent_module_sub-commands() {
+    grep '#''H: ' "$1" | _perl_sed 's/[[:space:]]*([^|) ]*).*/\1/' | _perl_sed 's/"//g' | grep -v '\*'
+  }
+
+  var_to_param() {
+    FLAG=false
+    [ "$1" == "-f" ] && FLAG=true && shift
+    DASHABLE=false
+    [ "$1" == "-d" ] && DASHABLE=true && shift
+    SEP="="
+    [ "$1" == "-s" ] && SEP=" " && shift
+    [ -z "$2" ] && return
+
+    local par_name="$1"
+
+    if $FLAG; then
+      local par_value="$2"
+      if [ "$par_value" = "true" ]; then
+        echo "--${par_name}"
+      elif [ "$par_value" = "false" ]; then
+        echo "--${par_name}=false"
+      fi
+    else
+      if $DASHABLE && [ "$2" = "-" ]; then
+        echo "--${par_name}"
+      else
+        local par_value="${2//\\/\\\\}"
+        par_value="'${par_value//\'/\'\\\'\'}'"
+        echo "--${par_name}${SEP}${par_value}"
+      fi
+    fi
+  }
+
+  _edit() {
+    editor "$@"
+  }
+
+  #~ END OF FILE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  return 0
+}

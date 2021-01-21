@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# HELP HEADER
+#H::
+#H:: Helper for using kubectl in ent managed scenarios
+#H::
+#H:: Syntax:
+#H::  - {{TOOL-NAME}} {sub-command}
+#H::
+#H:: SubCommands:
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  local CMD
+  local TMP
+  local NAMESPACE
+
+  reload_cfg "$C_ENT_PRJ_FILE"
+  reload_cfg "$C_ENT_STATE_FILE"
+
+  case "$1" in
+    "ent-print-kubeconfig") #H: prints the command for setting the kubectl configuration
+      shift
+      if [ -n "$DESIGNATED_KUBECONFIG" ]; then
+        echo "export KUBECONFIG=\"$DESIGNATED_KUBECONFIG\""
+      else
+        _log_e 0 "No ENT KUBECONFIG set"
+      fi
+      ;;
+    "ent-set-cmd") #H: prints the command for setting the kubectl environment
+      #H:- {command}: uses this command to run kubectl
+      shift
+      set_kubectl_command "$@"
+      ;;
+    "ent-clear-cmd") #H: prints the command for setting the kubectl environment
+      shift
+      clear_kubectl_command --clear
+      ;;
+    *) #H: any other command is passed to kubectl
+      HH="$(parse_help_option "$@")"; show_help_option "$HH"
+      args_or_ask ${HH:+"$HH"} -n "NAMESPACE" "--namespace" "$@"
+      args_or_ask ${HH:+"$HH"} -n -s -p "NAMESPACE" "-n" "$@"
+      [ -n "$HH" ] && exit 0
+
+      if [ -z "$ENT_KUBECTL_CMD" ]; then
+        if [[ "$1" = "create" || "$1" = "apply" ]]; then
+          if [ -z "$NAMESPACE" ]; then
+            if [ -n "$DESIGNATED_VM" ]; then
+              CMD="$1";shift
+              remotes-get TMP "$DESIGNATED_VM"
+              NAMESPACE="$(echo "$TMP" | cut -d'/' -f 1)"
+            fi
+            [ -z "$NAMESPACE" ] && FATAL "Please provide the namespace"
+          fi
+        fi
+      fi
+
+      if [ -n "$CMD" ]; then
+        _kubectl "$CMD" -n "$NAMESPACE" "$@"
+      else
+        _kubectl "$@"
+      fi
+      ;;
+  esac
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+clear_kubectl_command() {
+  args_or_ask -f -- "--clear" "$@" && {
+    save_cfg_value "ENT_KUBECTL_CMD" ""
+  }
+}
+
+set_kubectl_command() {
+  args_or_ask -n -f -- '--help' "$@" && {
+    local HH="--help"
+    echo "> Parameters:"
+  }
+
+  args_or_ask -a ${HH:+"$HH"} "ENT_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
+  save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
+
+  # reset kubeconfig setup
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
+  save_cfg_value "DESIGNATED_VM" ""
+}
+
+print_status_info() {
+  if [ -n "$ENT_KUBECTL_CMD" ]; then
+    local mode="via user command: \"$ENT_KUBECTL_CMD\""
+  elif [ -n "$DESIGNATED_VM" ]; then
+    local mode="via VM link to: \"$DESIGNATED_VM\""
+  else
+    local mode="via auto-detected kubectl"
+  fi
+
+  echo ""
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  echo "~ ent kubectl is currently attached $mode"
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+}
+
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+
+if [ "$1" = "--help" ] || [ "$1" == "" ]; then
+  . s/_base.sh
+
+  [ "$1" == "" ] && print_status_info
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit 0
+fi
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
+}
+
+. s/_base.sh
+cd - > /dev/null || FATAL -t "internal error"
+
+RUN "$@"

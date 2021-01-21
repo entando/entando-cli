@@ -1,0 +1,199 @@
+#!/bin/bash
+
+#H::
+#H:: The Entando Command Line
+#H::
+#H:: Syntax:
+#H::  - ent {command} {sub-command} {params}
+#H::
+#H:: Built-in Scripts:
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  local HH
+  reload_cfg "$C_ENT_PRJ_FILE"
+  reload_cfg "$C_ENT_STATE_FILE"
+
+  while true; do
+    cmd="$1"
+    shift
+    case "$cmd" in
+      "which") #H: shows the location of the current ent
+        which_ent
+        ;;
+      "import") #H: imports configuration and library from another compatible ENT installation
+        import_ent_installation
+        ;;
+      "config") #H: [--edit] -- attach ent to a ent-managed VM
+        handle_config_command "$@"
+        ;;
+      "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
+        attach_vm "$@"
+        ;;
+      "detach-vm") #H: detach ent from the current ent-managed VM
+        detach_vm "$@"
+        ;;
+      "fix-vm-ddns") #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
+        # shellcheck disable=SC1091
+        source ent host "$cmd" "$@"
+        ;;
+      "commands") #H: shows the ent modules
+        # shellcheck disable=SC1091
+        source ent help --simple
+        ;;
+      "print-completion-setup") #H: setups the ent autocompletion
+        [ -z "$1" ] && FATAL "Please provide the shell type (bash|zsh)"
+        if [ "$1" = "zsh" ]; then
+          echo "source \"$ENTANDO_ENT_HOME/s/completion.zsh\""
+        elif [ "$1" = "bash" ]; then
+          echo "source \"$ENTANDO_ENT_HOME/s/completion.sh\""
+        else
+          FATAL "Unsupported shell"
+        fi
+        return 0
+        ;;
+      "")
+        # shellcheck disable=SC1091
+        source ent help
+        ;;
+      --cmplt)
+        cmplt
+        ;;
+      *)
+        local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
+        [ ! -f "$mod_script" ] && {
+          _log_i 0 "Unrecognized ent command \"$cmd\""
+          return 0
+        }
+        # shellcheck disable=SC1090
+        source "$mod_script" "$@"
+        ;;
+    esac
+    index_of_arg "--AND" "$@"
+    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
+    [ -z "$1" ] && break
+  done
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+which_ent() {
+  echo "$ENTANDO_ENT_HOME"
+
+  (
+    echo ""
+    echo "> More Info:"
+    cd "$ENTANDO_ENT_HOME"
+    echo "- CLI:"
+    echo "$ENTANDO_CLI_VERSION"
+    git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
+    echo "- REL:"
+    cd "dist"
+    echo "$ENTANDO_VERSION"
+    git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
+  ) 1>&2
+}
+
+handle_config_command() {
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
+    cat "$ENTANDO_ENT_HOME/w/.cfg"
+  }
+  args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
+    _edit "$ENTANDO_ENT_HOME/w/.cfg"
+  }
+  args_or_ask ${HH:+"$HH"} -f -- '--set///sets a specific configuration parameter' "$@" && {
+    args_or_ask -a ${HH:+"$HH"} "CFG_KEY" "1///%sp the config key" "$@"
+    args_or_ask -a -n ${HH:+"$HH"} "CFG_VALUE" "2///%sp the value to set" "$@"
+    save_cfg_value "$CFG_KEY" "$CFG_VALUE"
+  }
+  args_or_ask ${HH:+"$HH"} -f -- '--get///gets a specific configuration parameter' "$@" && {
+    args_or_ask -a ${HH:+"$HH"} "CFG_KEY" "1///%sp the config key" "$@"
+    reload_cfg
+    echo "${!CFG_KEY}"
+  }
+  [ -n "$HH" ] && exit 0
+}
+
+detach_vm() {
+  rm "$ENT_KUBECONF_FILE_PATH"
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
+  save_cfg_value "DESIGNATED_VM" ""
+  save_cfg_value "DESIGNATED_VM_NAMESPACE" ""
+}
+
+attach_vm() {
+  args_or_ask -n -f -- '--help' "$@" && {
+    local HH="--help"
+    echo "> Parameters:"
+  }
+
+  args_or_ask__a_remote -a ${HH:+"$HH"} "VM_NAME" "1" "%sp VM to which ent kubectl should attach" "$@"
+
+  [ -n "$HH" ] && return 0
+
+  local ADDR
+  ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+  [ -z "$ADDR" ] && FATAL "Unable to determine the VM address (\"$VM_NAME\")"
+
+  (
+    set -e
+    [ -f "$ENT_KUBECONF_FILE_PATH" ] && rm "$ENT_KUBECONF_FILE_PATH"
+    touch "$ENT_KUBECONF_FILE_PATH"
+    chmod 600 "$ENT_KUBECONF_FILE_PATH"
+    chmod u=rw,go= "$ENT_KUBECONF_FILE_PATH"
+  ) || FATAL "Unable to prepare to KUBECONFIG file"
+
+  multipass exec "$VM_NAME" -- bash -c "sudo cat /etc/rancher/k3s/k3s.yaml" \
+    | _perl_sed "s/127.0.0.1/$ADDR/" >> "$ENT_KUBECONF_FILE_PATH"
+
+  save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
+  save_cfg_value "DESIGNATED_VM" "$VM_NAME"
+
+  # reset kubectl command setup
+  save_cfg_value "ENT_KUBECTL_CMD" ""
+}
+
+cmplt() {
+  cd "$ENTANDO_ENT_HOME/bin/mod" || {
+    echo "Unable to enter directory $PWD/bin"
+    exit 99
+  }
+  for file in ent-*; do
+    mod="${file//ent-/}"
+    echo "$mod"
+  done
+
+  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import")
+
+  for tc in "${topcmd[@]}"; do
+    echo "$tc"
+  done
+}
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+
+if [[ "$1" == "--help" || "$1" == "" ]]; then
+  . s/essentials.sh
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit 0
+fi
+
+[ "$1" = "--cmplt" ] && {
+  cmplt
+  exit 0
+}
+
+. s/_base.sh
+cd - > /dev/null || FATAL -t "internal error"
+
+RUN "$@"

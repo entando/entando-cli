@@ -1,0 +1,35 @@
+#!/bin/bash
+
+H() { echo -e "Run the internal tests"; }
+[ "$1" = "--help" ] && H && exit 0
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+[ "$1" = "--cmplt" ] && exit 0
+
+. s/_base.sh
+. s/tests/essentials.sh
+. s/tests/sys-utils-tests.sh
+. s/tests/utils-tests.sh
+. s/tests/var-utils-tests.sh
+. s/tests/quickstart-mocks-tests.sh
+
+. bin/mod/tests/ent-check-env-test.sh
+
+test_var_to_param
+test_check_ver_num
+test_index_of_arg
+test_cfg_helper
+test_ask
+test_select_one
+test_args_or_ask
+test_remotes
+test_asserters
+test_multipass_mocks
+
+test_mod_check-env_find_nvm_node
+
+true

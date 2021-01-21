@@ -1,0 +1,128 @@
+#!/bin/bash
+
+#H::
+#H:: Helps managing the system that hosts the quickstart VM
+#H::
+#H:: Syntax:
+#H::  - ent {script} {command} {params}
+#H::
+#H:: Built-in Scripts:
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+RUN() {
+  local CMD="$1";shift
+  HH="$(parse_help_option "$@")"; show_help_option "$HH";
+
+  case "$CMD" in
+    #---------------------------------------------------------------------------------------------------------------------
+    "setup-vm-hostname")  #H: setups the domain name in a single hostname setup (--hostname in quickstart)
+      local VM_NAME ADDR
+
+      if [ -z "$DESIGNATED_VM" ]; then
+        args_or_ask -a ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
+      else
+        VM_NAME="$DESIGNATED_VM"
+      fi
+
+      ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+
+      _log_i 1 "Setting up hostname \"$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX\" for VM \"$VM_NAME\" to address \"$ADDR\""
+
+      prepare_for_privileged_commands || FATAL -t "Unable to obtain the required privileges"
+
+      local TAG="${VM_NAME}-VMHN"
+      hostsfile_clear "$TAG"
+      hostsfile_add_dns "$ADDR" "$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX" "$TAG"
+
+      _log_i 1 "Operation completed"
+
+      ;;
+    #---------------------------------------------------------------------------------------------------------------------
+    "fix-vm-ddns")  #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
+      local VM_NAME ADDR CFG
+      #---
+      if [ -z "$DESIGNATED_VM" ]; then
+        args_or_ask -a ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || {
+          [ -z "$HH" ] && FATAL -t "Unable to determine the VM name"
+        }
+      else
+        VM_NAME="$DESIGNATED_VM"
+      fi
+      args_or_ask ${HH:+"$HH"} -n RELEASE '--release/any?//Optional ent version' "$@"
+
+      [ -n "$HH" ] && return 0
+
+      #---
+      [ -z "$RELEASE" ] && {
+        local ENTS=("$(multipass exec "$VM_NAME" -- bash -c "ls ~/.entando/ent")")
+
+        case "${#ENTS[@]}" in
+          0) FATAL "No ent found in VM" ;;
+          1) local RELEASE="${ENTS[0]}" ;;
+          *) select_one "Select the release" "${ENTS[@]}" && RELEASE="$select_one_res_alt" ;;
+        esac
+      }
+
+      #---
+      # shellcheck disable=SC2016
+      ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
+      # shellcheck disable=SC2016
+      CFG=$(multipass exec "$VM_NAME" -- bash -c '. .entando/ent/'"$RELEASE"'/cli/*/w/.cfg && echo "$ENTANDO_NAMESPACE;$ENTANDO_APPNAME;$ENTANDO_SUFFIX"')
+
+      IFS=';' read -r -a CFG_ARR <<< "$CFG"
+      set_nn_dn "ENTANDO_NAMESPACE" "${CFG_ARR[0]}"
+      set_nn_dn "ENTANDO_APPNAME" "${CFG_ARR[1]}"
+      set_nn_fdn "ENTANDO_SUFFIX" "${CFG_ARR[2]}"
+
+      _log_i 0 "In VM: $VM_NAME"
+      _log_i 0 "Found NAMESPACE: $ENTANDO_NAMESPACE"
+      _log_i 0 "Found APPNAME: $ENTANDO_APPNAME"
+      _log_i 0 "Found SUFFIX: $ENTANDO_SUFFIX"
+
+      if [ "$ENTANDO_SUFFIX" = "$ADDR.nip.io" ]; then
+        _log_w 0 "The suffix configured in the VM seems to be aligned, no need to fix DNS"
+        FATAL -t "Unnecessary operation"
+      fi
+
+      _log_i 1 "Setting host file entries for VM \"$VM_NAME\" with address \"$ADDR\""
+
+      local TAG="${VM_NAME}-DDNS"
+      hostsfile_clear "$TAG"
+      hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$TAG"
+      hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-kc-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$TAG"
+
+      _log_i 1 "Done"
+
+      ask "Should I restart the VM?" Y && {
+        multipass restart "$VM_NAME"
+      }
+
+      _log_i 1 "Operation completed"
+      ;;
+    *)
+      FATAL -t "unknown option $CMD"
+      ;;
+  esac
+}
+
+if [[ "$1" = "--help"  ||  "$1" == "" ]]; then
+  . s/essentials.sh
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit 0
+fi
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
+}
+
+. s/_base.sh
+cd - > /dev/null || FATAL -t "internal error"
+
+RUN "$@"

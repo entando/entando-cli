@@ -1,0 +1,84 @@
+#!/bin/bash
+
+[ "$1" = "--help" ] && {
+  name="${0##*/}"
+  echo -e "Displays information about an entando app" && exit 0
+}
+
+[ "$1" = "--cmplt" ] && {
+  echo -e "watch\nstatus"
+  exit 0
+}
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+. s/_base.sh
+
+if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then
+  ENT_KUBECTL_CMD="$ENTANDO_ENT_KUBECTL_CMD"
+fi
+
+if [ -z "$ENT_KUBECTL_CMD" ]; then
+  ENTANDO_STANDARD_QUICKSTART=true
+else
+  ENTANDO_STANDARD_QUICKSTART=false
+fi
+
+if [ -n "$DESIGNATED_VM" ]; then
+  multipass exec "$DESIGNATED_VM" -- bash -c "source .entando/activate && ent app-info $*"
+  exit
+fi
+
+WATCH=false
+STATUS=false
+[ "$1" == "watch" ] && {
+  WATCH=true
+  shift
+}
+[ "$1" == "status" ] && {
+  STATUS=true
+  shift
+}
+
+reload_cfg
+
+[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift 
+[ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
+[ -n "$1" ] && ENTANDO_APPNAME="$1" && shift 
+[ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
+
+export SYS_GNU_LIKE
+export ENTANDO_ENT_KUBECTL_CMD
+export ENTANDO_STANDARD_QUICKSTART
+
+$WATCH && {
+  start_time="$(date -u +%s)"
+  _watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
+  exit
+}
+
+$STATUS && {
+  s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+  exit
+}
+
+_kubectl-pre-sudo -m
+
+_log_i 1 "NODES:"
+_kubectl get nodes
+
+_log_i 1 "PODS:"
+_kubectl get pods -n "$NAMESPACE"
+
+_log_i 1 "Application Ingress path:"
+
+JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                          # selector
+JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}'     # host+path
+RES="http://$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$JP" 2> /dev/null)"
+[[ "$?" -ne 0 || -z "$RES" ]] && FATAL "Application Ingress path not found"
+
+echo "$RES"

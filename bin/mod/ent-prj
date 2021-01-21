@@ -1,0 +1,714 @@
+#!/bin/bash
+
+# FLAGS
+#H:% OPTPAR CHAINED SHORTS
+
+# HELP HEADER
+#H::
+#H:: Helps managing Entando bundle projects
+#H::
+#H:: Syntax:
+#H::  - {{TOOL-NAME}} {sub-command}
+#H::
+#H:: SubCommands:
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RUN() {
+  reload_cfg "$C_ENT_PRJ_FILE"
+  reload_cfg "$C_ENT_STATE_FILE"
+
+  while true; do
+    cmd="$1"
+    shift
+    case "$cmd" in
+      # ~~~~~~~~~~~~~~~~~~~~
+      #H:> GLOBAL:
+      # ~~~~~~~~~~~~~~~~~~~~
+      "init") #H: initializes a project dir
+        require_develop_checked
+        print_entando_banner
+        init_project
+        ;;
+      "build" | "ba") #H: builds both frontend and backend
+        simple_shell_completion_handler "$1" "--all" && return 0
+        require_develop_checked
+        require_ent_project_dir
+        print_entando_banner
+        _log_i 0 "Building the frontend"
+        fe_build -a
+        _log_i 0 "Building the backend"
+        be_build "$@"
+        _log_i 0 "Collecting the bundle artifacts"
+        bundle_all
+        ;;
+      "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
+        #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
+        require_develop_checked
+        require_ent_project_dir
+        generate_custom_resource "$@"
+        ;;
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> PUB SYSTEM:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "pbs-init") #H: (url, username, email) initializes the publication system
+        require_develop_checked
+        #require_initialized_dir
+        print_entando_banner
+        init_pub "$@"
+        ;;
+      "pbs-publish" | "pub") #H: [--force] (VERSION_NUMBER, VERSION_COMMENT) bumps and publishes a new version
+        require_develop_checked
+        #require_ent_project_dir
+        publish_version "$@"
+        ;;
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> FRONTEND:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "fe-build" | "fb") #H: [--all|-a] builds and package the frontend
+        require_develop_checked
+        require_ent_project_dir
+        print_entando_banner
+        activate_designated_node
+        fe_build "$@"
+        bundle_all
+        ;;
+      "fe-push" | "fp") #H: [--force] pushes the frontend to the repo
+        require_develop_checked
+        require_ent_project_dir
+        activate_designated_node
+        fe_push "$@"
+        ;;
+      "fe-test-run" | "fr") #H: runs the one of the frontend components
+        require_develop_checked
+        require_ent_project_dir
+        activate_designated_node
+        fe_test_run "$@"
+        ;;
+      "fe-list" | "fls") #H: lists the frontend components
+        require_develop_checked
+        require_ent_project_dir
+        fe_list_widgets
+        ;;
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> BACKEND:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "be-build" | "bb") #H: (mvn-params) builds and package the backend
+        require_develop_checked
+        require_ent_project_dir
+        be_build "$@"
+        bundle_all
+        ;;
+      "be-info") #H: prints information about the backend
+        require_ent_project_dir
+        be_info
+        ;;
+      "be-push" | "bp") #H: pushes the backend to the repo
+        require_ent_project_dir
+        be_push
+        ;;
+      "be-test-run" | "br") #H: locally executes the backend
+        require_ent_project_dir
+        be_test_run
+        ;;
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> EXTERNALS:
+        # ~~~~~~~~~~~~~~~~~~~~
+      "ext-keycloak" | "xk") #H: manage the tests keycloak instance
+        require_ent_project_dir
+        ext_keycloak "$@"
+        ;;
+      *)
+        print_ent_module_help
+        break
+        ;;
+    esac
+    index_of_arg "--AND" "$@"
+    if [ $? -eq 255 ]; then shift $#; else shift $?; fi
+    [ -z "$1" ] && break
+  done
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ext_keycloak() {
+  cmd="$1"
+  shift
+  case "$cmd" in
+    start | up | u)
+      docker-compose -f src/main/docker/keycloak.yml up -d "$@"
+      ;;
+    stop | down | d)
+      docker-compose -f src/main/docker/keycloak.yml down "$@"
+      ;;
+    logs | l)
+      docker-compose -f src/main/docker/keycloak.yml logs "$@"
+      ;;
+    *)
+      _log_w 0 "Please provide a valid action: start|stop|logs"
+      ;;
+  esac
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~
+generate_custom_resource() {
+  local NAME="$ENT_PRJ_NAME"
+  [ -z "$NAME" ] && camel_to_snake -d NAME "$(basename "$PWD")"
+  local REPOSITORY="$(get_bundle_repo_url)"
+  local THUMBNAIL_FILE="$ENTANDO_ENT_HOME/$C_ENTANDO_LOGO_FILE"
+
+  args_or_ask -n -f -- '--help' "$@" && {
+    local HH="--help"
+    echo ""
+    echo "> Parameters:"
+  }
+
+  args_or_ask -n -p ${HH:+"$HH"} "NAME" '--name///name of the bundle project' "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "REPOSITORY" '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p ${HH:+"$HH"} "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
+
+  [ -n "$HH" ] && {
+    echo ""
+    echo "> Notes:"
+    echo "  - all parameters are optional"
+    echo ""
+    return 0
+  }
+
+  if [ -n "$THUMBNAIL_FILE" ]; then
+    OPT="--thumbnail-file"
+    OPT_VALUE="$THUMBNAIL_FILE"
+  elif [ -n "$THUMBNAIL_URL" ]; then
+    OPT="--thumbnail-url"
+    OPT_VALUE="$THUMBNAIL_URL"
+  fi
+
+  _ent-bundler from-git \
+    --dry-run \
+    --name "$NAME" \
+    --repository "$REPOSITORY" \
+    $OPT "$OPT_VALUE"
+}
+
+bundle_all() {
+  bash ./prepareBundle.sh
+}
+
+fe_build() {
+  if [[ "$1" == "--all" || "$1" == "-a" ]]; then
+    shift
+    require_ent_project_dir
+    activate_designated_node
+    bash ./prepareMicrofrontends.sh
+  else
+    fe_select_widget "build" && (
+      __cd "$SELECTED_WIDGET"
+      _npm install
+      _npm run build --production
+    )
+  fi
+}
+
+fe_select_widget() {
+  fe_widget_do :select "$1"
+}
+
+fe_list_widgets() {
+  fe_widget_do :print
+}
+
+fe_widget_do() {
+  local action="$1"
+  local desc="$2"
+  local i=0
+  declare -a arr
+
+  while IFS= read -r widgetPackageFiles; do
+    widgetDir="$(dirname "$widgetPackageFiles")"
+    i=$((i + 1))
+    arr[$i]="$widgetDir"
+    [[ "$action" =~ :print ]] && echo "$i) $widgetDir"
+  done < <(find ui/widgets/ -iname package.json -not -path "*/node_modules/*")
+
+  [[ "$action" =~ :select ]] && {
+    _log_i 0 "Select the Widget to $desc"
+    select_one "" "${arr[@]}"
+    _log_i 0 "Widget \"$select_one_res_alt\" selected"
+
+    SELECTED_WIDGET="$select_one_res_alt"
+  }
+  true
+}
+
+fe_test_run() {
+  fe_select_widget "run" && (
+    __cd "$SELECTED_WIDGET"
+    _npm install && _npm start
+  )
+}
+
+be_test_run() {
+  ./mvnw
+}
+
+# shellcheck disable=SC2155
+get_be_info() {
+  if $OS_WIN; then
+    local ver=$(sha256sum pom.xml | awk '{print $1}')
+  else
+    local ver=$(shasum -a 256 pom.xml | awk '{print $1}')
+  fi
+  if [ "$ver" != "$PARSED_POM_CHECKSUM" ]; then
+    local IMAGE_FQNAME_expr="$(grep "<to>" pom.xml -A 5 | grep "<image>" | head -n 1 | _perl_sed 's/<image>([^<]*).*/\1/')"
+
+    IMAGE_FQNAME="$(
+      ./mvnw -q --non-recursive exec:exec \
+        -Dexec.executable="echo" \
+        -Dexec.args="'$IMAGE_FQNAME_expr'" 2> /dev/null
+    )"
+    if echo "$IMAGE_FQNAME" | grep -F "[ERROR]"; then
+      IMAGE_FQNAME=""
+    fi
+  fi
+
+  [ -z "$IMAGE_FQNAME" ] && {
+    _log_w 0 "Unable to determine the image name"
+    PARSED_POM_CHECKSUM=""
+    save_cfg_value "PARSED_POM_CHECKSUM" "" "$C_ENT_STATE_FILE"
+    set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
+  }
+
+  [ -z "$IMAGE_FQNAME" ] && FATAL -t "Unable to determine the image name"
+  IMAGE_FQNAME_ORG="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[1]}')"
+  local tmp="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[2]}')"
+  IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
+  IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
+
+  if [ -z "$IMAGE_FQNAME" ]; then
+    save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_STATE_FILE"
+    save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_STATE_FILE"
+  else
+    save_cfg_value "PARSED_POM_CHECKSUM" "" "$C_ENT_STATE_FILE"
+  fi
+}
+
+be_info() {
+  get_be_info
+  _log_i 0 "Docker image info:\n\
+  - IMAGE ORG:    \"$IMAGE_FQNAME_ORG\"\n\
+  - IMAGE NAME:   \"$IMAGE_FQNAME_NAME\"\n\
+  - IMAGE TAG:    \"$IMAGE_FQNAME_TAG\"\n\
+  - IMAGE FQNAME: \"$IMAGE_FQNAME\"\n"
+}
+
+be_build() {
+  require_ent_project_dir
+  activate_designated_node
+
+  get_be_info
+
+  # shellcheck disable=SC2015
+  ./mvnw -Pprod clean package jib:dockerBuild "$@" && {
+    echo ""
+    _log_i 0 "Built image \"$IMAGE_FQNAME\""
+    true
+  } || {
+    _log_e 0 "Error building image \"$IMAGE_FQNAME\""
+  }
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+publish_version() {
+  echo "~~~"
+  _log_i 0 "Publishing the frontend to git"
+  fe_push "$@"
+  echo "~~~"
+  _log_i 0 "Publishing the backend to the docker registry"
+  be_push
+  _log_i 0 "Publication completed"
+}
+
+fe_push() {
+  local PPWD="$PWD"
+  push_git "$@"
+  local R=$?
+  __cd "$PPWD"
+  return $R
+}
+
+be_push() {
+  if [ -f "pom.xml" ]; then
+    local PPWD="$PWD"
+    get_be_info
+    push_docker "$IMAGE_FQNAME"
+    local R=$?
+    __cd "$PPWD"
+    return $R
+  else
+    return 0
+  fi
+}
+
+push_docker() {
+  [ -z "$DOCKER_REGISTRY_URL" ] && _log_d 1 "No docker registry configured, using default"
+  docker login "$DOCKER_REGISTRY_URL"
+  docker push "$@"
+}
+
+push_git() {
+  ensure_valid_location_for_git_publication
+
+  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
+    _log_i 0 "push_git: Force mode active"
+  }
+  args_or_ask -a "VERSION_NUMBER" "1/ver/$LATEST_VERSION_NUMBER/%sp bundle version number" "$@"
+  DEF="$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')"
+  args_or_ask -a "VERSION_COMMENT" "2/nn/$DEF/%sp bundle version comment" "$@"
+
+  save_cfg_value "LATEST_VERSION_NUMBER" "$VERSION_NUMBER" "$C_ENT_STATE_FILE"
+
+  __cd bundle
+
+  if [ ! "$(git status --porcelain)" ]; then
+    ask "No change detected; Should I proceed anyway?" || EXIT_UE "User interrupted"
+  else
+    git add -A
+    git commit -m "$VERSION_COMMENT"
+  fi
+
+  git fetch --tags --force 1> /dev/null
+
+  if git tag | grep -q -F "$VERSION_NUMBER"; then
+    if $FORCE; then
+      git tag -d "$VERSION_NUMBER" 2> /dev/null 1>&2
+    else
+      FATAL "Version \"$VERSION_NUMBER\" already exists"
+    fi
+  fi
+
+  git tag "$VERSION_NUMBER"
+
+  if $FORCE; then
+    RES="$(git push --force 2>&1)"
+    RV=$?
+  else
+    RES="$(git push 2>&1)"
+    RV=$?
+  fi
+
+  if [ $RV -ne 0 ]; then
+    if echo "$RES" | head -n 2 | grep -q -F '! [rejected]'; then
+      _log_w 1 "Unable to push to the remote repository, reason; REMOTE HISTORY NOT COMPATIBLE"
+      _log_w 1 "I'll try to fix it"
+
+      git fetch origin master \
+        && git rebase -Xtheirs origin/master
+
+      RES="$(git push 2>&1)"
+      RV=$?
+    fi
+  fi
+
+  local show_version_tag_msg=false
+  if [ $RV -ne 0 ]; then
+    _log_e 1 "Unable to push to the remote repository, reason; $RES"
+    FATAL "Manual intervention required"
+  else
+    if echo "$RES" | head -n 2 | grep -q -F 'up-to-date'; then
+      _log_w 1 "No new content was published: The remote repository is already up to date"
+      show_version_tag_msg=true
+    else
+      _log_i 1 "Version $VERSION_NUMBER published"
+    fi
+  fi
+
+  git push --tags --force 2> /dev/null
+  RV=$?
+  if [ $RV -ne 0 ]; then
+    _log_e 1 "Error publishing the version tag"
+  else
+    $show_version_tag_msg && _log_i 1 "Version tags published"
+  fi
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+init_project() {
+  _log_i 1 "Preparing.."
+  ent-init-project-dir && {
+    _log_i 1 "Project initialized."
+  }
+}
+
+get_bundle_repo_url() {
+  __cd "./bundle"
+  git remote get-url origin
+  # shellcheck disable=SC2164
+  cd - > /dev/null
+}
+
+# shellcheck disable=SC2155
+init_project__commit_all() {
+  local desc="$1"
+  local prj_user_name="$(git config --global user.name)"
+  local prj_user_email="$(git config --global user.email)"
+  local user_global=false
+
+  if [ -n "$prj_user_name" ] && [ -n "$prj_user_email" ]; then
+    if ask "Should I use you global git user?"; then
+      user_global=true
+    fi
+  fi
+
+  if $user_global; then
+    git init
+  else
+    set_or_ask "FE_PUB_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id_spc"
+    set_or_ask "FE_PUB_USER_EMAIL" "" "Please provide the user email for the $desc" "$prj_user_email" "assert_email"
+    git init
+    git config user.name "$FE_PUB_USER_NAME"
+    git config user.email "$FE_PUB_USER_EMAIL"
+  fi
+
+  _log_i 1 "Committing the generated files.."
+  git add -A && git commit -m "First generation commit"
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+init_pub() {
+  mkdir -p bundle
+  ensure_valid_location_for_git_publication
+
+  PUB_USER_NAME="$(git config user.name 2> /dev/null)"
+  PUB_USER_EMAIL="$(git config user.email 2> /dev/null)"
+
+  read_missing_pub_info_from_project_sources_git
+
+  set_or_ask "URL_OF_ORIGIN" "$1" "Please provide the URL of the publication repository" "" "assert_url"
+  set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_ext_ic_id_spc"
+  set_or_ask "PUB_USER_EMAIL" "$3" "%sp Git %var" "$PUB_USER_EMAIL" "assert_email"
+
+  initialize_publication_git_repository "$@"
+  ensure_valid_location_for_git_publication :initialized "$@"
+
+  _log_i 1 "bundle publication repository initialized"
+}
+
+initialize_publication_git_repository() {
+  cd bundle > /dev/null || FATAL -t "internal error"
+
+  local FORCE
+  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
+    _log_i 0 "pub_init: Force mode active"
+  }
+
+  # Base git init, if required
+  [ ! -f .git ] && {
+    git init
+  }
+
+  # Set origin, if required
+  ORIG="$(git remote get-url origin 2> /dev/null)"
+  [ -n "$ORIG" ] && {
+    _log_w 0 "An origin is already present ($ORIG)"
+    ! $FORCE && {
+      ask "Should I overwrite it?" || EXIT_UE "User abort"
+    }
+    git remote remove origin
+  }
+  git remote add origin "$URL_OF_ORIGIN"
+
+  # User info
+  git config user.name "$PUB_USER_NAME"
+  git config user.email "$PUB_USER_EMAIL"
+
+  pbs_fe_propose_credentials_cache
+
+  cd - > /dev/null || FATAL -t "internal error"
+
+  # Project: gitignore
+  local UP=false
+  grep -sq "^bundle/\$" .gitignore || {
+    echo -e "\n####\nbundle/" >> .gitignore
+    UP=true
+  }
+  grep -sq "^$C_ENT_STATE_FILE\$" .gitignore || {
+    echo -e "\n$C_ENT_STATE_FILE" >> .gitignore
+    UP=true
+  }
+  $UP && _log_d 1 "bundle project .gitignore updated"
+}
+
+require_ent_project_dir() {
+  [ "$(basename "$PWD")" == "bundle" ] && {
+    COMMENT=". If you are in the project's bundle-publication folder go back to the project's root dir"
+  }
+
+  [ ! -f "$C_ENT_PRJ_FILE" ] \
+    && FATAL "The current dir doesn't seem to contain a valid bundle project (no project file)$COMMENT"
+  [ ! -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] \
+    && FATAL "The current dir  doesn't seem to contain a valid bundle project (not bundle dir)$COMMENT"
+
+}
+
+ensure_valid_location_for_git_publication() {
+  local FORCE
+  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
+    _log_i 0 "valid_loc: Force mode active"
+  }
+
+  # valid path
+  if [ ! -f "$C_ENT_PRJ_FILE" ]; then
+    if [ -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ]; then
+      generate_ent_project_file
+    else
+      FATAL "The current dir doesn't seem to contain a valid bundle project"
+    fi
+  fi
+
+  if [ "$1" = ":initialized" ]; then
+    cd bundle || FATAL -t "internal error"
+
+    # git initialized
+    [ -d ".git" ] || FATAL "Publication repository is not initialized"
+
+    ORIG="$(git remote get-url origin 2> /dev/null)"
+    [ -z "$ORIG" ] && FATAL "Repo not initialized (run \"${0##*/} init ...\")"
+
+    # git user data set
+    [ -z "$(git config user.name 2> /dev/null)" ] && FATAL 'Publication user name is not set'
+    [ -z "$(git config user.email 2> /dev/null)" ] && FATAL 'Publication user email is not set'
+
+    local MODE="NORMAL"
+
+    # git master branch
+    if [ "$(git ls-remote origin master)" ]; then
+      # remote already has a master => import it
+      _log_w 1 "A remote master has been detected"
+      ask "Should I import it?"
+
+
+      if [ $? -ne 0 ]; then
+        # USER CHOSE TO NOT IMPORT
+        if $FORCE; then
+          MSG="PLEASE NOTE: You chose to not import the remote repository and the force flag was provided, "
+          MSG+="therefore I will now DESTROY the remote repository content and replace it with the local content"
+          echo ""
+          _log_w 0 "$MSG"
+          echo ""
+          ask "Should I DESTROY the remote repository content and proceed?" "N" || EXIT_UE "User interrupted"
+          MODE="OVERRIDE"
+        else
+          MSG="PLEASE NOTE: You chose to not import the remote repository, however in this condition the local copy of "
+          MSG+="your build artifacts will collide with the remote one. In order to proceed, the collision "
+          MSG+="should be resolved by applying one of these solutions: 1) import the remote artifacts repository "
+          MSG+="2) reset the remote artifacts repository 3) provide a new, empty artifacts repository"
+          echo ""
+          _log_w 0 "$MSG"
+          EXIT_UE "Unable to proceed; manual intervention required"
+        fi
+      else
+        # USER CHOSE TO IMPORT
+        MSG="PLEASE NOTE: You chose to import the remote master."
+        MSG+="Your local build artifacts may be discarded. "
+        MSG+="If you just run a build, you'd better run it again."
+        echo ""
+        _log_w 0 "$MSG"
+        echo ""
+        ask "Should I proceed?" "Y" || EXIT_UE "User interrupted"
+        MODE="IMPORT"
+      fi
+
+      if [ "$MODE" = "IMPORT" ]; then
+        # LOCAL BRANCH BACKUP
+        if [ "$(git status --porcelain)" ]; then
+          local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
+          _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
+          git reset HEAD 2> /dev/null
+          git checkout -b "$BBN" \
+            && git add -A \
+            && git commit -m "$BBN"
+
+          # IMPORT
+          _log_d 1 "Checking out the remote master"
+          git branch -m master master_old 1> /dev/null 2>&1
+          git branch -D master 1> /dev/null 2>&1
+          git fetch origin master
+          git checkout -b master origin/master
+          git branch -D master_old 1> /dev/null 2>&1
+        fi
+      fi
+    fi
+
+    if [[ "$MODE" = "NORMAL" || "$MODE" = "OVERRIDE" ]]; then
+      # there is no master on remote
+      echo "" > .gitignore
+      git add .gitignore descriptor.yaml
+      ls plugins/*.yaml 1> /dev/null && git add plugins/*.yaml
+      git commit -m "init"
+      git checkout -b master
+      if [ "$MODE" = "OVERRIDE" ]; then
+        git push --set-upstream origin master --force
+      else
+        git push --set-upstream origin master
+      fi
+    fi
+
+    cd - > /dev/null || FATAL -t "internal error"
+  fi
+
+  return 0
+}
+
+# If some information is missing tries to read it from the project
+read_missing_pub_info_from_project_sources_git() {
+  cd .. || FATAL -t "internal error"
+
+  [ -z "$PUB_USER_NAME" ] && {
+    PUB_USER_NAME="$(git config user.name 2> /dev/null)"
+    [ -n "$PUB_USER_NAME" ] && _log_d 1 "Assuming user name \"$PUB_USER_NAME\" from the bundle project dir"
+  }
+
+  [ -z "$PUB_USER_EMAIL" ] && {
+    PUB_USER_EMAIL="$(git config user.email 2> /dev/null)"
+    [ -n "$PUB_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$PUB_USER_EMAIL\" from the bundle parent project dir"
+  }
+
+  cd - > /dev/null || FATAL -t "internal error"
+}
+
+pbs_fe_propose_credentials_cache() {
+  ! $IS_GIT_CREDENTIAL_MANAGER_PRESENT && return 99
+
+  local TIMEOUT=""
+  ask "Should I enable the credentials cache for the publication of the frontend?" && {
+    set_or_ask TIMEOUT "" "Expiration in seconds?" "$((3600 * 24))" && {
+      git_enable_credentials_cache "$TIMEOUT"
+    }
+  }
+}
+
+# ######################################################################################################################
+# ######################################################################################################################
+# ######################################################################################################################
+
+if [[ "$1" == "--help" || "$1" == "" ]]; then
+  . s/essentials.sh
+  print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  exit 0
+fi
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
+}
+
+. s/_base.sh
+cd - > /dev/null || FATAL -t "internal error"
+
+RUN "$@"

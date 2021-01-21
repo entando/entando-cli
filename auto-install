@@ -1,0 +1,305 @@
+#!/bin/bash
+[ -z "$ZSH_VERSION" ] && [ -z "$BASH_VERSION" ] && echo "Unsupported shell, user either bash or zsh" 1>&2 && return 99
+
+ent_extract_switch_param_DC7C420E09B4492D() {
+  # shellcheck disable=SC1001
+  if [[ "$1" =~ \=(.*) ]]; then
+    if [[ -n $ZSH_VERSION ]]; then
+      # shellcheck disable=SC2154
+      ENT_RES="${match[1]}"
+    else
+      ENT_RES="${BASH_REMATCH[1]}"
+    fi
+    return 0
+  fi
+  return 255
+}
+
+ent_cli_register_rc_DC7C420E09B4492D() {
+  F="$1"
+  CA="$2"
+  local SIGN="#ENTANDO-CLI-SIGN-d567d439#"
+  if [ -f "$F" ] && ! grep -F "${SIGN}" "$F" > /dev/null; then
+    {
+      echo ""
+      echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+      echo "# ${SIGN}"
+      echo "${CA}"
+      echo ""
+    } >> "${F}"
+    echo "> Entando CLI added to \"${F}\""
+  fi
+}
+
+ent_clone_repo_DC7C420E09B4492D() {
+  local URL="$1"    # URL TO CLONE
+  local TAG="$2"    # TAG TO CHECKOUT
+  local FLD="$3"    # local folder name
+  local DSC="$4"    # human description of the cloned repository
+  local UPDATE="$5" # human description of the cloned repository
+
+  if [[ -d "$FLD" && $UPDATE -eq 2 ]]; then
+    echo "> Skipping due to partial update request"
+    return 0
+  fi
+
+  if [[ ! -d "$FLD" || "$UPDATE" -ne 0 ]]; then
+    (
+      if [ "$TAG" = "master" ]; then
+        echo "Please specify a release tag or a release branch" 1>&2
+        git pull
+      else
+        if [[ ! -d "$FLD" || "$UPDATE" -eq 0 ]]; then
+          git clone "$URL" "$FLD"
+        fi
+        cd "$FLD" || {
+          echo "Unable to enter folder \"$FLD\"" 1>&2
+          exit 99
+        }
+        git fetch --tags --force
+        git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
+
+        if [ "$UPDATE" -eq 1 ]; then
+          echo "> Updating branch of $DSC \"$TAG\"" 1>&2
+          git checkout -f master 1> /dev/null || {
+            echo "> Unable to checkout the master branch of $DSC \"$TAG\"" 1>&2
+            exit 92
+          }
+          git branch -D "$TAG" 1> /dev/null 2>&1 || true
+        fi
+
+        if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
+          echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
+          exit 92
+        fi
+      fi
+      if [ $? ]; then
+        cd - > /dev/null
+      else
+        cd - > /dev/null
+        rm -rf "./$FLD"
+        exit "$?"
+      fi
+    ) || return "$?"
+  else
+    # Please note that this is not an error
+    echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.. (you may use --update)"
+  fi
+  return 0
+}
+
+ENT_RUNNER_DC7C420E09B4492D() {
+  if [ "$1" = "--wrapped" ]; then
+    shift
+    local ORIG_DIR="$PWD"
+    ENT_RUNNER_DC7C420E09B4492D "$@"
+    local RES="$?"
+    cd "$ORIG_DIR"
+
+    unset -f ent_extract_switch_param_DC7C420E09B4492D
+    unset -f ent_cli_register_rc_DC7C420E09B4492D
+    unset -f ent_clone_repo_DC7C420E09B4492D
+    unset -f ENT_RUNNER_DC7C420E09B4492D
+
+    return "$RES"
+  fi
+
+  local C_QUICKSTART_DEFAULT_RELEASE="quickstart"
+  local ENTANDO_RELEASES_REPO_URL="https://github.com/entando/entando-releases.git"
+  local AUTO_ACTIVATION=true
+  local CURR_DIR=false
+  local UPDATE_CLI=0
+  local UPDATE_REL=0
+  local ENT_RES=""
+  local SOURCED=false
+
+  # ----------------------------------------------------------------------------------------------------
+  # OPTIONS
+  for opt in "$@"; do
+    case "$opt" in
+      --sourced)
+        SOURCED=true
+        ;;
+      --curr-dir)
+        CURR_DIR=true
+        ;;
+      --update | --update=*)
+        # shellcheck disable=SC2015
+        ent_extract_switch_param_DC7C420E09B4492D "$opt" && {
+          ENTANDO_OPT_UPDATE="$ENT_RES"
+          true
+        } || {
+          ENTANDO_OPT_UPDATE="all"
+        }
+        ;;
+      --no-auto-activation)
+        AUTO_ACTIVATION=false
+        ;;
+      --release | --release=*)
+        ent_extract_switch_param_DC7C420E09B4492D "$opt"
+        [ -z "$ENT_RES" ] && {
+          echo "Please provide the release version tag" 1>&2
+          return 99
+        }
+        ENTANDO_RELEASE="$ENT_RES"
+        ;;
+      --cli-version | --cli-version=*)
+        ent_extract_switch_param_DC7C420E09B4492D "$opt"
+        [ -z "$ENT_RES" ] && { echo "Please provide the CLI version tag" 1>&2 && return 99; }
+        ENTANDO_CLI_VERSION="$ENT_RES"
+        ;;
+      --releases-repo-url=*)
+        ent_extract_switch_param_DC7C420E09B4492D "$opt"
+        [ -z "$ENT_RES" ] && {
+          echo "Please provide the release url" 1>&2
+          return 99
+        }
+        ENTANDO_RELEASES_REPO_URL="$ENT_RES"
+        ;;
+      *)
+        echo "> Unknown or misplaced argument $opt" 1>&2
+        return 99
+        ;;
+    esac
+  done
+
+  case "${ENTANDO_OPT_UPDATE}" in
+    cli) UPDATE_CLI=1 && UPDATE_REL=2 ;;
+    rel) UPDATE_REL=1 && UPDATE_CLI=2 ;;
+    all) UPDATE_REL=1 && UPDATE_CLI=1 ;;
+    "") UPDATE_REL=0 && UPDATE_CLI=0 ;;
+    *) echo "Invalid value provided for parameter update (rel|cli)" && return 99 ;;
+  esac
+
+  if [ "$ENTANDO_RELEASE" = "" ]; then
+    ENTANDO_RELEASE="$C_QUICKSTART_DEFAULT_RELEASE"
+    echo "Assuming ENTANDO_RELEASE=\"$ENTANDO_RELEASE\""
+  fi
+
+  # ----------------------------------------------------------------------------------------------------
+  # DOWNLOAD
+  $CURR_DIR || cd "$HOME"
+
+  local TGT_DIR="$PWD"
+  local BASE_PREFIX='.entando'
+  local PREFIX="$BASE_PREFIX/ent"
+
+  (
+    git --version
+    [ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
+
+    set -e
+
+    # RELEASE
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo "> Downloading the ENTANDO RELEASE $ENTANDO_RELEASE"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
+    mkdir -p "$PREFIX"
+    cd "$PREFIX"
+
+    ent_clone_repo_DC7C420E09B4492D "$ENTANDO_RELEASES_REPO_URL" \
+      "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" $UPDATE_REL || exit "$?"
+  ) || return "$?"
+
+  cd "$PREFIX"
+  # shellcheck disable=SC1090
+  [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "./$ENTANDO_RELEASE/dist/manifest"
+  [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
+
+  (
+    # CLI
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo "> Downloading the ENTANDO CLI $ENTANDO_CLI_VERSION"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    cd "$ENTANDO_RELEASE"
+    mkdir -p "./cli"
+    ent_clone_repo_DC7C420E09B4492D "https://github.com/entando/entando-cli" \
+      "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version" $UPDATE_CLI || exit "$?"
+
+    cd "cli/$ENTANDO_CLI_VERSION"
+    rm -rf ./dist
+    ln -sf "../../dist" ./
+  ) || return "$?"
+
+  # ----------------------------------------------------------------------------------------------------
+  # INSTALL
+  # Shortcuts generation
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  echo "> Finalizing"
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  rm -rf "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
+  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
+  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE.ln"
+  rm -rf "$TGT_DIR/$BASE_PREFIX/deactivate-$ENTANDO_RELEASE"
+  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" "$TGT_DIR/$BASE_PREFIX/deactivate-$ENTANDO_RELEASE"
+  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" > "$TGT_DIR/$BASE_PREFIX/deactivate-$ENTANDO_RELEASE.ln"
+  rm -rf "$TGT_DIR/$BASE_PREFIX/activate"
+  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
+  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
+  rm -rf "$TGT_DIR/$BASE_PREFIX/deactivate"
+  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" "$TGT_DIR/$BASE_PREFIX/deactivate"
+  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" > "$TGT_DIR/$BASE_PREFIX/deactivate.ln"
+
+  (
+    # shellcheck source=s/utils.sh
+    . "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
+
+    echo "."
+    echo ".."
+    print_entando_banner || true
+  )
+  echo "═════════════════════════════════════════════════════════════════════════════"
+  echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
+  echo ""
+  $AUTO_ACTIVATION && $SOURCED && {
+    # shellcheck disable=SC1090
+    source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
+      echo ""
+      echo -e "\033[101mENTANDO-CLI AUTOMATICALLY ACTIVATED\033[0;37m"
+    }
+  }
+  echo ""
+  if "$CURR_DIR"; then
+    echo -e "FOR MANUAL ACTIVATION USE: \n"
+    echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate\""
+  else
+    echo -e "FOR MANUAL ACTIVATION USE:\n"
+    echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
+  fi
+  echo ""
+  echo "get help using: ent help"
+  echo ""
+  echo "═════════════════════════════════════════════════════════════════════════════"
+  echo ".."
+  echo "."
+  echo ""
+
+  if ! "$CURR_DIR"; then
+    local CMD
+    CMD="source $TGT_DIR/$BASE_PREFIX/activate --quiet --force 2>/dev/null"
+    if [ ! -f "$HOME/.bashrc" ]; then
+      touch "$HOME/.bash_profile"
+      ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bash_profile" "$CMD"
+    else
+      ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bashrc" "$CMD"
+    fi
+    ent_cli_register_rc_DC7C420E09B4492D "$HOME/.zshrc" "$CMD"
+    ent_cli_register_rc_DC7C420E09B4492D "$HOME/.fizsh/fizsh-miscellaneous.zsh" "$CMD"
+  fi
+}
+
+# shellcheck disable=SC2154
+# shellcheck disable=SC2015
+(
+   [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+   [[ -n $KSH_VERSION && $(cd "$(dirname -- "$PROG")" &&
+      printf '%s' "${PWD%/}/")$(basename -- "$PROG") != "${.sh.file}" ]] ||
+   [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
+) && {
+  ENT_RUNNER_DC7C420E09B4492D --wrapped --sourced "$@"
+  return $?
+} || {
+  ENT_RUNNER_DC7C420E09B4492D --wrapped "$@"
+  exit $?
+}
