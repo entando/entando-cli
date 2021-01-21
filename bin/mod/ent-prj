@@ -325,6 +325,9 @@ be_build() {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
+  require_ent_project_dir
+  [ -d "bundle/.git" ] || FATAL "Publication repository is not initialized"
+
   echo "~~~"
   _log_i 0 "Publishing the frontend to git"
   fe_push "$@"
@@ -551,7 +554,7 @@ require_ent_project_dir() {
   [ ! -f "$C_ENT_PRJ_FILE" ] \
     && FATAL "The current dir doesn't seem to contain a valid bundle project (no project file)$COMMENT"
   [ ! -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] \
-    && FATAL "The current dir  doesn't seem to contain a valid bundle project (not bundle dir)$COMMENT"
+    && FATAL "The current dir doesn't seem to contain a valid bundle project (not bundle dir)$COMMENT"
 
 }
 
