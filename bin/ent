@@ -98,6 +98,9 @@ which_ent() {
     cd "dist"
     echo "$ENTANDO_VERSION"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
+    echo "- APPCTX:"
+    echo "$ENTANDO_CURRENT_APP_CTX"
+    echo "$ENTANDO_CURRENT_APP_CTX_HOME"
   ) 1>&2
 }
 
@@ -105,10 +108,11 @@ handle_config_command() {
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
   args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
-    cat "$ENTANDO_ENT_HOME/w/.cfg"
+    _log_i 0 "Configuration of the application context \"$THIS_APP_CTX\"" 1>&2
+    cat "$ENT_WORK_DIR/.cfg"
   }
   args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
-    _edit "$ENTANDO_ENT_HOME/w/.cfg"
+    _edit "$ENT_WORK_DIR/.cfg"
   }
   args_or_ask ${HH:+"$HH"} -f -- '--set///sets a specific configuration parameter' "$@" && {
     args_or_ask -a ${HH:+"$HH"} "CFG_KEY" "1///%sp the config key" "$@"

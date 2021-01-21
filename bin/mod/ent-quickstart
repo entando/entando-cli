@@ -31,6 +31,8 @@ show_help_option "$HH"
 args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
   "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create CRDs and namespace" "$@"
 
+ENT_KUBECTL_CMD=""
+
 args_or_ask ${HH:+"$HH"} -n "ENT_KUBECTL_CMD" \
   "--kubectl-cmd///Forces the quickstart to use the given kubectl command" "$@"
 
@@ -263,6 +265,8 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
+
+  ent app use "qs-$ENTANDO_VM_NAME" --yes --no-auto-login
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
   $ENTANDO_MOCK_TEST_RUN && VM_OPT+=" --use-mocks"

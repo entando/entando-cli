@@ -75,7 +75,7 @@ shift
 
 $M_CFG && {
   check_ver_cfg() {
-    if [ ! -f "$ENTANDO_ENT_HOME/w/.cfg" ]; then
+    if [ ! -f "$ENT_WORK_DIR/.cfg" ]; then
       local VERS
       VERS="$(list_compatible_installations "$ENTANDO_CLI_VERSION")"
       if [ -n "$VERS" ]; then

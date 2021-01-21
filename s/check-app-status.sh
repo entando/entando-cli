@@ -2,10 +2,9 @@
 # shellcheck disable=SC2034
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 . s/essentials.sh --with-state
-
-[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift 
+[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift
 [ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
-[ -n "$1" ] && ENTANDO_APPNAME="$1" && shift 
+[ -n "$1" ] && ENTANDO_APPNAME="$1" && shift
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 
 if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then

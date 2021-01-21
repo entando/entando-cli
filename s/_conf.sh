@@ -6,8 +6,16 @@ REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR="https://github.com/entando/entando-bluepri
 # UTILITIES CONFIGURATION
 XU_LOG_LEVEL=9
 
-CFG_FILE="$ENTANDO_ENT_HOME/w/.cfg"
-ENT_KUBECONF_FILE_PATH="$ENTANDO_ENT_HOME/w/.kubeconf"
+ENTANDO_HOME=$(
+  cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
+  echo "~"
+)
+
+ENTANDO_GLOBAL_CFG="$ENTANDO_HOME/.global-cfg"
+
+ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
+CFG_FILE="$ENT_WORK_DIR/.cfg"
+ENT_KUBECONF_FILE_PATH="$ENT_WORK_DIR/.kubeconf"
 
 # CONSTS
 C_HOSTS_FILE="/etc/hosts"

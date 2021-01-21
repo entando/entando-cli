@@ -16,8 +16,8 @@
   KUBECTL_ONCE_OPTIONS=""
 
   if [ "$1" = "--with-state" ]; then
-    DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
-    ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
+    DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENT_WORK_DIR/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
+    ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
   perl -e 'print -t 1 ? exit 0 : exit 1;'

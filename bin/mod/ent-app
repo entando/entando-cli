@@ -1,5 +1,13 @@
 #!/bin/bash
 
+#H::
+#H:: Helps dealing with entando apps
+#H::
+#H:: Syntax:
+#H::  - ent app {command} ...
+#H::
+#H:: Commands:
+
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
   echo -e "Helps managing an EntandoApp" && exit 0
 }
@@ -14,7 +22,12 @@ cd "$DIR/../.." || {
 
 RUN() {
   HH="$(parse_help_option "$@")"
-  show_help_option "$HH" "the base command"
+
+  [[ -n "$HH" && -z "$CMD" ]] && {
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  }
+
+  show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
 
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
@@ -24,19 +37,84 @@ RUN() {
   show_help_option "$HH" "\"$CMD\""
 
   case "$CMD" in
-    "images")
-      print_images "$@"
-      ;;
-    "configmap")
-      print_configmap "$@"
-      ;;
-    "info")
+    "use") #H: selects the app context that ent should use
+      args_or_ask ${HH:+"$HH"} -n -F "NO_AUTO_LOGIN" "--no-auto-login///Disable auto-login" "$@"
+      args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+      args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
       [ -n "$HH" ] && exit 0
       shift
-      ent app-info "$@"
+      use_app_ctx "$@"
+      app_ctx_auto_login
+      ;;
+    "stop") #H: stops the app associated to the the given app context
+      [ -n "$HH" ] && exit 0
+      if [ -n "$DESIGNATED_VM" ]; then
+        multipass stop "$DESIGNATED_VM"
+      else
+        _log_e 0 "This command only works with managed VMs"
+      fi
+    ;;
+    "start") #H: starts the app associated to the the given app context
+      [ -n "$HH" ] && exit 0
+      if [ -n "$DESIGNATED_VM" ]; then
+        multipass start "$DESIGNATED_VM"
+      else
+        _log_e 0 "This command only works with managed VMs"
+      fi
+    ;;
+    "delete") #H: delete the given app context
+      args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+      [ -n "$HH" ] && exit 0
+      shift
+
+      if [ -n "$DESIGNATED_VM" ]; then
+        _log_w 0 "This application context is associated to a managed VM"
+        if $AUTO_YES || ask "Should I remove the VM too?"; then
+          multipass delete "$DESIGNATED_VM"
+          _log_i 0 "VM deleted, to completely remove it run multipass purge"
+        fi
+        delete_app_ctx "$THIS_APP_CTX"
+      else
+        delete_app_ctx "$@"
+      fi
+
+      ;;
+    "list") #H: prints a list of the available app contexts
+      [ -n "$HH" ] && exit 0
+      shift
+      list_app_ctx "$@"
+      ;;
+    "login") #H: logins to an application context using a token
+      [ -n "$HH" ] && exit 0
+      shift
+      login_to_app_ctx "$@"
+      ;;
+    "images") #H: print the images running in the current EntandoApp
+      print_images "$@"
+      ;;
+    "configmap") #H: prints the configmap used to deploy the current EntandoApp
+      print_configmap "$@"
+      ;;
+    "status") #H: prints status information about the current EntandoApp
+      local WATCH
+      determine_namespace ENTANDO_NAMESPACE "$@"
+      args_or_ask ${HH:+"$HH"} -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
+      args_or_ask ${HH:+"$HH"} -n -F WATCH "--watch///" "$@"
+
+      [ -n "$HH" ] && exit 0
+
+      if $WATCH; then
+        ent app-info watch "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+      else
+        ent app-info "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+      fi
       ;;
     "")
-      "${BASH_SOURCE[0]}" "--help"
+      [ -n "$HH" ] && exit 0
+      _log_i 2 "The current application context is:"
+      echo "$ENTANDO_CURRENT_APP_CTX"
+      _log_i 2 "The available application contexts are:"
+      list_app_ctx "$@"
       ;;
     *)
       [ -n "$HH" ] && exit 0
@@ -75,44 +153,51 @@ print_images() {
   fi
 }
 
-select_app_ctx() {
+use_app_ctx() {
   # shellcheck disable=SC2034
-  local application_context RES
+  local application_context
   local apps_base_dir="$ENTANDO_HOME/apps/"
 
   (
     __cd "$apps_base_dir"
     # shellcheck disable=SC2035
     map-from-stdin "application_context" $'\n\r' < <(ls -d *)
-
     args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
     local app_dir="$ENTANDO_HOME/apps/$APP_CTX/"
 
     if [ ! -d "$app_dir" ]; then
       _log_w 0 "Application context \"$APP_CTX\" not found"
       _log_i 0 "Application context \"$APP_CTX\" created"
+      $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
       $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
       mkdir -p "${app_dir}"
       cp -r "$ENT_WORK_DIR" "${app_dir}" || true
-      _log_i 0 "Current configuration and state imported under \"$APP_CTX\""
+      _log_i 0 "New configuration and state created under \"$APP_CTX\""
     fi
 
-    save_cfg_value "THIS_APP_CTX" "${APP_CTX}"
     save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${APP_CTX}" "$ENTANDO_GLOBAL_CFG"
     save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
-  )
-  reload_cfg "$ENTANDO_GLOBAL_CFG"
-  activate_application_workdir
+    true
+  ) && {
+    reload_cfg "$ENTANDO_GLOBAL_CFG"
+    activate_application_workdir
+    save_cfg_value "THIS_APP_CTX" "${ENTANDO_CURRENT_APP_CTX}"
+    ENT_KUBECTL_CMD=""
+    ENABLE_AUTOLOGIN=""
+    reload_cfg
+    setup_kubectl
+  }
 }
 
 delete_app_ctx() {
   # shellcheck disable=SC2034
-  local application_context RES
+  local application_context
   local apps_base_dir="$ENTANDO_HOME/apps/"
 
   (
     __cd "$apps_base_dir"
     # shellcheck disable=SC2035
+    map-from-stdin "application_context" $'\n\r' < <(ls -d *)
     args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
     [ ! -d "$APP_CTX" ] && FATAL "Application not found"
     [ ! -d "$APP_CTX/w" ] && FATAL "Invalid application context dir"
@@ -127,8 +212,65 @@ delete_app_ctx() {
     true
   ) && {
     reload_cfg "$ENTANDO_GLOBAL_CFG"
-    _log_i 0 "Switched to the default application context"
+    _log_i 0 "Current application context: $THIS_APP_CTX"
   }
+}
+
+list_app_ctx() {
+  # shellcheck disable=SC2034
+  local application_context
+  local apps_base_dir="$ENTANDO_HOME/apps/"
+
+  (
+    __cd "$apps_base_dir"
+    # shellcheck disable=SC2035
+    stdin_to_arr $'\n\r' application_context < <(ls -d *)
+
+    for file in "${application_context[@]}"; do
+      echo "$file"
+    done
+  )
+}
+
+login_to_app_ctx() {
+  local CACHED
+  args_or_ask ${HH:+"$HH"} -f -- "CACHED" "--cached//$C_QUICKSTART_DEFAULT_RELEASE/%sp authentication token" "$@"
+
+  if ! $CACHED; then
+    args_or_ask ${HH:+"$HH"} -a -p -- "APP_LOGIN_URL" '1///%sp URL' "$@"
+    args_or_ask ${HH:+"$HH"} -- "APP_LOGIN_TOKEN" "--token///%sp authentication token" "$@"
+    [[ -n "$HH" && -z "$CMD" ]] && exit
+    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN"
+    save_cfg_value "APP_LOGIN_URL" "$APP_LOGIN_URL"
+    save_cfg_value "APP_LOGIN_TOKEN" "$APP_LOGIN_TOKEN"
+  else
+    [[ -n "$HH" && -z "$CMD" ]] && exit
+    [[ -z "$APP_LOGIN_URL" || -z "$APP_LOGIN_TOKEN" ]] && FATAL "Credential cache missing or incomplete"
+    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN"
+  fi
+}
+
+app_ctx_auto_login() {
+  if ! $NO_AUTO_LOGIN  && login_supported && [[ -n "$APP_LOGIN_URL" && -n "$APP_LOGIN_TOKEN" ]]; then
+    _log_i 0 "Autologin to \"$APP_LOGIN_URL\""
+    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN" || {
+      _log_w 0 "AutoLogin failed, clearing the credentials cache"
+      APP_LOGIN_TOKEN=""
+      save_cfg_value "APP_LOGIN_TOKEN" ""
+    }
+  fi
+}
+
+login_supported() {
+  if [ "$ENT_KUBECTL_CMD" = "oc" ] && "${ENABLE_AUTOLOGIN:-true}" != "false"; then
+    return 0
+  else
+    if ${ENABLE_AUTOLOGIN:-false}; then
+      return 0
+    else
+      return 1
+    fi
+  fi
 }
 
 ENTANDO_IMAGES_FILTER=""

@@ -19,6 +19,8 @@ if [ -z "$ENTANDO_IS_TTY" ]; then
   fi
 fi
 
+xu_set_status() { :; }
+
 # runs a sed "in place" given the sed command and the file to change
 # (multiplatform wrapper)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

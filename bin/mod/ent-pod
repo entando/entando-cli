@@ -56,7 +56,7 @@ RUN() {
       ;;
     "shell") #H: run a shell into the pod
       ENT_SHELL_CMD="/bin/sh"
-      args_or_ask ${HH:+"$HH"} -n -p -- ENT_SHELL_CMD "--shell-cmd/any?/the shell command" "$@"
+      args_or_ask ${HH:+"$HH"} -n -p -- ENT_SHELL_CMD "--shell-cmd/any?//the shell command" "$@"
       pod_action shell "$@"
       ;;
     "exec") #H: run a command into the pod container
