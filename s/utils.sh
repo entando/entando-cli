@@ -699,6 +699,8 @@ show_help_option() {
 args_or_ask__a_map() {
   local arr_name="$1"
   shift
+  local EXACT=false
+  [ "$1" = "-e" ] && local EXACT="true" && shift
   [ "$1" = "-a" ] && local PRE="$1" && shift
   [ "$1" = "--help" ] && local HH="$1" && shift
   local var_name="$1"
@@ -707,9 +709,11 @@ args_or_ask__a_map() {
   shift
   local msg="$1"
   shift
+  local type="${1:-"ext_id?"}"
+  shift
   local TMP
 
-  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_num/ext_id?//$msg" "$@"
+  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_num/$type//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
@@ -720,7 +724,7 @@ args_or_ask__a_map() {
       else
         # shellcheck disable=SC2207
         TITLES=($(map-list "${arr_name}" -k))
-        TITLES+=("other..")
+        ! $EXACT && TITLES+=("other..")
         select_one "Select the ${arr_name}" "${TITLES[@]}"
         local TMP="$select_one_res_alt"
         [ "$TMP" = "other.." ] && TMP=""
@@ -728,9 +732,9 @@ args_or_ask__a_map() {
     fi
 
     if [ -z "$TMP" ]; then
-      args_or_ask -p "TMP" "$arg_num/ext_id/$TMP/$msg" "$@"
+      args_or_ask -p "TMP" "$arg_num/$type/$TMP/$msg" "$@"
     else
-      assert_ext_id "$var_name" "$TMP"
+      "assert_${type}" "$var_name" "$TMP"
     fi
 
     _set_var "$var_name" "$TMP"
@@ -841,7 +845,6 @@ map-get-keys() {
     fi
   done
 }
-
 
 map-save() {
   local arrname="$1"
