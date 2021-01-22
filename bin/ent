@@ -106,8 +106,19 @@ which_ent() {
 handle_config_command() {
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -f -- '--default///selects the default ent configuration' "$@" && {
+    # shellcheck disable=SC2034
+    CFG_FILE="$ENT_DEFAULT_CFG_FILE"
+    ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
+    THIS_APP_CTX=""
+  }
+
   args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
-    _log_i 0 "Configuration of the application context \"$THIS_APP_CTX\"" 1>&2
+    if [ -n "$THIS_APP_CTX" ]; then
+      _log_i 0 "Configuration of the application context \"$THIS_APP_CTX\"" 1>&2
+    else
+      _log_i 0 "Default configuration of the current ent installation" 1>&2
+    fi
     cat "$ENT_WORK_DIR/.cfg"
   }
   args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
@@ -175,12 +186,13 @@ cmplt() {
     echo "$mod"
   done
 
-  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import")
+  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import" "acivate")
 
   for tc in "${topcmd[@]}"; do
     echo "$tc"
   done
 }
+
 # ######################################################################################################################
 # ######################################################################################################################
 # ######################################################################################################################
@@ -191,13 +203,30 @@ cmplt() {
     printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
  [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
 ) && {
-  if [ "$1" = "activate" ]; then
-    . "${ENTANDO_ENT_HOME}/bin/mod/ent-ent" --sourced "$@"
-    return $?
-  else
-    echo "Source execution is not permitted for this command" 1>&2
-    exit 99
-  fi
+  ENTANDO_ENT_TMPFILE_0002bb75="$(mktemp /tmp/ent-runner-XXXXXXXX)"
+  ENTANDO_ENT_TMPVAR_0002bb75=0
+  case "${1}" in
+    "activate")
+      "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
+      ENTANDO_ENT_TMPVAR_0002bb75="$?"
+      ;;
+  *)
+    [ -f "$ENTANDO_ENT_TMPFILE_0002bb75" ] && rm "$ENTANDO_ENT_TMPFILE_0002bb75"
+    echo "Sourced execution is not permitted for the command $1" 1>&2
+    return 99
+    ;;
+  esac
+
+  [ -f "$ENTANDO_ENT_TMPFILE_0002bb75" ] && {
+    if [ "$ENTANDO_ENT_TMPVAR_0002bb75" = 0 ]; then
+      # shellcheck disable=SC1090
+      . "$ENTANDO_ENT_TMPFILE_0002bb75"
+      rm "$ENTANDO_ENT_TMPFILE_0002bb75"
+    fi
+  }
+
+  unset ENTANDO_ENT_TMPFILE_0002bb75
+  exit "$ENTANDO_ENT_TMPVAR_0002bb75"
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"

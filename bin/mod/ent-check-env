@@ -296,7 +296,7 @@ $M_KUBE && {
 }
 
 $M_DEVL && {
-  save_cfg_value "WAS_DEVELOP_CHECKED" "true"
+  save_cfg_value "WAS_DEVELOP_CHECKED" "true" "$ENT_DEFAULT_CFG_FILE"
 }
 
 _log_i 0 "${0##*/} completed"

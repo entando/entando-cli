@@ -9,88 +9,80 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an EntandoApp" && exit 0
+  echo -e "Helps managing an the local ents" && exit 0
 }
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+. s/_base.sh
 
 # ----------------------------------------------------------------------------------------------------------------------
-ENT_RUNNER_DC7C420E09B4492D() {
-  local TMPFILE
-  TMPFILE="$(mktemp /tmp/ent-runner-XXXXXXXX)"
+ent_activate() {
+  local LIST
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -n -a "ENT" "1///The ent to activate" "$@"
+  args_or_ask ${HH:+"$HH"} -n -F "LIST" "--list///Lists the locally available ents" "$@"
+  args_or_ask ${HH:+"$HH"} -n -F "DEFSET" "--set-default///Sets the selected ent as default" "$@"
 
-  "$ENTANDO_ENT_HOME/bin/mod/ent-ent" prepare-activate "$TMPFILE" "$@" || {
-    unset -f ENT_RUNNER_DC7C420E09B4492D
-    [ -f "$TMPFILE" ] && rm "$TMPFILE"
-    exit $?
+  [ -n "$HH" ] && {
+    if $FOR_SOURCED_EXECUTION; then
+      return 0
+    else
+      exit 0
+    fi
   }
 
-  # shellcheck disable=SC1090
-  [ -f "$TMPFILE" ] && {
-    . "$TMPFILE"
-    rm "$TMPFILE"
+  if ! $DEFSET && ! $FOR_SOURCED_EXECUTION; then
+    FATAL "You need to source-execute me"
+  fi
+
+  # shellcheck disable=SC2035
+  [ -z "$ENT" ] && {
+    $LIST && {
+      ls -d *
+      exit 0
+    }
+    map-from-stdin "ENTS" $'\n\r' < <(cd "$ENTANDO_HOME/ent" && ls -d *)
+    args_or_ask__a_map ENTS -e -a ${HH:+"$HH"} "ENT" "1" "Select the ent to activate" "any"
   }
+
+  [ ! -d "$ENTANDO_HOME/ent/$ENT" ] && FATAL "Unable to access root dir of ent $ENT"
+
+  if $DEFSET; then
+    ent_set_default_ent "$ENT"
+    ent_set_appctx_default_ent "$ENT"
+  fi
+
+  if $FOR_SOURCED_EXECUTION; then
+    echo ". $ENTANDO_HOME/activate-$ENT --force 1> /dev/null" > "$COMMAND_FILE"
+    # shellcheck disable=SC2016
+    echo 'echo Version "$ENTANDO_ENT_HOME" activated' >> "$COMMAND_FILE"
+    true
+  else
+    ! $FOR_SOURCED_EXECUTION && _log_i 0 "However, it couldn't be activated on this tty because the command was not sourced"
+    true
+  fi
 }
 
-if [ "$1" != "--sourced" ];  then
-  ent_prepare_activate() {
-    TMPFILE="$1"; shift
+ent_set_default_ent() {
+  ENT="$1"
+  cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
+  cp -P "$ENTANDO_HOME/activate-$ENT.ln" "$ENTANDO_HOME/activate.ln"
+  _log_i 0 "Ent \"$ENT\" is now the global default ent"
+}
 
-    cd "$ENTANDO_ENT_HOME" || {
-      echo "Unable to read the variable ENTANDO_ENT_HOME"
-      exit 1
-    }
-
-    . s/_base.sh ""
-
-    local LIST
-    HH="$(parse_help_option "$@")"
-    show_help_option "$HH"
-    args_or_ask ${HH:+"$HH"} -n -a "ENT" "1///The ent to activate" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "LIST" "--list///Lists the locally available ents" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "DEFSET" "--set-default///Sets the selected ent as default" "$@"
-    args_or_ask -n -F "SOURCED" "--sourced///" "$@"
-
-    [ -n "$HH" ] && {
-      if $SOURCED; then
-        return 0
-      else
-        exit 0
-      fi
-    }
-
-    if ! $DEFSET && ! $SOURCED; then
-      FATAL "You need to source-execute me"
-    fi
-
-    # shellcheck disable=SC2035
-    [ -z "$ENT" ] && {
-      $LIST && {
-        ls -d *
-        exit 0
-      }
-      map-from-stdin "ENTS" $'\n\r' < <(cd "$ENTANDO_HOME/ent" && ls -d *)
-      args_or_ask__a_map ENTS -e -a ${HH:+"$HH"} "ENT" "1" "Select the ent to activate" "any"
-    }
-
-    [ ! -d "$ENTANDO_HOME/ent/$ENT" ] && FATAL "Unable to access root dir of ent $ENT"
-
-    if $DEFSET; then
-      cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
-      cp -P "$ENTANDO_HOME/activate-$ENT.ln" "$ENTANDO_HOME/activate.ln"
-      _log_i 0 "Ent \"$ENT\" is now the default ent"
-    fi
-
-    if $SOURCED; then
-      echo ". $ENTANDO_HOME/activate-$ENT --force 1> /dev/null" > "$TMPFILE"
-      # shellcheck disable=SC2016
-      echo 'echo Version "$ENTANDO_ENT_HOME" activated' >> "$TMPFILE"
-      true
-    else
-      ! $SOURCED && _log_i 0 "However, it couldn't be activated on this tty because the command was not sourced"
-      rm "$TMPFILE"
-      true
-    fi
-  }
-fi
+ent_set_appctx_default_ent() {
+  if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+    ENT="$1"
+    save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
+    _log_i 0 "Ent \"$ENT\" is now the default ent for the application context \"$ENTANDO_CURRENT_APP_CTX\""
+  fi
+}
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -107,30 +99,12 @@ RUN() {
   esac
 }
 
-# shellcheck disable=SC2195
-case "$1:$2" in
-  "activate") #H: selects the app context that ent should use
-    ;;
-  "--sourced:activate")
-    shift 2
-    ENT_RUNNER_DC7C420E09B4492D --sourced "$@"
-    ;;
-  activate:*) #H: selects the app context that ent should use
-    shift 1
-    ENT_RUNNER_DC7C420E09B4492D "$@"
-    ;;
-  "prepare-activate --sourced")
-    shift 2
-    ent_prepare_activate --sourced "$@"
-    ;;
-  prepare-activate*)
-    shift
-    ent_prepare_activate "$@"
-    ;;
-  *)
-    echo "FATAL: Unknown command \"$1:$2\"" 1>&2
-    ;;
-esac
+if [ "$1" = "--for-sourced-execution" ];  then
+  FOR_SOURCED_EXECUTION=true;shift
+  COMMAND_FILE="$2";shift
+else
+  FOR_SOURCED_EXECUTION=false
+  COMMAND_FILE=""
+fi
 
-unset -f ENT_RUNNER_DC7C420E09B4492D
-
+RUN "$@"

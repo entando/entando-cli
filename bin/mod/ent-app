@@ -41,6 +41,7 @@ RUN() {
       args_or_ask ${HH:+"$HH"} -n -F "NO_AUTO_LOGIN" "--no-auto-login///Disable auto-login" "$@"
       args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
       args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
+      args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APPCTX" "--none///Assumes the global application context" "$@"
       [ -n "$HH" ] && exit 0
       shift
       use_app_ctx "$@"
@@ -158,25 +159,35 @@ use_app_ctx() {
   local application_context
   local apps_base_dir="$ENTANDO_HOME/apps/"
 
-  (
-    __cd "$apps_base_dir"
-    # shellcheck disable=SC2035
-    map-from-stdin "application_context" $'\n\r' < <(ls -d *)
-    args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
-    local app_dir="$ENTANDO_HOME/apps/$APP_CTX/"
+  $USE_NO_APPCTX && application_context="--none"
+  args_or_ask ${HH:+"$HH"} -a -p -n -- "application_context" '1///%sp application context (or --none)' "$@"
 
-    if [ ! -d "$app_dir" ]; then
-      _log_w 0 "Application context \"$APP_CTX\" not found"
-      _log_i 0 "Application context \"$APP_CTX\" created"
-      $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
-      $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
-      mkdir -p "${app_dir}"
-      cp -r "$ENT_WORK_DIR" "${app_dir}" || true
-      _log_i 0 "New configuration and state created under \"$APP_CTX\""
+  (
+    if [ "$application_context" = "" ]; then
+      __cd "$apps_base_dir"
+      # shellcheck disable=SC2035
+      map-from-stdin "application_context" $'\n\r' < <(ls -d *)
+      args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
+      local app_dir="$ENTANDO_HOME/apps/$APP_CTX/"
+
+      if [ ! -d "$app_dir" ]; then
+        _log_w 0 "Application context \"$APP_CTX\" not found"
+        _log_i 0 "Application context \"$APP_CTX\" created"
+        $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
+        $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
+        mkdir -p "${app_dir}"
+        cp -r "$ENT_WORK_DIR" "${app_dir}" || true
+        _log_i 0 "New configuration and state created under \"$APP_CTX\""
+      fi
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${APP_CTX}" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
     fi
 
-    save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${APP_CTX}" "$ENTANDO_GLOBAL_CFG"
-    save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+    if [ "$application_context" = "--none" ]; then
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    fi
+
     true
   ) && {
     reload_cfg "$ENTANDO_GLOBAL_CFG"
