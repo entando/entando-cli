@@ -716,7 +716,7 @@ args_or_ask__a_map() {
   shift
   local msg="$1"
   shift
-  local type="${1:-"ext_id?"}"
+  local type="${1:-"ext_id"}"
   shift
   local TMP
 

@@ -74,9 +74,8 @@ if [ "$1" != "--sourced" ];  then
     [ ! -d "$ENTANDO_HOME/ent/$ENT" ] && FATAL "Unable to access root dir of ent $ENT"
 
     if $DEFSET; then
-      cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
-      cp -P "$ENTANDO_HOME/activate-$ENT.ln" "$ENTANDO_HOME/activate.ln"
-      _log_i 0 "Ent \"$ENT\" is now the default ent"
+      ent_set_default_ent "$ENT"
+      ent_set_appctx_default_ent "$ENT"
     fi
 
     if $SOURCED; then
@@ -91,6 +90,21 @@ if [ "$1" != "--sourced" ];  then
     fi
   }
 fi
+
+ent_set_default_ent() {
+  ENT="$1"
+  cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
+  cp -P "$ENTANDO_HOME/activate-$ENT.ln" "$ENTANDO_HOME/activate.ln"
+  _log_i 0 "Ent \"$ENT\" is now the global default ent"
+}
+
+ent_set_appctx_default_ent() {
+  if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+    ENT="$1"
+    save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
+    _log_i 0 "Ent \"$ENT\" is now the default ent for the application context \"$ENTANDO_CURRENT_APP_CTX\""
+  fi
+}
 
 # ----------------------------------------------------------------------------------------------------------------------
 

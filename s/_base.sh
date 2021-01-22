@@ -161,6 +161,26 @@ fi
 
 reload_cfg "$ENTANDO_GLOBAL_CFG"
 
+# activates the default workdir of the current ent installation
+#
+# the default workdir is not related t any application context
+# and it's located the ent installation directory
+activate_ent_default_workdir() {
+  if [ -z "$ENTANDO_CURRENT_APP_CTX" ]; then
+    # shellcheck disable=SC2034
+    THIS_APP_CTX=""
+    ENTANDO_CURRENT_APP_CTX_HOME=""
+    ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
+    # shellcheck disable=SC2034
+    CFG_FILE="$ENT_WORK_DIR/.cfg"
+    mkdir -p "$ENT_WORK_DIR"
+  fi
+}
+
+# activates application workdir
+#
+# the application workdir is the specific ent app directory
+# and can be potentially used by more that on ent installation
 activate_application_workdir() {
   if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
     if [ -d "$ENTANDO_CURRENT_APP_CTX_HOME/w" ]; then
@@ -178,8 +198,13 @@ activate_application_workdir() {
   fi
 }
 
-activate_application_workdir
+if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+  activate_application_workdir
+else
+  activate_ent_default_workdir
+fi
 
+reload_cfg "$ENT_DEFAULT_CFG_FILE"
 reload_cfg
 rescan-sys-env
 reload_cfg
@@ -266,22 +291,23 @@ kubectl_update_once_options() {
 
   # shellcheck disable=SC2034
   case "$NS" in
-    "*") KUBECTL_ONCE_OPTIONS="--all-namespaces";;
-    "") KUBECTL_ONCE_OPTIONS="";;
-    *) KUBECTL_ONCE_OPTIONS="--namespace=$NS";;
+    "*") KUBECTL_ONCE_OPTIONS="--all-namespaces" ;;
+    "") KUBECTL_ONCE_OPTIONS="" ;;
+    *) KUBECTL_ONCE_OPTIONS="--namespace=$NS" ;;
   esac
 }
 
 determine_namespace() {
-  local var_name="$1"; shift
+  local var_name="$1"
+  shift
   local ns
 
   HH="$(parse_help_option "$@")"
 
-  if args_or_ask ${HH:+"$HH"} -n ns "--namespace/ext_ic_id//" "$@" ||
-    args_or_ask ${HH:+"$HH"} -n -s ns "-n/ext_ic_id//" "$@"; then
-    if args_or_ask ${HH:+"$HH"} -n -f "--all-namespaces///" "$@" ||
-       args_or_ask ${HH:+"$HH"}-n -f dummy "-A///" "$@"; then
+  if args_or_ask ${HH:+"$HH"} -n ns "--namespace/ext_ic_id//" "$@" \
+    || args_or_ask ${HH:+"$HH"} -n -s ns "-n/ext_ic_id//" "$@"; then
+    if args_or_ask ${HH:+"$HH"} -n -f "--all-namespaces///" "$@" \
+      || args_or_ask ${HH:+"$HH"}-n -f dummy "-A///" "$@"; then
       ns="*"
     fi
     _set_var "$var_name" "$ns"

@@ -106,8 +106,19 @@ which_ent() {
 handle_config_command() {
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -f -- '--default///selects the default ent configuration' "$@" && {
+    # shellcheck disable=SC2034
+    CFG_FILE="$ENT_DEFAULT_CFG_FILE"
+    ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
+    THIS_APP_CTX=""
+  }
+
   args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
-    _log_i 0 "Configuration of the application context \"$THIS_APP_CTX\"" 1>&2
+    if [ -n "$THIS_APP_CTX" ]; then
+      _log_i 0 "Configuration of the application context \"$THIS_APP_CTX\"" 1>&2
+    else
+      _log_i 0 "Default configuration of the current ent installation" 1>&2
+    fi
     cat "$ENT_WORK_DIR/.cfg"
   }
   args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {

@@ -326,26 +326,26 @@ rescan-sys-env() {
     if $OS_WIN; then
       [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
         NVM_CMD="$(command -v nvm | head -n 1)"
-        save_cfg_value "NVM_CMD" "$NVM_CMD"
+        save_cfg_value "NVM_CMD" "$NVM_CMD" "$ENT_DEFAULT_CFG_FILE"
       }
       [[ -z "$NPM_CMD" || "$1" == "force" ]] && {
         NPM_CMD="$(command -v npm | head -n 1)"
-        save_cfg_value "NPM_CMD" "$NPM_CMD"
+        save_cfg_value "NPM_CMD" "$NPM_CMD" "$ENT_DEFAULT_CFG_FILE"
       }
       [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
         ENT_NPM_BIN_DIR="$(_ent-npm bin)"
         mkdir -p "$ENT_NPM_BIN_DIR"
         ENT_NPM_BIN_DIR="$(win_convert_existing_path_to_posix_path "$ENT_NPM_BIN_DIR")"
-        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR" "$ENT_DEFAULT_CFG_FILE"
       }
     else
       [[ -z "$NVM_CMD" || "$1" == "force" ]] && NVM_CMD="nvm"
-      save_cfg_value "NVM_CMD" "$NVM_CMD"
+      save_cfg_value "NVM_CMD" "$NVM_CMD" "$ENT_DEFAULT_CFG_FILE"
       [[ -z "$NPM_CMD" || "$1" == "force" ]] && NPM_CMD="npm"
-      save_cfg_value "NPM_CMD" "$NPM_CMD"
+      save_cfg_value "NPM_CMD" "$NPM_CMD" "$ENT_DEFAULT_CFG_FILE"
       [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
         ENT_NPM_BIN_DIR="$(_ent-npm bin)"
-        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR" "$ENT_DEFAULT_CFG_FILE"
       }
     fi
   }
