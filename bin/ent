@@ -8,12 +8,6 @@
 #H::
 #H:: Built-in Scripts:
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/.." || {
-  echo "Internal error: unable to find the script source dir" 1>&2
-  exit
-}
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -28,6 +22,9 @@ RUN() {
     case "$cmd" in
       "which") #H: shows the location of the current ent
         which_ent
+        ;;
+      "activate") #H: activates one of the installed ents
+        "${ENTANDO_ENT_HOME}/bin/mod/ent-ent" activate "$@" # see the other call for the source-execution
         ;;
       "import") #H: imports configuration and library from another compatible ENT installation
         import_ent_installation
@@ -92,11 +89,13 @@ which_ent() {
     echo "> More Info:"
     cd "$ENTANDO_ENT_HOME"
     echo "- CLI:"
-    echo "$ENTANDO_CLI_VERSION"
+    TAG="$(git describe --exact-match --tags)"
+    echo "$ENTANDO_CLI_VERSION ($TAG)"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
     echo "- REL:"
     cd "dist"
-    echo "$ENTANDO_VERSION"
+    TAG="$(git describe --exact-match --tags)"
+    echo "$ENTANDO_VERSION ($TAG)"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
     echo "- APPCTX:"
     echo "$ENTANDO_CURRENT_APP_CTX"
@@ -185,6 +184,27 @@ cmplt() {
 # ######################################################################################################################
 # ######################################################################################################################
 # ######################################################################################################################
+
+(
+ [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
+) && {
+  if [ "$1" = "activate" ]; then
+    . "${ENTANDO_ENT_HOME}/bin/mod/ent-ent" --sourced "$@"
+    return $?
+  else
+    echo "Source execution is not permitted for this command" 1>&2
+    exit 99
+  fi
+}
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
 
 if [[ "$1" == "--help" || "$1" == "" ]]; then
   . s/essentials.sh
