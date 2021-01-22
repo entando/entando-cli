@@ -171,7 +171,6 @@ activate_application_workdir() {
     else
       _log_e 0 \
         "Unable to load the application context \"$ENTANDO_CURRENT_APP_CTX\", falling back to the default context"
-        echo XXXXXXXXXX "$ENTANDO_CURRENT_APP_CTX_HOME"
       ENTANDO_CURRENT_APP_CTX_HOME=""
       ENTANDO_CURRENT_APP_CTX=""
       return 1
