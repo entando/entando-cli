@@ -181,8 +181,8 @@ ENT_RUNNER_DC7C420E09B4492D() {
   $CURR_DIR || cd "$HOME"
 
   local TGT_DIR="$PWD"
-  local BASE_PREFIX='.entando'
-  local PREFIX="$BASE_PREFIX/ent"
+  local ENTANDO_DIR='.entando'
+  local ENT_DIR="ent"
 
   (
     git --version
@@ -195,14 +195,14 @@ ENT_RUNNER_DC7C420E09B4492D() {
     echo "> Downloading the ENTANDO RELEASE $ENTANDO_RELEASE"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
-    mkdir -p "$PREFIX"
-    cd "$PREFIX"
+    mkdir -p "$ENTANDO_DIR/$ENT_DIR"
+    cd "$ENTANDO_DIR/$ENT_DIR"
 
     ent_clone_repo_DC7C420E09B4492D "$ENTANDO_RELEASES_REPO_URL" \
       "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" $UPDATE_REL || exit "$?"
   ) || return "$?"
 
-  cd "$PREFIX"
+  cd "$ENTANDO_DIR/$ENT_DIR"
   # shellcheck disable=SC1090
   [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "./$ENTANDO_RELEASE/dist/manifest"
   [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
@@ -224,37 +224,40 @@ ENT_RUNNER_DC7C420E09B4492D() {
 
   # ----------------------------------------------------------------------------------------------------
   # INSTALL
-  # Shortcuts generation
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   echo "> Finalizing"
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  rm -rf "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
-  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE"
-  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE.ln"
-  rm -rf "$TGT_DIR/$BASE_PREFIX/deactivate-$ENTANDO_RELEASE"
-  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" "$TGT_DIR/$BASE_PREFIX/deactivate-$ENTANDO_RELEASE"
-  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" > "$TGT_DIR/$BASE_PREFIX/deactivate-$ENTANDO_RELEASE.ln"
-  rm -rf "$TGT_DIR/$BASE_PREFIX/activate"
-  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" "$TGT_DIR/$BASE_PREFIX/activate"
-  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate" > "$TGT_DIR/$BASE_PREFIX/activate.ln"
-  rm -rf "$TGT_DIR/$BASE_PREFIX/deactivate"
-  ln -sf "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" "$TGT_DIR/$BASE_PREFIX/deactivate"
-  echo "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/deactivate" > "$TGT_DIR/$BASE_PREFIX/deactivate.ln"
 
+  # Shortcuts generation
+  local ENTANDO_HOME="$TGT_DIR/$ENTANDO_DIR"
+  local ENTS_ROOT="$ENTANDO_HOME/$ENT_DIR"
+  local ENT_HOME="$ENTS_ROOT/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION"
+  for script_name in "activate" "activate-PLACEHOLDER_RELEASE" "deactivate"; do
+    local script_file="$ENTANDO_HOME/${script_name/PLACEHOLDER_RELEASE/$ENTANDO_RELEASE}"
+    chmod u=rwx "$script_file" 2>/dev/null || true
+    rm "$script_file"
+    {
+      echo "#!/bin/bash"
+      echo ". $ENT_HOME/activate \"\$@\""
+    } > "$script_file"
+    chmod u=rx "$script_file"
+  done
+  return 0
+
+  # Banner
   (
     # shellcheck source=s/utils.sh
-    . "$TGT_DIR/$PREFIX/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/s/utils.sh" || true
-
-    echo "."
-    echo ".."
+    . "$ENT_HOME/s/utils.sh" || true
+    echo -e ".\n.."
     print_entando_banner || true
   )
+
   echo "═════════════════════════════════════════════════════════════════════════════"
   echo "THE ENTANDO-CLI (ENT) HAS BEEN INSTALLED."
   echo ""
   $AUTO_ACTIVATION && $SOURCED && {
     # shellcheck disable=SC1090
-    source "$TGT_DIR/$BASE_PREFIX/activate-$ENTANDO_RELEASE" > /dev/null || {
+    source "$ENTANDO_HOME/activate" > /dev/null || {
       echo ""
       echo -e "\033[101mENTANDO-CLI AUTOMATICALLY ACTIVATED\033[0;37m"
     }
@@ -262,10 +265,10 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo ""
   if "$CURR_DIR"; then
     echo -e "FOR MANUAL ACTIVATION USE: \n"
-    echo -e "    source \"$TGT_DIR/$BASE_PREFIX/activate\""
+    echo -e "    source \"$TGT_DIR/$ENTANDO_DIR/activate\""
   else
     echo -e "FOR MANUAL ACTIVATION USE:\n"
-    echo -e "    source \"\$HOME/$BASE_PREFIX/activate\""
+    echo -e "    source \"\$HOME/$ENTANDO_DIR/activate\""
   fi
   echo ""
   echo "get help using: ent help"
@@ -277,7 +280,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
 
   if ! "$CURR_DIR"; then
     local CMD
-    CMD="source $TGT_DIR/$BASE_PREFIX/activate --quiet --force 2>/dev/null"
+    CMD="source $TGT_DIR/$ENTANDO_DIR/activate --quiet --force 2>/dev/null"
     if [ ! -f "$HOME/.bashrc" ]; then
       touch "$HOME/.bash_profile"
       ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bash_profile" "$CMD"
@@ -292,9 +295,9 @@ ENT_RUNNER_DC7C420E09B4492D() {
 # shellcheck disable=SC2154
 # shellcheck disable=SC2015
 (
-   [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+   [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :script_name$ ]] ||
    [[ -n $KSH_VERSION && $(cd "$(dirname -- "$PROG")" &&
-      printf '%s' "${PWD%/}/")$(basename -- "$PROG") != "${.sh.file}" ]] ||
+      printf '%s' "${PWD%/}/")$(basename -- "$PROG") != "${.sh.script_name}" ]] ||
    [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
 ) && {
   ENT_RUNNER_DC7C420E09B4492D --wrapped --sourced "$@"
