@@ -131,6 +131,7 @@ $SYS_OS_UNKNOWN && {
   exit 99
 }
 
+mkdir -p "$ENTANDO_ENT_HOME/w"
 mkdir -p "$ENTANDO_ENT_HOME/d"
 mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
