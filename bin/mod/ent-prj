@@ -290,7 +290,7 @@ get_be_info() {
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
   IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
 
-  if [ -z "$IMAGE_FQNAME" ]; then
+  if [ -n "$IMAGE_FQNAME" ]; then
     save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_STATE_FILE"
     save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_STATE_FILE"
   else
@@ -312,6 +312,7 @@ be_build() {
   activate_designated_node
 
   get_be_info
+  be_update_plugin_descriptor
 
   # shellcheck disable=SC2015
   ./mvnw -Pprod clean package jib:dockerBuild "$@" && {
@@ -321,6 +322,14 @@ be_build() {
   } || {
     _log_e 0 "Error building image \"$IMAGE_FQNAME\""
   }
+}
+
+be_update_plugin_descriptor() {
+  local PLUGIN_BUNDLE_DIR
+  PLUGIN_BUNDLE_DIR="$(grep -- "- plugins/.*"  "bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" | perl -pe "s|\s*- (.*)|\1|")"
+  [ -z "$PLUGIN_BUNDLE_DIR" ] && FATAL "Unable to determine the plugin bundle dir"
+  PLUGIN_DESCRIPTOR="bundle/$PLUGIN_BUNDLE_DIR"
+  _sed_in_place "s|^\(.*\)image:.*|\1image: $IMAGE_FQNAME|" "$PLUGIN_DESCRIPTOR"
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
