@@ -12,6 +12,12 @@
   echo -e "Displays information related to a set of pods" && exit 0
 }
 
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
+}
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2

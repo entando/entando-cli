@@ -5,6 +5,7 @@
 
 ${ENTANDO_BASE_EXECUTED:-false} && return 0
 ENTANDO_BASE_EXECUTED=true
+#WAS_ASSUMING_NAMESPACE_PRINTED=false
 
 trace_var() {
   local PRE="$1"
@@ -331,7 +332,12 @@ determine_namespace() {
     assert_ext_ic_id "" "$ns" "silent" || {
       FATAL "The configured default namespace is not valid"
     }
-    _log_i 3 "Assuming namespace \"$ns\"" 1>&2
+
+    #! $WAS_ASSUMING_NAMESPACE_PRINTED && {
+    #  WAS_ASSUMING_NAMESPACE_PRINTED=true
+    #  _log_i 3 "Assuming namespace \"$ns\"" 1>&2
+    #}
+
     # shellcheck disable=SC2034 disable=SC2027
     _set_var "$var_name" "$ns"
     return 0

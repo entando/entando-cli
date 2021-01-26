@@ -159,6 +159,7 @@ assert_giga() {
 _assert_regex_nn() {
   [ "$7" != "" ] && FATAL "[_assert_regex_nn] Internal Error: Invalid function call "
   assert_nn "$1" "$2" "$6"
+  local FATAL=false; [ "$6" = "fatal" ] && FATAL=true
   (
     LC_COLLATE=C
     if [[ "$2" =~ $3 ]]; then
@@ -167,13 +168,18 @@ _assert_regex_nn() {
       if [[ -n "$4" && "$2" =~ $4 ]]; then
         return 0
       fi
-      if [ "$6" != "silent" ]; then
+      if $FATAL; then
+        local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
+        FATAL "${pre}Value of $1 ($2) is not a valid $5"
+      elif [ "$6" != "silent" ]; then
         local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
         _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"
       fi
       return 1
     fi
-  )
+  ) || {
+    $FATAL && exit $?
+  }
 }
 
 # FORMAT CHECKERS

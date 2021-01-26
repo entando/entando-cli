@@ -55,9 +55,43 @@ RUN() {
         require_ent_project_dir
         generate_custom_resource "$@"
         ;;
-        # ~~~~~~~~~~~~~~~~~~~~
-        #H:> PUB SYSTEM:
-        # ~~~~~~~~~~~~~~~~~~~~
+      "deploy") #H: generates the CR and deploys it to the current application context
+        require_develop_checked
+        require_ent_project_dir
+        prj_ecr_deploy "$@"
+        ;;
+      "install") #H: generates the CR and deploys it to the current application context
+        HH="$(parse_help_option "$@")"
+        show_help_option "$HH"
+        local VERSION_TO_INSTALL CONFLICT_STRATEGY
+        args_or_ask -n ${HH:+"$HH"} VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
+        args_or_ask -n ${HH:+"$HH"} CONFLICT_STRATEGY \
+          '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+        [ -n "$HH" ] && return 0
+
+        require_develop_checked
+        require_ent_project_dir
+        prj_ecr_install "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
+        ;;
+      "uninstall") #H: generates the CR and deploys it to the current application context
+        HH="$(parse_help_option "$@")"
+        args_or_ask -n -F ${HH:+"$HH"} "BE_PURGE" \
+          '--purge-be///also purge the backend' "$@"
+        args_or_ask -n -F ${HH:+"$HH"} "ECR_UNDEPLOY" \
+          '--undeploy///also unregister the bundle from the ECR registry' "$@"
+        [ -n "$HH" ] && return 0
+        args_or_ask -n -p -F ${HH:+"$HH"} "BE_PURGE" \
+          '--be-purge///also purge the backend' "$@"
+
+        require_develop_checked
+        require_ent_project_dir
+        prj_ecr_uninstall "$@"
+        $BE_PURGE && be_purge_k8s
+        $ECR_UNDEPLOY && prj_ecr_unregister_bundle
+        ;;
+      # ~~~~~~~~~~~~~~~~~~~~
+      #H:> PUB SYSTEM:
+      # ~~~~~~~~~~~~~~~~~~~~
       "pbs-init") #H: (url, username, email) initializes the publication system
         require_develop_checked
         #require_initialized_dir
@@ -106,13 +140,43 @@ RUN() {
         be_build "$@"
         bundle_all
         ;;
+      "be-list-pods" | "blp") #H: list the pods related to this bundle project
+        require_develop_checked
+        require_ent_project_dir
+        be_list_pods
+        ;;
+      "be-update-deployment" | "brp") #H: list the pods related to this bundle project
+        require_develop_checked
+        require_ent_project_dir
+        be_restart_pods
+        ;;
+      "be-purge") #H: list the pods related to this bundle project
+        require_develop_checked
+        require_ent_project_dir
+        be_purge_k8s
+        ;;
       "be-info") #H: prints information about the backend
         require_ent_project_dir
         be_info
         ;;
       "be-push" | "bp") #H: pushes the backend to the repo
+        HH="$(parse_help_option "$@")"
+        show_help_option "$HH"
+        local restart_pods_after
+        args_or_ask -n -f ${HH:+"$HH"} \
+          '--update-deployment///restarts the pods related to this bundle project' "$@" && {
+            restart_pods_after=3
+          }
+        args_or_ask -n ${HH:+"$HH"} "restart_pods_after" \
+          '--update-deployment-after/num//restarts the pods related to this bundle project' "$@"
+        [ -n "$HH" ] && return 0
+
         require_ent_project_dir
         be_push
+
+        [ -n "$restart_pods_after" ] && {
+          be_restart_pods "$restart_pods_after"
+        }
         ;;
       "be-test-run" | "br") #H: locally executes the backend
         require_ent_project_dir
@@ -156,6 +220,46 @@ ext_keycloak() {
   esac
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~
+
+prj_ecr_install() {
+  local VERSION_TO_INSTALL="${1:-latest}"
+  local CONFLICT_STRATEGY="${2}"
+  local INGRESS_URL TOKEN
+  ecr-prepare-action INGRESS_URL TOKEN
+  local DATA="{\"version\":\"$VERSION_TO_INSTALL\"@@}"
+
+  if [ -n "$CONFLICT_STRATEGY" ]; then
+    assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
+    DATA="${DATA/"@@"/",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""}"
+  else
+    DATA="${DATA/"@@"/}"
+  fi
+
+  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" "$DATA" 2>/dev/null \
+    || return $?;
+  _log_i 0 "Installation of bundle \"$ENT_PRJ_NAME\" started"
+
+  ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
+}
+
+prj_ecr_uninstall() {
+  local INGRESS_URL TOKEN
+  ecr-prepare-action INGRESS_URL TOKEN
+  _log_i 0 "Uninstallation of bundle \"$ENT_PRJ_NAME\" started"
+  ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" 2>/dev/null || return $?
+  ecr-watch-installation-result "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
+}
+
+prj_ecr_deploy() {
+  print_current_app_context_name
+  generate_custom_resource "$@" | _kubectl apply -f -
+}
+
+prj_ecr_unregister_bundle() {
+  local pn="$ENT_PRJ_NAME"
+  _kubectl delete EntandoDeBundle "$pn"
+}
+
 generate_custom_resource() {
   local NAME="$ENT_PRJ_NAME"
   [ -z "$NAME" ] && camel_to_snake -d NAME "$(basename "$PWD")"
@@ -332,6 +436,63 @@ be_update_plugin_descriptor() {
   _sed_in_place "s|^\(.*\)image:.*|\1image: $IMAGE_FQNAME|" "$PLUGIN_DESCRIPTOR"
 }
 
+be_list_pods() {
+  print_current_app_context_name
+  get_be_info
+  get_pods_list "$IMAGE_FQNAME_NAME"
+}
+
+be_restart_pods() {
+  local restart_pods_after="$1"
+  print_current_app_context_name
+  get_be_info
+  local pods
+  pods="$(get_pods_list "$IMAGE_FQNAME_NAME" | tail -n +2 | cut -d' ' -f 1)"
+  # shellcheck disable=SC2034
+  #WAS_ASSUMING_NAMESPACE_PRINTED=true
+  [ "${#pods}" -eq 0  ] && {
+    _log_i 0 "Restart pods was not able to find any pod in the current app context"
+    return 0
+  }
+  _log_i 0 "Restart pods will start in $restart_pods_after seconds"
+  sleep "$restart_pods_after"
+  for pod in $pods; do
+    _log_i 0 "Restarting pod: \"$pod\""
+    _kubectl delete pod "$pod" > /dev/null
+  done
+}
+
+be_purge_k8s() {
+  print_current_app_context_name
+  get_be_info
+  local pn="$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
+  _log_i 0 "Warning, this will delete the plugin \"$pn\" and it resources, including the data"
+  ask "Should I proceed?" || EXIT_UE "User interrupted"
+  del_resource "EntandoPlugin" "$pn"
+  del_resource "deployment" "$pn"
+  del_resource "service" "$pn"
+  del_resource "secret" "$pn"
+  del_resource "ingress" "$pn"
+  _log_i 0 "done."
+}
+
+del_resource() {
+  if _kubectl delete "$1" -lEntandoPlugin="$pn"; then
+    _log_d 1 "$1 of \"$2\" deleted"
+  else
+    _log_w 0 "Error deleting the $1 of \"$2\""
+  fi
+}
+
+get_pods_list() {
+  local pn="$1"
+  #local pn="avdev4j-pet-manager"
+  _kubectl get pods \
+    -lEntandoResourceKind=EntandoPlugin \
+    -lEntandoPlugin="$pn" \
+    -l=deployment="$pn"-server \
+    -o "custom-columns=NAME:.metadata.name,STATUS:.status.phase"
+}
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
   require_ent_project_dir
