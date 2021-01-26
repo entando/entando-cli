@@ -758,6 +758,14 @@ stdin_to_arr() {
   done
 }
 
+print_current_app_context_name() {
+  if [ -n "$THIS_APP_CTX" ]; then
+    _log_i 0 "Using the application context \"$THIS_APP_CTX\"" 1>&2
+  else
+    _log_i 0 "Currently not using any app context" 1>&2
+  fi
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 
 map-clear() {
@@ -869,5 +877,230 @@ map-from-stdin() {
   for line in "${arr[@]}"; do
     map-set "$arrname" "$i" "$line"
     ((i++))
+  done
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+
+http-check() {
+  local RES
+  RES=$(curl -sL -o /dev/null "$1" -w "%{http_code}")
+  case "$RES" in
+    200 | 201) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+http-get-url-scheme() {
+  _set_var "$1" "${2//:\/\/*/}"
+}
+
+http-get-working-url() {
+  local res_var="$1"
+  shift
+  local res
+  if http-check "$1"; then
+    res="$1"
+  else
+    if http-check "$2"; then
+      res="$2"
+    else
+      res=""
+    fi
+  fi
+
+  _set_var "$res_var" "$res"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+app-get-main-ingresses() {
+  local res_var1="$1"
+  local res_var2="$2"
+  shift
+  local tmp
+  JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                      # selector
+  JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}' # host+path
+  tmp="$(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)"
+  _set_var "$res_var1" "$tmp"
+  JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                      # selector
+  JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[1].path}{"\n"}{end}' # host+path
+  tmp="$(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)"
+  _set_var "$res_var2" "$tmp"
+}
+
+app-find-ingress() {
+  local filter="$1"
+  local url
+  url="$(_kubectl get ingress | grep "$filter" | awk '{print $2}')"
+}
+
+keycloak-get-token() {
+  local res_var="$1"
+  shift
+  local scheme="$1"
+  local auth_url
+  auth_url="$(_kubectl get ingress | grep kc-ingress | awk '{print $2}')/auth"
+
+  [ -z "$auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+
+  local TOKEN_ENDPOINT
+  TOKEN_ENDPOINT="$(curl -s "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" | jq -r "
+  .token_endpoint")"
+
+  local client_secret_name="${ENTANDO_APPNAME}-server-secret"
+  local client_id
+  local client_secret
+
+  IFS=':' read -r client_id client_secret < <(
+    _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
+  )
+
+  [ -z "$client_id" ] && FATAL "Unable to extract the plugin client secret"
+
+  client_id=$(base64 -d <<< "$client_id")
+  client_secret=$(base64 -d <<< "$client_secret")
+
+  local TOKEN
+  TOKEN="$(curl -s "$TOKEN_ENDPOINT" \
+    -H "Accept: application/json" \
+    -H "Accept-Language: en_US" \
+    -u "$client_id:$client_secret" \
+    -d "grant_type=client_credentials" \
+    | jq -r '.access_token')"
+
+  [ -z "$TOKEN" ] && FATAL "Unable to extract the access token"
+
+  _set_var "$res_var" "$TOKEN"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Runs general operation to prepare running actions against the ECR
+# $1: the received of the url to use for the action
+# $2: the received of the authentication token to use for the action
+ecr-prepare-action() {
+  local var_url="$1"
+  shift
+  local var_token="$1"
+  shift
+  print_current_app_context_name
+  # shellcheck disable=SC2034
+  local main_ingress ecr_ingress scheme
+  app-get-main-ingresses main_ingress ecr_ingress
+  http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
+  [ -z "$main_ingress" ] && FATAL "Unable to determine the main main_ingress url"
+  http-get-url-scheme scheme "$main_ingress"
+  local token
+  keycloak-get-token token "$scheme"
+  _set_var "$var_url" "$scheme://$ecr_ingress"
+  _set_var "$var_token" "$token"
+}
+
+# Runs an ECR action for a bundle given:
+# $1: the received of the of the http status
+# $2: the http verb
+# $3: the action
+# $4: the ingress url
+# $5: the authentication token
+# $6: the bundle id
+#
+# returns:
+# - the http status in $1
+# - the http operation output in stdout
+#
+ecr-bundle-action() {
+  local res_var="$1";shift
+  local verb="$1";shift
+  local action="$1";shift
+  local ingress="$1";shift
+  local token="$1";shift
+  local bundle_id="$1";shift
+  local raw_data="$1";shift
+  local url="${ingress}/components"
+  local http_status OUT
+
+  [ -n "$bundle_id" ] && url+="/$bundle_id"
+  [ -n "$action" ] && url+="/$action"
+
+  OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+
+
+  http_status=$(
+    curl -o "$OUT" -s -w "%{http_code}\n" -X "$verb" -v "$url" \
+      -H 'Accept: */*' \
+      -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $token" \
+      -H "Origin: ${ingress}" \
+      ${raw_data:+--data-raw "$raw_data"} \
+      2> /dev/null
+  )
+
+  if [ -s "$OUT" ]; then
+    cat "$OUT"
+  else
+    if [ "$res_var" = "%" ]; then
+      echo "%http_status"
+    elif [ -n "$res_var" ]; then
+      _set_var "$res_var" "$http_status"
+    fi
+  fi
+  rm "$OUT"
+}
+
+# Runs an ECR action for a bundle given:
+# $1: the received of the of the http status
+# $2: the http verb
+ecr-watch-installation-result() {
+  local action="$1";shift
+  local ingress="$1";shift
+  local token="$1";shift
+  local bundle_id="$1";shift
+  local http_res
+
+  local start_time end_time elapsed
+  start_time="$(date -u +%s)"
+
+  echo ""
+
+  while true; do
+    http_res=$(
+      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
+    )
+
+    http_res=$(
+      echo "$http_res" | jq -r ".payload.status" 2>/dev/null
+    )
+
+    end_time="$(date -u +%s)"
+    elapsed="$((end_time-start_time))"
+    printf "\r                                  \r"
+    printf "%4d STATUS: %s.." "$elapsed" "$http_res"
+
+
+    case "$http_res" in
+      "INSTALL_IN_PROGRESS" | "INSTALL_CREATED" | "UNINSTALL_IN_PROGRESS" | "UNINSTALL_CREATED") ;;
+      "INSTALL_COMPLETED")
+        echo -e "\nTerminated."
+        return 0
+        ;;
+      "UNINSTALL_COMPLETED")
+        echo -e "\nTerminated."
+        return 0
+        ;;
+      "INSTALL_ROLLBACK") ;;
+      "INSTALL_ERROR")
+        echo -e "\nTerminated."
+        return 1
+        ;;
+      %*)
+        echo -e "\nTerminated";
+        return 2
+        ;;
+      *)
+        echo "";
+        FATAL "Unknown status"
+        return 99
+        ;;
+    esac
+    sleep 1
   done
 }

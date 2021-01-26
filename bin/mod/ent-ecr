@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#H::
+#H:: Helps dealing with the entando component repository
+#H::
+#H:: Syntax:
+#H::  - ent ecr {command} ...
+#H::
+#H:: Commands:
+
+[[ "$1" == "--help" && "$2" == "--short" ]] && {
+  echo -e "Helps managing an the Entando ECR" && exit 0
+}
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
+}
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+cd "$DIR/../.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+. s/_base.sh
+
+RUN() {
+  HH="$(parse_help_option "$@")"
+
+  show_help_option "$HH" ":main"
+  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
+
+  [[ -n "$HH" || -z "$CMD" ]] && {
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  }
+
+  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+
+  [[ -n "$HH" && -z "$CMD" ]] && exit
+
+  show_help_option "$HH" "\"$CMD\""
+  local INGRESS_URL TOKEN RES
+
+  shift
+  case "$CMD" in
+    "list") #H: shows the list of bundles
+      ecr-prepare-action INGRESS_URL TOKEN
+      ecr-bundle-action "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 2>/dev/null \
+      | jq -r ".payload[] | [ \
+          .code, \
+          .lastJob.status // \"(not-installed)\", \
+          .lastJob.componentVersion \
+        ] | @tsv"
+      ;;
+    "uninstall") #H: uninstalls a bundle
+      ecr-prepare-action INGRESS_URL TOKEN
+      ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
+      ;;
+    "install-status") #H: shows the uninstall status of the bundle
+      ecr-prepare-action INGRESS_URL TOKEN
+      ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
+      ;;
+    "uninstall-status") #H: shows the uninstall status of the bundle
+      ecr-prepare-action INGRESS_URL TOKEN
+      ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$@"
+      ;;
+    "usage-status") #H: shows the usage status of the bundle
+      ecr-prepare-action INGRESS_URL TOKEN
+      ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
+      ;;
+    *)
+      [ -n "$HH" ] && exit 0
+      FATAL "Unknown command \"$CMD\""
+      ;;
+  esac
+}
+
+RUN "$@"
