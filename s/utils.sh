@@ -947,15 +947,16 @@ keycloak-get-token() {
   TOKEN_ENDPOINT="$(curl -s "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" | jq -r "
   .token_endpoint")"
 
+  [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
+
   local client_secret_name="${ENTANDO_APPNAME}-server-secret"
   local client_id
   local client_secret
-
   IFS=':' read -r client_id client_secret < <(
     _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
   )
 
-  [ -z "$client_id" ] && FATAL "Unable to extract the plugin client secret"
+  [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
 
   client_id=$(base64 -d <<< "$client_id")
   client_secret=$(base64 -d <<< "$client_secret")
@@ -1101,6 +1102,6 @@ ecr-watch-installation-result() {
         return 99
         ;;
     esac
-    sleep 1
+    sleep 3
   done
 }

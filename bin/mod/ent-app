@@ -50,6 +50,8 @@ RUN() {
       args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APPCTX" "--none///Assumes the global application context" "$@"
       [ -n "$HH" ] && exit 0
       shift
+      APP_LOGIN_URL=""
+      APP_LOGIN_TOKEN=""
       use_app_ctx "$@"
       app_ctx_auto_login
       ;;
@@ -163,41 +165,60 @@ print_images() {
 use_app_ctx() {
   # shellcheck disable=SC2034
   local application_context
-  local apps_base_dir="$ENTANDO_HOME/apps/"
+  local apps_base_dir="$ENTANDO_HOME/apps"
 
   $USE_NO_APPCTX && application_context="--none"
   args_or_ask ${HH:+"$HH"} -a -p -n -- "application_context" '1///%sp application context (or --none)' "$@"
 
+  ENTANDO_CURRENT_APP_CTX=""
+  # shellcheck disable=SC2034
+  ENTANDO_CURRENT_APP_CTX_HOME=""
+
   (
-    if [ "$application_context" = "" ]; then
-      __cd "$apps_base_dir"
-      # shellcheck disable=SC2035
-      map-from-stdin "application_context" $'\n\r' < <(ls -d *)
-      args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
-      local app_dir="$ENTANDO_HOME/apps/$APP_CTX/"
+    if $USE_NO_APPCTX; then
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    else
+      # shellcheck disable=SC2030
+      local APP_CTX
+      if [ "$application_context" = "" ]; then
+        __cd "$apps_base_dir"
+        # shellcheck disable=SC2035
+        map-from-stdin "application_context" $'\n\r' < <(ls -d *)
+        args_or_ask__a_map "application_context" -a ${HH:+"$HH"} "APP_CTX" "1" "Select the application context" "$@"
+      else
+        APP_CTX="$application_context"
+      fi
+
+      local app_dir="$ENTANDO_HOME/apps/$APP_CTX"
 
       if [ ! -d "$app_dir" ]; then
         _log_w 0 "Application context \"$APP_CTX\" not found"
-        _log_i 0 "Application context \"$APP_CTX\" created"
         $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
         $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
-        mkdir -p "${app_dir}"
-        cp -r "$ENT_WORK_DIR" "${app_dir}" || true
-        _log_i 0 "New configuration and state created under \"$APP_CTX\""
+        mkdir -p "${app_dir}/w"
+        _log_i 0 "Application context \"$APP_CTX\" created"
+        #cp -r "$ENT_WORK_DIR" "${app_dir}" || true
+        #_log_i 0 "New configuration and state created under \"$APP_CTX\""
+        local CFG="$app_dir/w/.cfg"
+        set_or_ask ENTANDO_APPNAME "" "Please provide the application name" ""
+        set_or_ask DEFAULT_NAMESPACE "" "Please provide the namespace"
+        save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME" "$CFG"
+        save_cfg_value DEFAULT_NAMESPACE "$DEFAULT_NAMESPACE" "$CFG"
+        save_cfg_value ENTANDO_NAMESPACE "$DEFAULT_NAMESPACE" "$CFG"
       fi
       save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${APP_CTX}" "$ENTANDO_GLOBAL_CFG"
       save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
     fi
 
-    if [ "$application_context" = "--none" ]; then
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
-    fi
-
     true
   ) && {
     reload_cfg "$ENTANDO_GLOBAL_CFG"
-    activate_application_workdir
+    if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+      activate_application_workdir
+    else
+      activate_ent_default_workdir
+    fi
     save_cfg_value "THIS_APP_CTX" "${ENTANDO_CURRENT_APP_CTX}"
     ENT_KUBECTL_CMD=""
     ENABLE_AUTOLOGIN=""
@@ -209,9 +230,10 @@ use_app_ctx() {
 delete_app_ctx() {
   # shellcheck disable=SC2034
   local application_context
-  local apps_base_dir="$ENTANDO_HOME/apps/"
+  local apps_base_dir="$ENTANDO_HOME/apps"
 
   (
+    local APP_CTX
     __cd "$apps_base_dir"
     # shellcheck disable=SC2035
     map-from-stdin "application_context" $'\n\r' < <(ls -d *)
@@ -236,7 +258,7 @@ delete_app_ctx() {
 list_app_ctx() {
   # shellcheck disable=SC2034
   local application_context
-  local apps_base_dir="$ENTANDO_HOME/apps/"
+  local apps_base_dir="$ENTANDO_HOME/apps"
 
   (
     __cd "$apps_base_dir"
@@ -251,7 +273,7 @@ list_app_ctx() {
 
 login_to_app_ctx() {
   local CACHED
-  args_or_ask ${HH:+"$HH"} -F -- "CACHED" "--cached//$C_QUICKSTART_DEFAULT_RELEASE/%sp authentication token" "$@"
+  args_or_ask ${HH:+"$HH"} -F -- "CACHED" "--cached///%sp authentication token" "$@"
 
   if ! $CACHED; then
     args_or_ask ${HH:+"$HH"} -a -p -- "APP_LOGIN_URL" '1///%sp URL' "$@"
