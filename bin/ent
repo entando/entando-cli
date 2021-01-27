@@ -42,7 +42,7 @@ RUN() {
         # shellcheck disable=SC1091
         source ent host "$cmd" "$@"
         ;;
-      "commands") #H: shows the ent modules
+      "commands") #H: shows the ent top level commands
         # shellcheck disable=SC1091
         source ent help --simple
         ;;
@@ -209,6 +209,10 @@ cmplt() {
     "activate")
       "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
       ENTANDO_ENT_TMPVAR_0002bb75="$?"
+      ;;
+    "help")
+      shift
+      "$ENTANDO_ENT_HOME/bin/mod/ent-help" "$@"
       ;;
   *)
     [ -f "$ENTANDO_ENT_TMPFILE_0002bb75" ] && rm "$ENTANDO_ENT_TMPFILE_0002bb75"
