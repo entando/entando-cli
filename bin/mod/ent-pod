@@ -42,7 +42,7 @@ RUN() {
 
   show_help_option "$HH" "\"$CMD\""
 
-  process_pod_pattern "$CMD" "$@"
+  process_pod_pattern
 
   case "$CMD" in
     "grep") #H: greps the pods logs
@@ -68,12 +68,12 @@ RUN() {
       pod_action xx logs "$@"
       ;;
     "x") #H: executes the given k8s command against the a given pod
-      shift 2
-      pod_action "$CMD" "$@"
+      shift;CMD="$1";shift 2
+      pod_action x "$CMD" "$@"
       ;;
     "xx") #H: executes the given k8s command against a given  pod container
-      shift 2
-      pod_action "$CMD" "$@"
+      shift;CMD="$1";shift 2
+      pod_action xx "$CMD" "$@"
       ;;
     "")
       "${BASH_SOURCE[0]}" --help
@@ -158,23 +158,19 @@ pod_action() {
   local SELECTED_POD SELECTED_CONTAINER
 
   _kubectl-pre-sudo
-  if $MULTIPAR_POT_PATTERN; then
-    SELECTED_POD="$POD_PATT"
-    SELECTED_CONTAINER="$CONTAINER_PATT"
-  else
-    local select_one_res_alt
 
-    local PODS=()
-    stdin_to_arr $'\n\r' PODS < <(read_pod_list)
-    select_one -s "POD" "${PODS[@]}"
-    SELECTED_POD="$select_one_res_alt"
+  local select_one_res_alt
 
-    local CONTAINERS=()
-    stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
-    if [[ "${#CONTAINERS[@]}" -gt 1 && "$ACTION" != "x" ]]; then
-      select_one "CONTAINER" "${CONTAINERS[@]}"
-      SELECTED_CONTAINER="$select_one_res_alt"
-    fi
+  local PODS=()
+  stdin_to_arr $'\n\r' PODS < <(read_pod_list)
+  select_one -s "POD" "${PODS[@]}"
+  SELECTED_POD="$select_one_res_alt"
+
+  local CONTAINERS=()
+  stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
+  if [[ "${#CONTAINERS[@]}" -ge 1 && "$ACTION" != "x" ]]; then
+    select_one -s "CONTAINER" "${CONTAINERS[@]}"
+    SELECTED_CONTAINER="$select_one_res_alt"
   fi
 
   case "$ACTION" in
@@ -190,7 +186,7 @@ pod_action() {
     "x" | "xx")
       ACTION="$1"
       shift
-      echo "Executing user-provided command against $(mk_target_desc)"
+      echo "Executing \"$ACTION\" command against $(mk_target_desc)"
       if [ -n "$SELECTED_CONTAINER" ]; then
         _kubectl "$ACTION" ${NAMESPACE:+-n "$NAMESPACE"} "pod/$SELECTED_POD" -c "$SELECTED_CONTAINER" "$@"
       else
@@ -216,7 +212,7 @@ read_container_list() {
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"}
   else
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"} \
-      | grep -- "$CONTAINER_PATT"
+      | tr " " "\n" | grep -- "$CONTAINER_PATT" | tr "\n" " "
   fi
 }
 
@@ -229,9 +225,6 @@ mk_target_desc() {
 }
 
 process_pod_pattern() {
-  CMD="$1"
-  shift
-
   local POD_P=()
   stdin_to_arr "/" POD_P <<< "$POD_PATT"
 
