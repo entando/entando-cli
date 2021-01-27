@@ -266,7 +266,11 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
 
-  ent app use "qs-$ENTANDO_VM_NAME" --yes --no-auto-login
+  ent app new "qs-$ENTANDO_VM_NAME"   \
+    "$ENTANDO_APPNAME"                \
+    "$ENTANDO_NAMESPACE"              \
+    --attach-vm="$ENTANDO_VM_NAME"    \
+  ;
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
   $ENTANDO_MOCK_TEST_RUN && VM_OPT+=" --use-mocks"
@@ -507,6 +511,7 @@ RUN_DIRECT() {
   }
 
   # -- POST-DEPLOYMENT
+  ent app use "qs-$ENTANDO_VM_NAME"
 
   # shellcheck disable=SC2015
   ask "Should I start the monitor?" && {

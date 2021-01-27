@@ -75,6 +75,7 @@ RUN() {
         ;;
       "uninstall") #H: generates the CR and deploys it to the current application context
         HH="$(parse_help_option "$@")"
+        args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
         args_or_ask -n -F ${HH:+"$HH"} "BE_PURGE" \
           '--purge-be///also purge the backend' "$@"
         args_or_ask -n -F ${HH:+"$HH"} "ECR_UNDEPLOY" \
@@ -89,9 +90,9 @@ RUN() {
         $BE_PURGE && be_purge_k8s
         $ECR_UNDEPLOY && prj_ecr_unregister_bundle
         ;;
-      # ~~~~~~~~~~~~~~~~~~~~
-      #H:> PUB SYSTEM:
-      # ~~~~~~~~~~~~~~~~~~~~
+        # ~~~~~~~~~~~~~~~~~~~~
+        #H:> PUB SYSTEM:
+        # ~~~~~~~~~~~~~~~~~~~~
       "pbs-init") #H: (url, username, email) initializes the publication system
         require_develop_checked
         #require_initialized_dir
@@ -135,6 +136,18 @@ RUN() {
         #H:> BACKEND:
         # ~~~~~~~~~~~~~~~~~~~~
       "be-build" | "bb") #H: (mvn-params) builds and package the backend
+        HH="$(parse_help_option "$@")"
+        show_help_option "$HH"
+        OPT_CLEAN="clean"
+        args_or_ask -n -f ${HH:+"$HH"} '--no-clean///avoid cleaning the build artifacts before the build' "$@" && {
+          OPT_CLEAN=""
+        }
+        OPT_TESTS=""
+        args_or_ask -n -f ${HH:+"$HH"} '--no-tests///avoid cleaning the build artifacts before the build' "$@" && {
+          OPT_TESTS="-Dmaven.test.skip=true"
+        }
+        [ -n "$HH" ] && return 0
+
         require_develop_checked
         require_ent_project_dir
         be_build "$@"
@@ -148,7 +161,7 @@ RUN() {
       "be-update-deployment" | "brp") #H: list the pods related to this bundle project
         require_develop_checked
         require_ent_project_dir
-        be_restart_pods
+        be_restart_pods 0
         ;;
       "be-purge") #H: list the pods related to this bundle project
         require_develop_checked
@@ -165,9 +178,9 @@ RUN() {
         local restart_pods_after
         args_or_ask -n -f ${HH:+"$HH"} \
           '--update-deployment///restarts the pods related to this bundle project' "$@" && {
-            restart_pods_after=3
-          }
-        args_or_ask -n ${HH:+"$HH"} "restart_pods_after" \
+          restart_pods_after=3
+        }
+        args_or_ask -n -p ${HH:+"$HH"} "restart_pods_after" \
           '--update-deployment-after/num//restarts the pods related to this bundle project' "$@"
         [ -n "$HH" ] && return 0
 
@@ -235,8 +248,8 @@ prj_ecr_install() {
     DATA="${DATA/"@@"/}"
   fi
 
-  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" "$DATA" 2>/dev/null \
-    || return $?;
+  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" "$DATA" &> /dev/null \
+    || return $?
   _log_i 0 "Installation of bundle \"$ENT_PRJ_NAME\" started"
 
   ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
@@ -246,7 +259,7 @@ prj_ecr_uninstall() {
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
   _log_i 0 "Uninstallation of bundle \"$ENT_PRJ_NAME\" started"
-  ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" 2>/dev/null || return $?
+  ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" &> /dev/null || return $?
   ecr-watch-installation-result "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
 }
 
@@ -419,7 +432,7 @@ be_build() {
   be_update_plugin_descriptor
 
   # shellcheck disable=SC2015
-  ./mvnw -Pprod clean package jib:dockerBuild "$@" && {
+  ./mvnw -Pprod ${OPT_CLEAN:+"$OPT_CLEAN"} ${OPT_TESTS:+"$OPT_TESTS"} package jib:dockerBuild && {
     echo ""
     _log_i 0 "Built image \"$IMAGE_FQNAME\""
     true
@@ -430,7 +443,7 @@ be_build() {
 
 be_update_plugin_descriptor() {
   local PLUGIN_BUNDLE_DIR
-  PLUGIN_BUNDLE_DIR="$(grep -- "- plugins/.*"  "bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" | perl -pe "s|\s*- (.*)|\1|")"
+  PLUGIN_BUNDLE_DIR="$(grep -- "- plugins/.*" "bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" | perl -pe "s|\s*- (.*)|\1|")"
   [ -z "$PLUGIN_BUNDLE_DIR" ] && FATAL "Unable to determine the plugin bundle dir"
   PLUGIN_DESCRIPTOR="bundle/$PLUGIN_BUNDLE_DIR"
   _sed_in_place "s|^\(.*\)image:.*|\1image: $IMAGE_FQNAME|" "$PLUGIN_DESCRIPTOR"
@@ -439,7 +452,7 @@ be_update_plugin_descriptor() {
 be_list_pods() {
   print_current_app_context_name
   get_be_info
-  get_pods_list "$IMAGE_FQNAME_NAME"
+  get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
 }
 
 be_restart_pods() {
@@ -447,10 +460,8 @@ be_restart_pods() {
   print_current_app_context_name
   get_be_info
   local pods
-  pods="$(get_pods_list "$IMAGE_FQNAME_NAME" | tail -n +2 | cut -d' ' -f 1)"
-  # shellcheck disable=SC2034
-  #WAS_ASSUMING_NAMESPACE_PRINTED=true
-  [ "${#pods}" -eq 0  ] && {
+  pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | grep "server-deployment" | cut -d' ' -f 1)"
+  [ "${#pods}" -eq 0 ] && {
     _log_i 0 "Restart pods was not able to find any pod in the current app context"
     return 0
   }
@@ -470,27 +481,65 @@ be_purge_k8s() {
   ask "Should I proceed?" || EXIT_UE "User interrupted"
   del_resource "EntandoPlugin" "$pn"
   del_resource "deployment" "$pn"
+  del_resource "pod" "$pn"
   del_resource "service" "$pn"
   del_resource "secret" "$pn"
   del_resource "ingress" "$pn"
+  _log_i 0 "Checking the deletion progress.."
+  wait_plugin_resources_deletion "deployment" "service" "ingress" "pod"
   _log_i 0 "done."
 }
 
 del_resource() {
-  if _kubectl delete "$1" -lEntandoPlugin="$pn"; then
-    _log_d 1 "$1 of \"$2\" deleted"
+  local type="$1"
+  local pn="$2"
+  local res
+  case "$type" in
+    "EntandoPlugin")
+      _kubectl delete "$type" "$pn"
+      res=$?
+      ;;
+    "secret" | "pod")
+      # shellcheck disable=SC2046
+      _kubectl delete "$type" $(
+        _kubectl get "$type" -o "custom-columns=NAME:.metadata.name" | grep -E "^$pn|quickstart-$pn"
+      )
+      res=$?
+      ;;
+    *)
+      _kubectl delete "$type" -lEntandoPlugin="$pn"
+      res=$?
+      ;;
+  esac
+
+  if [ "$res" -eq 0 ]; then
+    _log_d 1 "$type of \"$pn\" deleted"
   else
-    _log_w 0 "Error deleting the $1 of \"$2\""
+    _log_w 0 "Error deleting the $type of \"$pn\""
   fi
+}
+
+wait_plugin_resources_deletion() {
+  local n
+  for type in "$@"; do
+    while true; do
+      n="$(_kubectl get "$type" -lEntandoPlugin="$pn" 2> /dev/null | wc -l)"
+      if [ "$n" -eq 0 ]; then
+        echo -e "No resource found of type $type for the plugin"
+        break
+      else
+        printf "\r                                                                  \r"
+        printf "Waiting for %s plugin resource(s) of type %s to be deleted" "$n" "$type"
+        sleep 3
+      fi
+    done
+  done
 }
 
 get_pods_list() {
   local pn="$1"
-  #local pn="avdev4j-pet-manager"
   _kubectl get pods \
-    -lEntandoResourceKind=EntandoPlugin \
     -lEntandoPlugin="$pn" \
-    -l=deployment="$pn"-server \
     -o "custom-columns=NAME:.metadata.name,STATUS:.status.phase"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -668,7 +717,11 @@ init_pub() {
   initialize_publication_git_repository "$@"
   ensure_valid_location_for_git_publication :initialized "$@"
 
-  _log_i 1 "bundle publication repository initialized"
+  if [ $? -eq 0 ]; then
+    _log_i w "bundle publication repository was not properly initialized"
+  else
+    _log_i 1 "bundle publication repository initialized"
+  fi
 }
 
 initialize_publication_git_repository() {
@@ -764,7 +817,6 @@ ensure_valid_location_for_git_publication() {
       _log_w 1 "A remote master has been detected"
       ask "Should I import it?"
 
-
       if [ $? -ne 0 ]; then
         # USER CHOSE TO NOT IMPORT
         if $FORCE; then
@@ -808,26 +860,26 @@ ensure_valid_location_for_git_publication() {
 
           # IMPORT
           _log_d 1 "Checking out the remote master"
-          git branch -m master master_old 1> /dev/null 2>&1
-          git branch -D master 1> /dev/null 2>&1
+          git branch -m master master_old &> /dev/null
+          git branch -D master &> /dev/null
           git fetch origin master
-          git checkout -b master origin/master
-          git branch -D master_old 1> /dev/null 2>&1
+          git checkout -b master origin/master || FATAL "Error checking out the remote master"
+          git branch -D master_old &> /dev/null
         fi
       fi
     fi
 
-    if [[ "$MODE" = "NORMAL" || "$MODE" = "OVERRIDE" ]]; then
+    if [[ "$MODE" == "NORMAL" || "$MODE" == "OVERRIDE" ]]; then
       # there is no master on remote
       echo "" > .gitignore
       git add .gitignore descriptor.yaml
       ls plugins/*.yaml 1> /dev/null && git add plugins/*.yaml
-      git commit -m "init"
-      git checkout -b master
+      git commit -m "init" || return $?
+      git checkout -b master &> /dev/null
       if [ "$MODE" = "OVERRIDE" ]; then
-        git push --set-upstream origin master --force
+        git push --set-upstream origin master --force || FATAL "Error pushing the base initialization"
       else
-        git push --set-upstream origin master
+        git push --set-upstream origin master || FATAL "Error pushing the base initialization"
       fi
     fi
 

@@ -121,7 +121,7 @@ prompt() {
 # $1: dvar        destination var to set
 # $2: sval        source value
 # $3: prompt      (if required) Supports tags %sp (standard prompt) and %var (dest var name)
-# $4: pdef        (for the prompt)
+# $4: pdef        (default to propose in the user prompt)
 # $5: [asserter]  assert function (with "?" suffix allows nulls)
 #
 set_or_ask() {
@@ -139,7 +139,12 @@ set_or_ask() {
   local res="$sval"
   local def=""
   local NULLABLE=false
-  [[ "$asserter" =~ ^.*\?$ ]] && NULLABLE=true
+  if [[ "$asserter" =~ (.*)\? ]]; then
+    asserter="${BASH_REMATCH[1]}"
+    local NULLABLE=true
+  else
+    local NULLABLE=false
+  fi
 
   while true; do
 
@@ -432,7 +437,8 @@ select_one() {
 # - %var: the var name
 #
 args_or_ask() {
-  local NOASK=false
+  local NEVER_ASK=false
+  local ALWAYS_ASK=false
   local FLAG=false
   local FLAGANDVAR=false
   local ARG=false
@@ -466,47 +472,17 @@ args_or_ask() {
   # pare flags
   while true; do
     case "$1" in
-      -n)
-        NOASK=true
-        shift
-        ;;
-      -f)
-        FLAG=true
-        shift
-        ;;
-      -F)
-        FLAGANDVAR=true
-        shift
-        ;;
-      -a)
-        ARG=true
-        shift
-        ;;
-      -p)
-        PRESERVE=true
-        shift
-        ;;
-      -s)
-        SPACE_SEP=true
-        shift
-        ;;
-      -d)
-        IS_DEFAULT=true
-        shift
-        ;;
-      --help-only)
-        PRINT_HELP=true
-        JUST_PRINT_HELP=true
-        shift
-        ;;
-      --help)
-        PRINT_HELP=true
-        shift
-        ;;
-      --cmplt)
-        PRINT_COMPLETION_CODE=true
-        shift
-        ;;
+      -n) NEVER_ASK=true;shift;;
+      -A) ALWAYS_ASK=true;shift;;
+      -f) FLAG=true;shift;;
+      -F) FLAGANDVAR=true;shift;;
+      -a) ARG=true;shift;;
+      -p) PRESERVE=true;shift;;
+      -s) SPACE_SEP=true;shift;;
+      -d) IS_DEFAULT=true;shift;;
+      --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
+      --help) PRINT_HELP=true;shift;;
+      --cmplt) PRINT_COMPLETION_CODE=true;shift;;
       --)
         shift
         break
@@ -542,8 +518,8 @@ args_or_ask() {
   $IS_DEFAULT && [ -z "$1" ] && return 0
 
   # user provided value
-  if $ARG; then
-    assert_num "POSITIONAL_ARGUMENT_INDEX" "$val_name"
+  if $ARG; then                                                                     # POSITIONAL VALUE
+    assert_num "the index of position argument" "$val_name" || FATAL -t "XXXXXXX"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
     val_name="Argument #$((val_name))"
@@ -553,7 +529,7 @@ args_or_ask() {
     else
       val_from_args=""
     fi
-  elif $FLAG || $FLAGANDVAR; then
+  elif $FLAG || $FLAGANDVAR; then                                                   # FLAGS or FLAG-VARS
     print_sub_help "$val_name" "$val_msg" && $JUST_PRINT_HELP && return 2
 
     index_of_arg "${val_name}" "$@"
@@ -584,15 +560,15 @@ args_or_ask() {
         return 1
       fi
     fi
-  else
-    if $SPACE_SEP; then
+  else                                                                            # NOMINAL SWITCHES
+    if $SPACE_SEP; then                                                             # with space
       index_of_arg -- "${val_name}" "$@"
       found_at="$?"
       if [ $found_at -ne 255 ]; then
         found_at=$((found_at + 1))
       fi
     else
-      index_of_arg -p "${val_name}=" "$@"
+      index_of_arg -p "${val_name}=" "$@"                                           # with equal sign
       found_at="$?"
     fi
 
@@ -616,7 +592,7 @@ args_or_ask() {
     [ "$?" -eq 255 ] && return 1 || return 0
   fi
 
-  [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NOASK && return 255
+  [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NEVER_ASK && return 255
 
   # prompt message processing
   if [ -z "$val_msg" ]; then
@@ -636,6 +612,7 @@ args_or_ask() {
 
     if [ "$(LC_ALL=C type -t "$assertion")" != "function" ]; then
       echo "undefined type \"$val_type\", falling back to \"strict_id\"" 1>&2
+      print_calltrace
       val_type="strict_id"
       assertion="assert_$val_type"
     fi
@@ -645,7 +622,7 @@ args_or_ask() {
   fi
 
   # set/ask
-  if $NOASK; then
+  if $NEVER_ASK; then
     if [ -z "$val_from_args" ]; then
       local val="$val_def"
     else
@@ -658,7 +635,19 @@ args_or_ask() {
     _set_var "$var_name" "$val"
     return 0
   else
-    set_or_ask "$var_name" "$val_from_args" "$val_msg" "$val_def" "$assertion"
+    val="$val_from_args"
+    if $NULLABLE; then
+      assertion+="?"
+      [[ "$found_at" -ne 255 && -z "$val" ]] && {
+        _set_var "$var_name" "$val"
+        return 0
+      }
+      ! $ALWAYS_ASK && $NULLABLE && [[ "$found_at" -ne 255 || -n "$val" ]] && {
+        _set_var "$var_name" "$val"
+        return 0
+      }
+    fi
+    set_or_ask "$var_name" "$val" "$val_msg" "$val_def" "$assertion"
     return 0
   fi
 }
@@ -693,7 +682,7 @@ show_help_option() {
         if [ "$2" = ":main" ]; then
           ENT_HELP_SECTION_TITLE="> Main arguments:"
         else
-          ENT_HELP_SECTION_TITLE="> Arguments of $2:"
+          ENT_HELP_SECTION_TITLE="> Arguments of \"$2\":"
         fi
       else
         ENT_HELP_SECTION_TITLE="> Arguments:"
@@ -703,48 +692,72 @@ show_help_option() {
   esac
 }
 
-args_or_ask__a_map() {
-  local arr_name="$1"
-  shift
+# Takes a value from the arguments or interactively from a provided array or map-reference
+# A map reference the name of a map manipulated using the map-* functions
+#
+# $1: src_list:           the map name
+# [ -m | -e | -a | --helps ]
+# $4: res_var_name:       the var to set with the result
+# $3: arg_code_or_num:    the map key to extract
+# $6: type:               the expect type of the input data (defaults to "exp_id")
+# $2: arg_desc:           the description of the expected input argument
+# $5: msg:                the prompt message
+#
+args_or_ask_from_list() {
+  local src_list="$1";shift
   local EXACT=false
-  [ "$1" = "-e" ] && local EXACT="true" && shift
-  [ "$1" = "-a" ] && local PRE="$1" && shift
-  [ "$1" = "--help" ] && local HH="$1" && shift
-  local var_name="$1"
-  shift
-  local arg_num="$1"
-  shift
-  local msg="$1"
-  shift
-  local type="${1:-"ext_id"}"
-  shift
+  local IS_MAPREF=false
+  local HH=""
+  while true; do
+    case $1 in
+      "-m") IS_MAPREF=true;shift;;
+      "-e") EXACT=true;shift;;
+      "-a") PRE="$1";shift;;
+      "--help") HH="$1";shift;;
+      *) break ;;
+    esac
+  done
+  local res_var_name="$1";shift
+  local arg_code_or_num="$1";shift
+  local type="${1:-"ext_id"}";shift
+  local arg_desc="$1"; shift
+  local msg="$1"; shift
+
   local TMP
 
-  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_num/$type//$msg" "$@"
+  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_code_or_num/$type//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
       local count
-      map-count "${arr_name}" count
+      if $IS_MAPREF; then
+        map-count "${src_list}" count
+      else
+        count="${#src_list[@]}"
+      fi
       if [ "$count" -eq 0 ]; then
         TMP=""
       else
         # shellcheck disable=SC2207
-        TITLES=($(map-list "${arr_name}" -k))
+        if $IS_MAPREF; then
+          TITLES=($(map-list "${src_list}" -k))
+        else
+          TITLES=("${src_list[@]}")
+        fi
         ! $EXACT && TITLES+=("other..")
-        select_one "Select the ${arr_name}" "${TITLES[@]}"
+        select_one "Select the ${arg_desc}" "${TITLES[@]}"
         local TMP="$select_one_res_alt"
         [ "$TMP" = "other.." ] && TMP=""
       fi
     fi
 
     if [ -z "$TMP" ]; then
-      args_or_ask -p "TMP" "$arg_num/$type/$TMP/$msg" "$@"
+      args_or_ask -p "TMP" "$arg_code_or_num/$type/$TMP/$msg" "$@"
     else
-      "assert_${type}" "$var_name" "$TMP"
+      "assert_${type}" "$res_var_name" "$TMP"
     fi
 
-    _set_var "$var_name" "$TMP"
+    _set_var "$res_var_name" "$TMP"
   }
 }
 
@@ -760,7 +773,7 @@ stdin_to_arr() {
 
 print_current_app_context_name() {
   if [ -n "$THIS_APP_CTX" ]; then
-    _log_i 0 "Using the application context \"$THIS_APP_CTX\"" 1>&2
+    _log_i 0 "Currently using the application context \"$THIS_APP_CTX\"" 1>&2
   else
     _log_i 0 "Currently not using any app context" 1>&2
   fi
@@ -939,23 +952,27 @@ keycloak-get-token() {
   shift
   local scheme="$1"
   local auth_url
-  auth_url="$(_kubectl get ingress | grep kc-ingress | awk '{print $2}')/auth"
+  auth_url="$(
+    _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" \
+      | grep kc-ingress | awk '{print $2}'
+  )/auth"
 
   [ -z "$auth_url" ] && FATAL "Unable to determine the IDP auth_url"
 
   local TOKEN_ENDPOINT
-  TOKEN_ENDPOINT="$(curl -s "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" | jq -r "
-  .token_endpoint")"
+  TOKEN_ENDPOINT="$(curl -s "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
+    | jq -r ".token_endpoint")"
+
+  [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
 
   local client_secret_name="${ENTANDO_APPNAME}-server-secret"
   local client_id
   local client_secret
-
   IFS=':' read -r client_id client_secret < <(
     _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
   )
 
-  [ -z "$client_id" ] && FATAL "Unable to extract the plugin client secret"
+  [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
 
   client_id=$(base64 -d <<< "$client_id")
   client_secret=$(base64 -d <<< "$client_secret")
@@ -1008,13 +1025,20 @@ ecr-prepare-action() {
 # - the http operation output in stdout
 #
 ecr-bundle-action() {
-  local res_var="$1";shift
-  local verb="$1";shift
-  local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
-  local bundle_id="$1";shift
-  local raw_data="$1";shift
+  local res_var="$1"
+  shift
+  local verb="$1"
+  shift
+  local action="$1"
+  shift
+  local ingress="$1"
+  shift
+  local token="$1"
+  shift
+  local bundle_id="$1"
+  shift
+  local raw_data="$1"
+  shift
   local url="${ingress}/components"
   local http_status OUT
 
@@ -1022,7 +1046,6 @@ ecr-bundle-action() {
   [ -n "$action" ] && url+="/$action"
 
   OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-
 
   http_status=$(
     curl -o "$OUT" -s -w "%{http_code}\n" -X "$verb" -v "$url" \
@@ -1050,10 +1073,14 @@ ecr-bundle-action() {
 # $1: the received of the of the http status
 # $2: the http verb
 ecr-watch-installation-result() {
-  local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
-  local bundle_id="$1";shift
+  local action="$1"
+  shift
+  local ingress="$1"
+  shift
+  local token="$1"
+  shift
+  local bundle_id="$1"
+  shift
   local http_res
 
   local start_time end_time elapsed
@@ -1067,14 +1094,13 @@ ecr-watch-installation-result() {
     )
 
     http_res=$(
-      echo "$http_res" | jq -r ".payload.status" 2>/dev/null
+      echo "$http_res" | jq -r ".payload.status" 2> /dev/null
     )
 
     end_time="$(date -u +%s)"
-    elapsed="$((end_time-start_time))"
+    elapsed="$((end_time - start_time))"
     printf "\r                                  \r"
     printf "%4d STATUS: %s.." "$elapsed" "$http_res"
-
 
     case "$http_res" in
       "INSTALL_IN_PROGRESS" | "INSTALL_CREATED" | "UNINSTALL_IN_PROGRESS" | "UNINSTALL_CREATED") ;;
@@ -1092,15 +1118,15 @@ ecr-watch-installation-result() {
         return 1
         ;;
       %*)
-        echo -e "\nTerminated";
+        echo -e "\nTerminated"
         return 2
         ;;
       *)
-        echo "";
+        echo ""
         FATAL "Unknown status"
         return 99
         ;;
     esac
-    sleep 1
+    sleep 3
   done
 }

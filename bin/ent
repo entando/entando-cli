@@ -65,6 +65,8 @@ RUN() {
         cmplt
         ;;
       *)
+        [ "$cmd" = "k" ] && cmd="kubectl"
+
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
         [ ! -f "$mod_script" ] && {
           _log_i 0 "Unrecognized ent command \"$cmd\""
@@ -150,7 +152,8 @@ attach_vm() {
     echo "> Parameters:"
   }
 
-  args_or_ask__a_map REMOTES -a ${HH:+"$HH"} "VM_NAME" "1" "%sp VM to which ent kubectl should attach" "$@"
+  args_or_ask_from_list REMOTES -m -a ${HH:+"$HH"} VM_NAME 1 "any" \
+    "remotes" "%sp VM to which ent kubectl should attach" "$@"
 
   [ -n "$HH" ] && return 0
 
@@ -186,7 +189,7 @@ cmplt() {
     echo "$mod"
   done
 
-  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import" "acivate")
+  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import" "activate")
 
   for tc in "${topcmd[@]}"; do
     echo "$tc"
