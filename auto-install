@@ -235,7 +235,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   for script_name in "activate" "activate-PLACEHOLDER_RELEASE" "deactivate"; do
     local script_file="$ENTANDO_HOME/${script_name/PLACEHOLDER_RELEASE/$ENTANDO_RELEASE}"
     chmod u=rwx "$script_file" 2>/dev/null || true
-    rm "$script_file"
+    [ -f "$script_file" ] && rm "$script_file"
     {
       echo "#!/bin/bash"
       echo ". $ENT_HOME/activate \"\$@\""

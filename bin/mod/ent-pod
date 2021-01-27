@@ -164,23 +164,19 @@ pod_action() {
   local SELECTED_POD SELECTED_CONTAINER
 
   _kubectl-pre-sudo
-  if $MULTIPAR_POT_PATTERN; then
-    SELECTED_POD="$POD_PATT"
-    SELECTED_CONTAINER="$CONTAINER_PATT"
-  else
-    local select_one_res_alt
 
-    local PODS=()
-    stdin_to_arr $'\n\r' PODS < <(read_pod_list)
-    select_one -s "POD" "${PODS[@]}"
-    SELECTED_POD="$select_one_res_alt"
+  local select_one_res_alt
 
-    local CONTAINERS=()
-    stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
-    if [[ "${#CONTAINERS[@]}" -gt 1 && "$ACTION" != "x" ]]; then
-      select_one "CONTAINER" "${CONTAINERS[@]}"
-      SELECTED_CONTAINER="$select_one_res_alt"
-    fi
+  local PODS=()
+  stdin_to_arr $'\n\r' PODS < <(read_pod_list)
+  select_one -s "POD" "${PODS[@]}"
+  SELECTED_POD="$select_one_res_alt"
+
+  local CONTAINERS=()
+  stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
+  if [[ "${#CONTAINERS[@]}" -ge 1 && "$ACTION" != "x" ]]; then
+    select_one -s "CONTAINER" "${CONTAINERS[@]}"
+    SELECTED_CONTAINER="$select_one_res_alt"
   fi
 
   case "$ACTION" in
@@ -222,7 +218,7 @@ read_container_list() {
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"}
   else
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"} \
-      | grep -- "$CONTAINER_PATT"
+      | tr " " "\n" | grep -- "$CONTAINER_PATT" | tr "\n" " "
   fi
 }
 

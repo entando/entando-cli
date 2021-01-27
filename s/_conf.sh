@@ -8,7 +8,6 @@ XU_LOG_LEVEL=9
 
 ENTANDO_HOME=$(
   cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
-  echo "~"
 )
 
 ENTANDO_GLOBAL_CFG="$ENTANDO_HOME/.global-cfg"

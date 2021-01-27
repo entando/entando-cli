@@ -136,6 +136,7 @@ mkdir -p "$ENTANDO_ENT_HOME/w"
 mkdir -p "$ENTANDO_ENT_HOME/d"
 mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
+mkdir -p "$ENTANDO_HOME/apps"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # UTILS
@@ -172,10 +173,15 @@ activate_ent_default_workdir() {
     # shellcheck disable=SC2034
     THIS_APP_CTX=""
     ENTANDO_CURRENT_APP_CTX_HOME=""
-    ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
+    ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_WORK_DIR/.cfg"
     mkdir -p "$ENT_WORK_DIR"
+    # shellcheck disable=SC2034
+    {
+      APP_LOGIN_URL=""
+      APP_LOGIN_TOKEN=""
+    }
   fi
 }
 
@@ -186,7 +192,7 @@ activate_ent_default_workdir() {
 activate_application_workdir() {
   if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
     if [ -d "$ENTANDO_CURRENT_APP_CTX_HOME/w" ]; then
-      ENT_WORK_DIR="$ENTANDO_CURRENT_APP_CTX_HOME/w/"
+      ENT_WORK_DIR="$ENTANDO_CURRENT_APP_CTX_HOME/w"
       # shellcheck disable=SC2034
       CFG_FILE="$ENT_WORK_DIR/.cfg"
       return 0
