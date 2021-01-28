@@ -701,6 +701,7 @@ init_project__commit_all() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# shellcheck disable=SC2181
 init_pub() {
   mkdir -p bundle
   ensure_valid_location_for_git_publication
@@ -717,10 +718,10 @@ init_pub() {
   initialize_publication_git_repository "$@"
   ensure_valid_location_for_git_publication :initialized "$@"
 
-  if [ $? -eq 0 ]; then
-    _log_i w "bundle publication repository was not properly initialized"
-  else
+  if [ "$?" -eq 0 ]; then
     _log_i 1 "bundle publication repository initialized"
+  else
+    _log_i w "bundle publication repository was not properly initialized"
   fi
 }
 
