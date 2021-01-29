@@ -18,6 +18,13 @@ cd "$DIR/../.." || {
 
 . s/_base.sh
 
+if [[ "$1" = "--run-app-status-sourced" ]]; then
+  shift
+  # for internal use
+  . s/check-app-status.sh "$@"
+  exit
+fi
+
 if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then
   ENT_KUBECTL_CMD="$ENTANDO_ENT_KUBECTL_CMD"
 fi
@@ -57,7 +64,7 @@ export ENTANDO_STANDARD_QUICKSTART
 
 $WATCH && {
   start_time="$(date -u +%s)"
-  _watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
+  _watch bin/mod/ent-app-info --run-app-status-sourced "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
   exit
 }
 
