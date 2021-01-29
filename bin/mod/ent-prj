@@ -760,11 +760,11 @@ init_project__commit_all() {
   if $user_global; then
     git init
   else
-    set_or_ask "FE_PUB_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id_spc"
-    set_or_ask "FE_PUB_USER_EMAIL" "" "Please provide the user email for the $desc" "$prj_user_email" "assert_email"
+    set_or_ask "FE_GIT_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id_spc"
+    set_or_ask "FE_GIT_USER_EMAIL" "" "Please provide the user email for the $desc" "$prj_user_email" "assert_email"
     git init
-    git config user.name "$FE_PUB_USER_NAME"
-    git config user.email "$FE_PUB_USER_EMAIL"
+    git config user.name "$FE_GIT_USER_NAME"
+    git config user.email "$FE_GIT_USER_EMAIL"
   fi
 
   _log_i 1 "Committing the generated files.."
@@ -774,17 +774,23 @@ init_project__commit_all() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # shellcheck disable=SC2181
 init_pub() {
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH"
+  args_or_ask -a ${HH:+"$HH-only"} URL_OF_ORIGIN  "1/url//%sp URL of the publication repository" "$@" 
+  args_or_ask -a ${HH:+"$HH-only"} GIT_USER_NAME  "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
+  args_or_ask -a ${HH:+"$HH-only"} GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
+  args_or_ask -n -F ${HH:+"$HH-only"} -- "FORCE" '--force///forces the initialization' "$@" && {
+    _log_i 0 "pub_init: Force mode active"
+  }
+  [ -n "$HH" ] && return 0
+  
   mkdir -p bundle
   ensure_valid_location_for_git_publication
 
-  PUB_USER_NAME="$(git config user.name 2>/dev/null)"
-  PUB_USER_EMAIL="$(git config user.email 2>/dev/null)"
+  GIT_USER_NAME="$(git config user.name 2>/dev/null)"
+  GIT_USER_EMAIL="$(git config user.email 2>/dev/null)"
 
   read_missing_pub_info_from_project_sources_git
-
-  set_or_ask "URL_OF_ORIGIN" "$1" "Please provide the URL of the publication repository" "" "assert_url"
-  set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_ext_ic_id_spc"
-  set_or_ask "PUB_USER_EMAIL" "$3" "%sp Git %var" "$PUB_USER_EMAIL" "assert_email"
 
   initialize_publication_git_repository "$@"
   ensure_valid_location_for_git_publication :initialized "$@"
@@ -798,11 +804,6 @@ init_pub() {
 
 initialize_publication_git_repository() {
   cd bundle >/dev/null || FATAL -t "internal error"
-
-  local FORCE
-  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
-    _log_i 0 "pub_init: Force mode active"
-  }
 
   # Base git init, if required
   [ ! -f .git ] && {
@@ -821,8 +822,8 @@ initialize_publication_git_repository() {
   git remote add origin "$URL_OF_ORIGIN"
 
   # User info
-  git config user.name "$PUB_USER_NAME"
-  git config user.email "$PUB_USER_EMAIL"
+  git config user.name "$GIT_USER_NAME"
+  git config user.email "$GIT_USER_EMAIL"
 
   pbs_fe_propose_credentials_cache
 
@@ -965,14 +966,14 @@ ensure_valid_location_for_git_publication() {
 read_missing_pub_info_from_project_sources_git() {
   cd .. || FATAL -t "internal error"
 
-  [ -z "$PUB_USER_NAME" ] && {
-    PUB_USER_NAME="$(git config user.name 2>/dev/null)"
-    [ -n "$PUB_USER_NAME" ] && _log_d 1 "Assuming user name \"$PUB_USER_NAME\" from the bundle project dir"
+  [ -z "$GIT_USER_NAME" ] && {
+    GIT_USER_NAME="$(git config user.name 2>/dev/null)"
+    [ -n "$GIT_USER_NAME" ] && _log_d 1 "Assuming user name \"$GIT_USER_NAME\" from the bundle project dir"
   }
 
-  [ -z "$PUB_USER_EMAIL" ] && {
-    PUB_USER_EMAIL="$(git config user.email 2>/dev/null)"
-    [ -n "$PUB_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$PUB_USER_EMAIL\" from the bundle parent project dir"
+  [ -z "$GIT_USER_EMAIL" ] && {
+    GIT_USER_EMAIL="$(git config user.email 2>/dev/null)"
+    [ -n "$GIT_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$GIT_USER_EMAIL\" from the bundle parent project dir"
   }
 
   cd - >/dev/null || FATAL -t "internal error"
