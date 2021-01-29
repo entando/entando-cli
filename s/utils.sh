@@ -481,7 +481,7 @@ args_or_ask() {
       -s) SPACE_SEP=true;shift;;
       -d) IS_DEFAULT=true;shift;;
       --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
-      --help) PRINT_HELP=true;shift;;
+      --help) PRINT_HELP=true;NEVER_ASK=true;shift;;
       --cmplt) PRINT_COMPLETION_CODE=true;shift;;
       --)
         shift
@@ -519,7 +519,7 @@ args_or_ask() {
 
   # user provided value
   if $ARG; then                                                                     # POSITIONAL VALUE
-    assert_num "the index of position argument" "$val_name" || FATAL -t "XXXXXXX"
+    assert_num "the index of position argument" "$val_name" || FATAL -t "Internal Error"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
     val_name="Argument #$((val_name))"
