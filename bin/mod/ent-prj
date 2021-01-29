@@ -213,7 +213,7 @@ RUN() {
       ext_keycloak "$@"
       ;;
     *)
-      print_ent_module_help
+      print_ent_module_help "${BASH_SOURCE[0]}" "$2"
       break
       ;;
     esac
