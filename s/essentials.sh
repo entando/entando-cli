@@ -70,6 +70,15 @@
       ;;
   esac
 
+  # shellcheck disable=SC2155
+  [ -z "$ENTANDO_DEBUG_TTY" ] && {
+    if command -v "tty" >/dev/null; then
+      export ENTANDO_DEBUG_TTY="$(tty)"
+    else
+      export ENTANDO_DEBUG_TTY=""
+    fi
+  }
+
   # SUDO
   IS_SUDO_PRESENT=false; command -v "sudo" > /dev/null && IS_SUDO_PRESENT=true
 
@@ -127,7 +136,7 @@
       _kubectl-pre-sudo() { :; }
     else
       # shellcheck disable=SC2034
-      ENTANDO_KUBECTL_MODE="AUODETECT"
+      ENTANDO_KUBECTL_MODE="AUTODETECT"
       if command -v "k3s" > /dev/null; then
         if $OS_WIN; then
           _kubectl() {

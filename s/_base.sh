@@ -6,6 +6,22 @@
 ${ENTANDO_BASE_EXECUTED:-false} && return 0
 ENTANDO_BASE_EXECUTED=true
 
+DDD() {
+  local FULLTRACE=false; [ "$1" = "-t" ] && { FULLTRACE=true; shift; }
+  {
+    echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
+    echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"
+    if $FULLTRACE; then
+      print_calltrace -n 1 5
+    else
+      print_calltrace -n 1 1
+    fi
+    echo "$@"
+    echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"
+    echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+  } >"${ENTANDO_DEBUG_TTY:-/dev/stderr}"
+}
+
 trace_var() {
   local PRE="$1"
   shift
@@ -13,6 +29,11 @@ trace_var() {
 }
 
 trace_vars() {
+  if [[ "$1" == "-d" && -n "$ENTANDO_DEBUG_TTY" ]]; then
+    shuft
+    trace_vars "$@" >"$ENTANDO_DEBUG_TTY"
+  fi
+
   if [ "$1" == "-t" ]; then
     local TITLE=" [$2]"
     shift 2
@@ -27,6 +48,13 @@ trace_vars() {
 }
 
 function print_calltrace() {
+  if [[ "$1" == "-d" && -n "$ENTANDO_DEBUG_TTY" ]]; then
+    shuft
+    print_calltrace "$@" >"$ENTANDO_DEBUG_TTY"
+  fi
+  local NOFRAME=false
+  [ "$1" = "-n" ] && { NOFRAME=true; shift; }
+
   local start=0
   local steps=999
   local title=""
@@ -37,17 +65,21 @@ function print_calltrace() {
 
   local frame=0 fn ln fl
   if [ -n "$4" ]; then
-    echo ""
-    [ -n "$title" ] && echo " ▕ $title ▏"
-    echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    ! $NOFRAME && {
+      echo ""
+      [ -n "$title" ] && echo " ▕ $title ▏"
+      echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    }
     cmd="$4"
     shift 4
     "$cmd" "$@"
   else
-    echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
-    [ -n "$title" ] && echo " ▕ $title ▏"
+    ! $NOFRAME && {
+      echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
+      [ -n "$title" ] && echo " ▕ $title ▏"
+    }
   fi
-  echo "▁"
+  ! $NOFRAME && echo "▁"
   while read -r ln fn fl < <(caller "$frame"); do
     ((frame++))
     [ "$frame" -lt "$start" ] && continue
@@ -56,10 +88,17 @@ function print_calltrace() {
     [ "$steps" -eq 0 ] && break
   done
   echo "▔"
-  echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+  ! $NOFRAME && {
+    echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+  }
 }
 
 function print_current_function_name() {
+  if [[ "$1" == "-d" && -n "$ENTANDO_DEBUG_TTY" ]]; then
+    shuft
+    print_current_function_name "$@" >"$ENTANDO_DEBUG_TTY"
+  fi
+
   echo "${1}${FUNCNAME[1]}${2}"
 }
 
@@ -243,7 +282,7 @@ xu_clear_status() {
 }
 
 xu_set_status() {
-  [ "$XU_STATUS_FILE" != "" ] && echo "$@" > "$XU_STATUS_FILE"
+  [ "$XU_STATUS_FILE" != "" ] && echo "$@" >"$XU_STATUS_FILE"
 }
 
 xu_get_status() {
@@ -280,7 +319,7 @@ activate_designated_node() {
       local ERRMSG="Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\"): "
       ERRMSG+="The required node version is not present anymore or it's corrupted,"
       ERRMSG+="you may try to reinstall it using nvm."
-      nvm use "$DESIGNATED_NODE_VERSION" > /dev/null
+      nvm use "$DESIGNATED_NODE_VERSION" >/dev/null
       if [[ "$(node -v)" != "$DESIGNATED_NODE_VERSION" ]]; then
         _log_e 1 "$ERRMSG"
         return 1
@@ -296,11 +335,12 @@ kubectl_update_once_options() {
   local NS
   determine_namespace NS "$@"
 
+  NS="${NS//$'\n'/}"
   # shellcheck disable=SC2034
   case "$NS" in
-    "*") KUBECTL_ONCE_OPTIONS="--all-namespaces" ;;
-    "") KUBECTL_ONCE_OPTIONS="" ;;
-    *) KUBECTL_ONCE_OPTIONS="--namespace=$NS" ;;
+  "*") KUBECTL_ONCE_OPTIONS="--all-namespaces" ;;
+  "") KUBECTL_ONCE_OPTIONS="" ;;
+  *) KUBECTL_ONCE_OPTIONS="--namespace=$NS" ;;
   esac
 }
 
@@ -311,10 +351,10 @@ determine_namespace() {
 
   HH="$(parse_help_option "$@")"
 
-  if args_or_ask ${HH:+"$HH"} -n ns "--namespace/ext_ic_id//" "$@" \
-    || args_or_ask ${HH:+"$HH"} -n -s ns "-n/ext_ic_id//" "$@"; then
-    if args_or_ask ${HH:+"$HH"} -n -f "--all-namespaces///" "$@" \
-      || args_or_ask ${HH:+"$HH"}-n -f dummy "-A///" "$@"; then
+  if args_or_ask ${HH:+"$HH"} -n ns "--namespace/ext_ic_id//" "$@" ||
+    args_or_ask ${HH:+"$HH"} -n -s ns "-n/ext_ic_id//" "$@"; then
+    if args_or_ask ${HH:+"$HH"} -n -f "--all-namespaces///" "$@" ||
+      args_or_ask ${HH:+"$HH"}-n -f dummy "-A///" "$@"; then
       ns="*"
     fi
     _set_var "$var_name" "$ns"

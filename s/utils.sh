@@ -953,7 +953,7 @@ keycloak-get-token() {
   local scheme="$1"
   local auth_url
   auth_url="$(
-    _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" \
+    _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null \
       | grep kc-ingress | awk '{print $2}'
   )/auth"
 
@@ -1025,20 +1025,13 @@ ecr-prepare-action() {
 # - the http operation output in stdout
 #
 ecr-bundle-action() {
-  local res_var="$1"
-  shift
-  local verb="$1"
-  shift
-  local action="$1"
-  shift
-  local ingress="$1"
-  shift
-  local token="$1"
-  shift
-  local bundle_id="$1"
-  shift
-  local raw_data="$1"
-  shift
+  local res_var="$1";shift
+  local verb="$1";shift
+  local action="$1";shift
+  local ingress="$1";shift
+  local token="$1";shift
+  local bundle_id="$1";shift
+  local raw_data="$1";shift
   local url="${ingress}/components"
   local http_status OUT
 
@@ -1057,11 +1050,17 @@ ecr-bundle-action() {
       2> /dev/null
   )
 
+
+  if [[ "$res_var" = "%" && "$http_status" -ge 300 ]]; then
+    echo "%$http_status"
+    return 1
+  fi
+  
   if [ -s "$OUT" ]; then
     cat "$OUT"
   else
     if [ "$res_var" = "%" ]; then
-      echo "%http_status"
+      echo "%$http_status"
     elif [ -n "$res_var" ]; then
       _set_var "$res_var" "$http_status"
     fi
@@ -1073,14 +1072,10 @@ ecr-bundle-action() {
 # $1: the received of the of the http status
 # $2: the http verb
 ecr-watch-installation-result() {
-  local action="$1"
-  shift
-  local ingress="$1"
-  shift
-  local token="$1"
-  shift
-  local bundle_id="$1"
-  shift
+  local action="$1";shift
+  local ingress="$1";shift
+  local token="$1";shift
+  local bundle_id="$1";shift
   local http_res
 
   local start_time end_time elapsed
@@ -1092,15 +1087,17 @@ ecr-watch-installation-result() {
     http_res=$(
       ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
     )
-
-    http_res=$(
-      echo "$http_res" | jq -r ".payload.status" 2> /dev/null
-    )
-
-    end_time="$(date -u +%s)"
-    elapsed="$((end_time - start_time))"
-    printf "\r                                  \r"
-    printf "%4d STATUS: %s.." "$elapsed" "$http_res"
+    
+    if [ "${http_res:0:1}" != '%' ]; then
+      http_res=$(
+        echo "$http_res" | jq -r ".payload.status" 2> /dev/null
+      )
+  
+      end_time="$(date -u +%s)"
+      elapsed="$((end_time - start_time))"
+      printf "\r                                  \r"
+      printf "%4d STATUS: %s.." "$elapsed" "$http_res"
+    fi
 
     case "$http_res" in
       "INSTALL_IN_PROGRESS" | "INSTALL_CREATED" | "UNINSTALL_IN_PROGRESS" | "UNINSTALL_CREATED") ;;
@@ -1118,12 +1115,12 @@ ecr-watch-installation-result() {
         return 1
         ;;
       %*)
-        echo -e "\nTerminated"
+        echo -e "\nTerminated \"$http_res\""
         return 2
         ;;
       *)
         echo ""
-        FATAL "Unknown status"
+        FATAL "Unknown status \"$http_res\""
         return 99
         ;;
     esac

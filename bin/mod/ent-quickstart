@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
@@ -13,7 +13,7 @@ debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     trace_vars \
       ENTANDO_STANDARD_QUICKSTART ENTANDO_PRE_EXISTING K8S_TEMPLATE \
-      AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME\
+      AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME \
       ENTANDO_DEBUG ENTANDO_RELEASE ENTANDO_CLI_VERSION WITH_VM ENTANDO_OPT_YES_FOR_ALL ENTANDO_INTERACTIVE \
       JUST_SET_CFG ENTANDO_NAMESPACE ENTANDO_APPNAME \
       ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK ENTANDO_VM_REUSE \
@@ -52,7 +52,8 @@ fi
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-ENTANDO_INTERACTIVE="true"; EDIT_MANIFEST=false
+ENTANDO_INTERACTIVE="true"
+EDIT_MANIFEST=false
 args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
 args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
 args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
@@ -81,11 +82,10 @@ args_or_ask ${HH:+"$HH"} -n -p "EDIT_MANIFEST" \
 args_or_ask ${HH:+"$HH"} -n "OVERRIDE_DB_TYPE" \
   "--override-db-type///Forces the use of the given DB type" "$@"
 
-
 [ -n "$HH" ] && echo "" && exit 0
 
-[[ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" && ! -f "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ]] \
-  && FATAL "Unable to find override file \"$ENTANDO_CONFIGMAP_OVERRIDE_FILE\""
+[[ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" && ! -f "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ]] &&
+  FATAL "Unable to find override file \"$ENTANDO_CONFIGMAP_OVERRIDE_FILE\""
 
 [ -z "$ENTANDO_NAMESPACE" ] && FATAL "Please provide the namespace"
 [ -z "$ENTANDO_APPNAME" ] && FATAL "Please provide the appname"
@@ -114,7 +114,7 @@ $ENTANDO_MOCK_TEST_RUN && {
 
 ! $ENTANDO_INTERACTIVE && {
   ENTANDO_OPT_YES_FOR_ALL=true
-  [[ -n "$EDIT_MANIFEST" && "$EDIT_MANIFEST" != "false" ]] && \
+  [[ -n "$EDIT_MANIFEST" && "$EDIT_MANIFEST" != "false" ]] &&
     FATAL "It's impossible to satisfy \"--edit-manifest\" or \"--edit-manifest-with\" due to non-interactive session"
 }
 
@@ -266,11 +266,11 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
 
-  ent app new "qs-$ENTANDO_VM_NAME"   \
-    "$ENTANDO_APPNAME"                \
-    "$ENTANDO_NAMESPACE"              \
-    --attach-vm="$ENTANDO_VM_NAME"    \
-  ;
+  ent app new "qs-$ENTANDO_VM_NAME" \
+    "$ENTANDO_APPNAME" \
+    "$ENTANDO_NAMESPACE" \
+    --attach-vm="$ENTANDO_VM_NAME" \
+    ;
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
   $ENTANDO_MOCK_TEST_RUN && VM_OPT+=" --use-mocks"
@@ -283,7 +283,7 @@ RUN_WITH_VM() {
 
   #~ LAUNCH OR REUSE VM
   _log_i 2 "> Generating the base VM"
-  if multipass info "$ENTANDO_VM_NAME" &> /dev/null; then
+  if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
     local err_msg="A VM named \"$ENTANDO_VM_NAME\" already exists"
 
     if $ENTANDO_VM_REUSE; then
@@ -316,9 +316,9 @@ RUN_WITH_VM() {
   }
 
   case "$EDIT_MANIFEST" in
-    true) OPT_OVERRIDE+=" --edit-manifest";;
-    "") ;;
-    *) OPT_OVERRIDE+=" --edit-manifest-with='$EDIT_MANIFEST'"
+  true) OPT_OVERRIDE+=" --edit-manifest" ;;
+  "") ;;
+  *) OPT_OVERRIDE+=" --edit-manifest-with='$EDIT_MANIFEST'" ;;
   esac
 
   #~ INSTALL ENT IN THE VM
@@ -410,6 +410,9 @@ RUN_DIRECT() {
 
   # shellcheck disable=SC1090
   [ -f ~/.bashrc ] && . ~/.bashrc
+  [ -z "$ENT_KUBECTL_CMD" ] && {
+    DESIGNATED_KUBECONFIG=""
+  }
   setup_kubectl
 
   # -- NETWORKING CHECKS
@@ -455,12 +458,12 @@ RUN_DIRECT() {
   _log_i 2 "> Generating the kubernetes specification file \"w/$DEPL_SPEC_YAML_FILE\" for the deployment"
 
   # shellcheck disable=SC2002
-  cat "dist/$MANIFEST_TEMPLATE_FILENAME" \
-    | _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" \
-    | _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" \
-    | _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOSTNAME/$SINGLE_HOSTNAME/" \
-    | _perl_sed "s/PLACEHOLDER_ENTANDO_DOMAIN_SUFFIX/$FQADDR/" \
-      > "w/$DEPL_SPEC_YAML_FILE"
+  cat "dist/$MANIFEST_TEMPLATE_FILENAME" |
+    _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" |
+    _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" |
+    _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOSTNAME/$SINGLE_HOSTNAME/" |
+    _perl_sed "s/PLACEHOLDER_ENTANDO_DOMAIN_SUFFIX/$FQADDR/" \
+      >"w/$DEPL_SPEC_YAML_FILE"
 
   [ -n "$OVERRIDE_DB_TYPE" ] && {
     _sed_in_place "s/dbms: .*/dbms: $OVERRIDE_DB_TYPE/g" "w/$DEPL_SPEC_YAML_FILE"
@@ -486,7 +489,7 @@ RUN_DIRECT() {
       s/entando-quickstart-yaml-helper.sh set-configmap \
         "$TGT_FILE" \
         "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
-        > "$TMP_FILE"
+        >"$TMP_FILE"
     }
     mv "$TMP_FILE" "$TGT_FILE"
     # CoCoo override
@@ -495,7 +498,7 @@ RUN_DIRECT() {
       s/entando-quickstart-yaml-helper.sh set-cocoo-version \
         "$TGT_FILE" \
         "$ENTANDO_COCOO_VERSION_OVERRIDE" \
-        > "$TMP_FILE"
+        >"$TMP_FILE"
     }
     mv "$TMP_FILE" "$TGT_FILE"
   fi

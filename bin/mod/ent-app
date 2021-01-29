@@ -52,6 +52,7 @@ RUN() {
     shift
     APP_LOGIN_URL=""
     APP_LOGIN_TOKEN=""
+    DESIGNATED_VM=""
     use_app_ctx "$@"
     app_ctx_auto_login
     app_ctx_auto_attach
@@ -367,6 +368,7 @@ app_ctx_auto_login() {
 }
 
 app_ctx_auto_attach() {
+  # shellcheck disable=SC2031
   if [ -n "$DESIGNATED_VM" ]; then
     ent attach-vm "$DESIGNATED_VM"
   fi
