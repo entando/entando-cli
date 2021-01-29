@@ -185,7 +185,7 @@ mkdir -p "$ENTANDO_HOME/apps"
 
 DESIGNATED_VM=""
 DESIGNATED_VM_NAMESPACE=""
-DEFAULT_NAMESPACE=""
+ENTANDO_NAMESPACE=""
 # shellcheck disable=SC2034
 {
   ENT_KUBECTL_CMD=""
@@ -364,9 +364,9 @@ determine_namespace() {
   # shellcheck disable=SC2034
   local dummy
   if [ -n "$DESIGNATED_VM" ]; then
-    ns="${DESIGNATED_VM_NAMESPACE:-$DEFAULT_NAMESPACE}"
+    ns="${DESIGNATED_VM_NAMESPACE:-$ENTANDO_NAMESPACE}"
   else
-    ns="${DEFAULT_NAMESPACE}"
+    ns="${ENTANDO_NAMESPACE}"
   fi
   if [[ -z "$ns" && -n "$ENTANDO_NAMESPACE" ]]; then
     ns="$ENTANDO_NAMESPACE"

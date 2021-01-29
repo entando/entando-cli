@@ -366,7 +366,7 @@ RUN_WITH_VM() {
   ! $ENTANDO_NO_AUTO_ATTACH && {
     ent-attach-vm "$ENTANDO_VM_NAME"
     save_cfg_value "DESIGNATED_VM_NAMESPACE" "$ENTANDO_NAMESPACE"
-    save_cfg_value "DEFAULT_NAMESPACE" "$ENTANDO_NAMESPACE"
+    save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
   }
 
   multipass exec "$ENTANDO_VM_NAME" -- bash -c "
