@@ -118,7 +118,7 @@ test_args_or_ask() {
   # Pure Flags
   args_or_ask -f -- "--clean" --build --clean || FATAL "failed! $LINENO"
   args_or_ask -f -- "--find" --build --clean && FATAL "failed! $LINENO"
-  # Flags with assigned var (-a)
+  # Flags with assigned var (-F)
   args_or_ask -n -F "RES" "--yes///Assumes yes for all yes-no questions" "--yes"
   [ "$RES" = "true" ] || FATAL "failed! $LINENO"
   args_or_ask -F "RES" "--clean" --build --clean || FATAL "failed! $LINENO"
