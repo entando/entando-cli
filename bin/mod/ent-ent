@@ -56,7 +56,7 @@ ent_activate() {
 
   if $DEFSET; then
     ent_set_default_ent "$ENT"
-    ent_set_appctx_default_ent "$ENT"
+    ent_set_app_profile_default_ent "$ENT"
   fi
 
   if $FOR_SOURCED_EXECUTION; then
@@ -77,11 +77,11 @@ ent_set_default_ent() {
   _log_i 0 "Ent \"$ENT\" is now the global default ent"
 }
 
-ent_set_appctx_default_ent() {
-  if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
+ent_set_app_profile_default_ent() {
+  if [ -n "$DESIGNATED_APP_PROFILE" ]; then
     ENT="$1"
     save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
-    _log_i 0 "Ent \"$ENT\" is now the default ent for the application profile \"$ENTANDO_CURRENT_APP_PROFILE\""
+    _log_i 0 "Ent \"$ENT\" is now the default ent for the application profile \"$DESIGNATED_APP_PROFILE\""
   fi
 }
 

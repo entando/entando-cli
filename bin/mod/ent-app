@@ -39,15 +39,19 @@ RUN() {
   "use") #H: selects the application profile that ent should use
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APPCTX" "--none///Assumes the global application profile" "$@"
+    args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APP_PROFILE" "--none///Assumes the global application profile" "$@"
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
-    reset_kubectl_mode
+    reset_kubectl_mode --mem
     use_app_profile "$@"
-    ! $USE_NO_APPCTX && {
+
+    ! $USE_NO_APP_PROFILE && {
       app_profile_auto_attach
     }
+    ;;
+  "first-use-readme") #H: prints the first-use readme
+    print_first_use_readme
     ;;
   "new") #H: created a new application profile
     shift
@@ -84,9 +88,9 @@ RUN() {
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
-    list_app_profile "$@"
+    list_app_profiles "$@"
     ;;
-  "link")  #H: links the current application profile to a kube context
+  "link") #H: links the current application profile to a kube context
     shift
     link_kube_context "$1"
     ;;
@@ -115,7 +119,7 @@ RUN() {
     [ -n "$HH" ] && exit 0
     print_current_app_profile_info
     _log_i 2 "The available application profiles are:"
-    list_app_profile "$@"
+    list_app_profiles "$@"
     ;;
   *)
     [ -n "$HH" ] && exit 0
@@ -131,7 +135,8 @@ print_configmap() {
 }
 
 print_images() {
-  local FILTER="$ENTANDO_IMAGES_FILTER"
+  local FILTER="${ENTANDO_STANDARD_IMAGES[*]}"
+  FILTER="${FILTER// /\\|}"
   args_or_ask ${HH:+"$HH"} -n -f '--all/// prints all the images' "$@" && {
     FILTER=".*"
   }
@@ -176,31 +181,26 @@ use_app_profile() {
     apps_base_dir="$ENTANDO_HOME/apps"
   fi
 
-  $USE_NO_APPCTX && application_profile="--none"
+  $USE_NO_APP_PROFILE && application_profile="--none"
   args_or_ask ${HH:+"$HH"} -a -p -n -- "application_profile" '1///%sp application profile (or --none)' "$@"
 
-  ENTANDO_CURRENT_APP_PROFILE=""
+  DESIGNATED_APP_PROFILE=""
   # shellcheck disable=SC2034
-  ENTANDO_CURRENT_APP_PROFILE_HOME=""
+  DESIGNATED_APP_PROFILE_HOME=""
 
-  if $USE_NO_APPCTX; then
-    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
-    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
+  if $USE_NO_APP_PROFILE; then
+    save_cfg_value "DESIGNATED_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
     activate_designated_workdir
     return 0
   else
     (
       # shellcheck disable=SC2030
+      __cd "$apps_base_dir"
+      # shellcheck disable=SC2035
+
       local tmp_app_profile
-      if [ "$application_profile" = "" ]; then
-        __cd "$apps_base_dir"
-        # shellcheck disable=SC2035
-        map-from-stdin application_profile $'\n\r' < <(ls -d * 2>/dev/null)
-        args_or_ask_from_list application_profile -m -a ${HH:+"$HH"} tmp_app_profile 1 "any" \
-          "application profile" "Select the application profile" "$@"
-      else
-        tmp_app_profile="$application_profile"
-      fi
+      select_application_profile tmp_app_profile "$application_profile"
 
       local app_dir="$apps_base_dir/$tmp_app_profile"
 
@@ -211,20 +211,52 @@ use_app_profile() {
         new_app_profile "$tmp_app_profile"
       fi
 
-      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "${tmp_app_profile}" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "DESIGNATED_APP_PROFILE" "${tmp_app_profile}" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
       true
     ) || return $?
 
     reload_cfg "$ENTANDO_GLOBAL_CFG"
-    set_curr_app_profile "$ENTANDO_CURRENT_APP_PROFILE" "$ENTANDO_CURRENT_APP_PROFILE_HOME"
+    set_curr_app_profile "$DESIGNATED_APP_PROFILE" "$DESIGNATED_APP_PROFILE_HOME"
     activate_designated_workdir
+
+    print_current_app_profile_info -v
 
     ${APP_PROFILE_NEVER_USED:-false} && {
       save_cfg_value APP_PROFILE_NEVER_USED ""
       print_first_use_readme
     }
   fi
+}
+
+_list_app_profiles() {
+  local filter
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -n -a -- filter '1///filter' "$@"
+  [ -n "$HH" ] && exit 0
+
+  if [ -n "$filter" ]; then
+    find . -maxdepth 1 ! -path . -printf '%f\n' | grep "$filter"
+  else
+    find . -maxdepth 1 ! -path . -printf '%f\n'
+  fi
+}
+
+select_application_profile() {
+  local res_var="$1";shift
+  local application_profile="$1";shift
+  local LST
+  stdin_to_arr $'\n\r' LST < <(list_app_profiles "$application_profile")
+
+  if [ "${#LST[@]}" -le 0 ]; then
+    [ -n "$application_profile" ] && FATAL "No application profile was found with the provided data"
+    FATAL "No application profile was found"
+  fi
+
+  select_one -s "Application Profile" "${LST[@]}"
+  # shellcheck disable=SC2154
+  _set_var "$res_var" "$select_one_res_alt"
 }
 
 parse_basic_app_profile_args() {
@@ -253,8 +285,8 @@ new_app_profile() {
 
   [ -d "${app_dir}" ] && FATAL "Application profile \"$APP_PROFILE\" already exists under dir: \"$app_dir\""
   mkdir -p "${app_dir}/w"
-  chmod 600 -R "$ENTANDO_ENT_HOME/w"
   chmod 700 "$ENTANDO_ENT_HOME/w"
+  find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
   _log_i 0 "Application profile \"$APP_PROFILE\" created"
 
   local cfg_file="$app_dir/w/.cfg"
@@ -276,23 +308,28 @@ print_first_use_readme() {
   {
     echo ""
     print_hr
-    MSG="README PLEASE:"
+    MSG="PLEASE README:"
     MSG+=$'\n'
-    MSG+=$'\n'"The kubectl \"mode\" is set to automatic, which means that I'll try to adapt to your system."
+    MSG+=$'\n'"The kubectl \"mode\" is set to automatic for this profile,"
+    MSG+=" which means that I'll try to adapt to your system."
     MSG+=$'\n'"However, should that not be enough, you have these options:"
-    ((i++))
-    MSG+=$'\n'"~"
-    MSG+=$'\n'"$i) SELECT A CONTEXT TO USE:"
-    MSG+=$'\n'"   ent list-contexts"
-    MSG+=$'\n'"   ent app link {context-name}"
     ((i++))
     MSG+=$'\n'"~"
     MSG+=$'\n'"$i) ATTACH TO A MANAGED VM:"
     MSG+=$'\n'"   ent attach-vm {vm-name}"
     ((i++))
     MSG+=$'\n'"~"
+    MSG+=$'\n'"$i) ATTACH TO A KUBECONFIG:"
+    MSG+=$'\n'"   ent attach-kubeconfig {kubeconfig-file}"
+    ((i++))
+    MSG+=$'\n'"~"
+    MSG+=$'\n'"$i) AND/OR SELECT A CONTEXT TO USE:"
+    MSG+=$'\n'"   ent list-kube-contexts"
+    MSG+=$'\n'"   ent app link {context-name}"
+    ((i++))
+    MSG+=$'\n'"~"
     MSG+=$'\n'"$i) AND/OR PROVIDE A CUSTOM COMMAND:"
-    MSG+=$'\n'"   ent set-kubectl-cmd {command} [--kubeconfig={config}]"
+    MSG+=$'\n'"   ent set-kubectl-cmd \"{command}\" [--kubeconfig={config}]"
     echo "$MSG"
     print_hr
     echo ""
@@ -315,7 +352,7 @@ delete_app_profile() {
   map-from-stdin "application_profile" $'\n\r' < <(ls -d * 2>/dev/null)
   args_or_ask_from_list "application_profile" -m -a ${HH:+"$HH"} APP_PROFILE 1 "any" \
     "application profile" "Select the application profile" "$@"
-  [ ! -d "$APP_PROFILE" ] && FATAL "Application not found"
+  [ ! -d "$APP_PROFILE" ] && FATAL "Application profile not found"
   [ ! -d "$APP_PROFILE/w" ] && FATAL "Invalid application profile dir"
 
   (
@@ -325,8 +362,8 @@ delete_app_profile() {
     # shellcheck disable=SC2034
     # shellcheck disable=SC2030
     (
-      ENTANDO_CURRENT_APP_PROFILE="$APP_PROFILE"
-      ENTANDO_CURRENT_APP_PROFILE_HOME="$apps_base_dir/$ENTANDO_CURRENT_APP_PROFILE"
+      DESIGNATED_APP_PROFILE="$APP_PROFILE"
+      DESIGNATED_APP_PROFILE_HOME="$apps_base_dir/$DESIGNATED_APP_PROFILE"
       activate_application_workdir
       reload_cfg
 
@@ -342,21 +379,21 @@ delete_app_profile() {
     rm -rf "$APP_PROFILE"
     _log_i 0 "Application profile \"$APP_PROFILE\" deleted"
 
-    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
-    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "DESIGNATED_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
     true
   ) && {
     reload_cfg "$ENTANDO_GLOBAL_CFG"
     if [ "$APP_PROFILE" = "$THIS_APP_PROFILE" ]; then
       THIS_APP_PROFILE=""
-      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "DESIGNATED_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
     fi
     print_current_app_profile_info
   }
 }
 
-list_app_profile() {
+list_app_profiles() {
   # shellcheck disable=SC2034
   local application_profile
   if $USE_CURRENT_DIR; then
@@ -367,87 +404,57 @@ list_app_profile() {
 
   (
     __cd "$apps_base_dir"
-    # shellcheck disable=SC2035
-    stdin_to_arr $'\n\r' application_profile < <(ls -d * 2>/dev/null)
-
-    for file in "${application_profile[@]}"; do
-      echo "$file"
-    done
+    _list_app_profiles "$@"
   )
 }
 
 select_kube_context() {
-  local res_var="$1"; shift
-  local kube_context="$1"; shift
+  local res_var="$1";shift
+  local kube_context="$1";shift
   local LST
   stdin_to_arr $'\n\r' LST < <(list_kube_contexts "$kube_context")
-  
+
   if [ "${#LST[@]}" -le 0 ]; then
-   [ -n "$kube_context" ] && FATAL "No kube context was found with the provided data"
-   FATAL "No kube context was found"
+    [ -n "$kube_context" ] && FATAL "No kube context was found with the provided data"
+    FATAL "No kube context was found"
   fi
-  
-  select_one -s -a "KUBECTX" "${LST[@]}"
+
+  select_one -s "Kube Context" "${LST[@]}"
   # shellcheck disable=SC2154
-  _set_var "$res_var" "$select_one_res_alt" 
+  _set_var "$res_var" "$select_one_res_alt"
 }
 
 link_kube_context() {
   local kube_context use_def
-  args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kube-context' "$@"  
+  args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kube-context' "$@"
 
   if $use_def; then
     args_or_ask -n -a -- kube_context '1///' "$@" && {
       FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
     }
     [ -n "$HH" ] && exit 0
-    DESIGNATED_KUBE_CTX=""
-    save_cfg_value "DESIGNATED_KUBE_CTX" "$DESIGNATED_KUBE_CTX"
+    DESIGNATED_KUBECTX=""
+    save_cfg_value "DESIGNATED_KUBECTX" "$DESIGNATED_KUBECTX"
   else
     args_or_ask ${HH:+"$HH"} -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
     [ -n "$HH" ] && exit 0
     local RES
     select_kube_context RES "$kube_context"
     [ -n "$HH" ] && exit 0
-    DESIGNATED_KUBE_CTX="$RES"
-    save_cfg_value "DESIGNATED_KUBE_CTX" "$DESIGNATED_KUBE_CTX"   
+    DESIGNATED_KUBECTX="$RES"
+    save_cfg_value "DESIGNATED_KUBECTX" "$DESIGNATED_KUBECTX"
   fi
-  
-  exit
 }
 
 app_profile_auto_attach() {
   # shellcheck disable=SC2031
   if [ -n "$DESIGNATED_VM" ]; then
     ent attach-vm "$DESIGNATED_VM"
-  fi
-}
-
-login_supported() {
-  if [ "$ENT_KUBECTL_CMD" = "oc" ] && "${ENABLE_AUTOLOGIN:-true}" != "false"; then
-    return 0
   else
-    if ${ENABLE_AUTOLOGIN:-false}; then
-      return 0
-    else
-      return 1
-    fi
+    [ -n "$DESIGNATED_KUBECONFIG" ] && save_cfg_value "DESIGNATED_KUBECONFIG" "$DESIGNATED_KUBECONFIG"
+    [ -n "$DESIGNATED_KUBECTX" ] && save_cfg_value "DESIGNATED_KUBECTX" "$DESIGNATED_KUBECTX"
+    [ -n "$ENT_KUBECTL_CMD" ] && save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
   fi
 }
-
-ENTANDO_IMAGES_FILTER=""
-ENTANDO_IMAGES_FILTER+="entando-component-manager\|"
-ENTANDO_IMAGES_FILTER+="entando-de-app-wildfly\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-app-controller\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-app-plugin-link-controller\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-cluster-infrastructure-controller\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-composite-app-controller\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-controller-coordinator\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-dbjob\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-keycloak-controller\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-plugin-controller\|"
-ENTANDO_IMAGES_FILTER+="entando-k8s-service\|"
-ENTANDO_IMAGES_FILTER+="entando-keycloak\|"
-ENTANDO_IMAGES_FILTER+="entando-plugin-sidecar"
 
 RUN "$@"

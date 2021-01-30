@@ -179,8 +179,8 @@ $SYS_OS_UNKNOWN && {
 
 [ ! -d "$ENTANDO_ENT_HOME/w" ] && {
   mkdir -p "$ENTANDO_ENT_HOME/w"
-  chmod 600 -R "$ENTANDO_ENT_HOME/w"
   chmod 700 "$ENTANDO_ENT_HOME/w"
+  find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
 }
 mkdir -p "$ENTANDO_ENT_HOME/d"
 mkdir -p "$ENTANDO_ENT_HOME/lib"
@@ -203,11 +203,11 @@ ENTANDO_NAMESPACE=""
   ENABLE_AUTOLOGIN=""
 }
 
-if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
-  if assert_ext_ic_id "" "$ENTANDO_CURRENT_APP_PROFILE" "silent"; then
-    ENTANDO_CURRENT_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_PROFILE"
+if [ -n "$DESIGNATED_APP_PROFILE" ]; then
+  if assert_ext_ic_id "" "$DESIGNATED_APP_PROFILE" "silent"; then
+    DESIGNATED_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$DESIGNATED_APP_PROFILE"
   else
-    FATAL "Illegal value provided in environment var ENTANDO_CURRENT_APP_PROFILE"
+    FATAL "Illegal value provided in environment var DESIGNATED_APP_PROFILE"
   fi
 fi
 
@@ -218,10 +218,10 @@ reload_cfg "$ENTANDO_GLOBAL_CFG"
 # the default workdir is not related t any application profile
 # and it's located the ent installation directory
 activate_ent_default_workdir() {
-  if [ -z "$ENTANDO_CURRENT_APP_PROFILE" ]; then
+  if [ -z "$DESIGNATED_APP_PROFILE" ]; then
     # shellcheck disable=SC2034
     THIS_APP_PROFILE=""
-    ENTANDO_CURRENT_APP_PROFILE_HOME=""
+    DESIGNATED_APP_PROFILE_HOME=""
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_WORK_DIR/.cfg"
@@ -234,17 +234,17 @@ activate_ent_default_workdir() {
 # the application workdir is the specific ent app directory
 # and can be potentially used by more that on ent installation
 activate_application_workdir() {
-  if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
-    if [ -d "$ENTANDO_CURRENT_APP_PROFILE_HOME/w" ]; then
-      ENT_WORK_DIR="$ENTANDO_CURRENT_APP_PROFILE_HOME/w"
+  if [ -n "$DESIGNATED_APP_PROFILE" ]; then
+    if [ -d "$DESIGNATED_APP_PROFILE_HOME/w" ]; then
+      ENT_WORK_DIR="$DESIGNATED_APP_PROFILE_HOME/w"
       # shellcheck disable=SC2034
       CFG_FILE="$ENT_WORK_DIR/.cfg"
       return 0
     else
       _log_e 0 \
-        "Unable to load the application profile \"$ENTANDO_CURRENT_APP_PROFILE\", falling back to the default profile"
-      ENTANDO_CURRENT_APP_PROFILE_HOME=""
-      ENTANDO_CURRENT_APP_PROFILE=""
+        "Unable to load the application profile \"$DESIGNATED_APP_PROFILE\", falling back to the default profile"
+      DESIGNATED_APP_PROFILE_HOME=""
+      DESIGNATED_APP_PROFILE=""
       return 1
     fi
   fi
@@ -253,13 +253,14 @@ activate_application_workdir() {
 # activates the current execution context
 # shellcheck disable=SC2034
 activate_designated_workdir() {
-  reload_cfg "$ENTANDO_GLOBAL_CFG"
-  if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
+  TEMPORARY=false;[ "$1" = "--temporary" ] && TEMPORARY=true
+  ! $TEMPORARY && reload_cfg "$ENTANDO_GLOBAL_CFG"
+  if [ -n "$DESIGNATED_APP_PROFILE" ]; then
     activate_application_workdir
   else
     activate_ent_default_workdir
   fi
-  save_cfg_value "THIS_APP_PROFILE" "${ENTANDO_CURRENT_APP_PROFILE}"
+  ! $TEMPORARY && save_cfg_value "THIS_APP_PROFILE" "${DESIGNATED_APP_PROFILE}"
   ENT_KUBECTL_CMD=""
   ENABLE_AUTOLOGIN=""
   reload_cfg
@@ -268,15 +269,15 @@ activate_designated_workdir() {
 
 set_curr_app_profile() {
   [ -z "$1" ] && FATAL -t "Illegal application profile name detected"
-  ENTANDO_CURRENT_APP_PROFILE="$1"
-  ENTANDO_CURRENT_APP_PROFILE_HOME="$2"
-  [ -z "$ENTANDO_CURRENT_APP_PROFILE_HOME" ] &&
-    ENTANDO_CURRENT_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_PROFILE"
-  save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "$ENTANDO_CURRENT_APP_PROFILE" "$ENTANDO_GLOBAL_CFG"
-  save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "$ENTANDO_CURRENT_APP_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
+  DESIGNATED_APP_PROFILE="$1"
+  DESIGNATED_APP_PROFILE_HOME="$2"
+  [ -z "$DESIGNATED_APP_PROFILE_HOME" ] &&
+    DESIGNATED_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$DESIGNATED_APP_PROFILE"
+  save_cfg_value "DESIGNATED_APP_PROFILE" "$DESIGNATED_APP_PROFILE" "$ENTANDO_GLOBAL_CFG"
+  save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "$DESIGNATED_APP_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
 }
 
-if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
+if [ -n "$DESIGNATED_APP_PROFILE" ]; then
   activate_application_workdir
 else
   activate_ent_default_workdir
@@ -376,7 +377,7 @@ kubectl_update_once_options() {
   *) KUBECTL_ONCE_OPTIONS+="--namespace=$NS " ;;
   esac
   
-  local CTX="${DESIGNATED_KUBE_CTX//$'\n'/}"
+  local CTX="${DESIGNATED_KUBECTX//$'\n'/}"
   
   if [ -n "$CTX" ]; then
     KUBECTL_ONCE_OPTIONS+="--context=$CTX "
@@ -384,10 +385,25 @@ kubectl_update_once_options() {
 }
 
 reset_kubectl_mode() {
-  save_cfg_value "DESIGNATED_KUBECONFIG" ""
-  detach_vm
-  save_cfg_value "DESIGNATED_KUBE_CTX" ""
-  save_cfg_value "ENT_KUBECTL_CMD" ""
+  while [ -n "$1" ]; do
+    case "$1" in
+    "--mem")
+      DESIGNATED_KUBECONFIG=""
+      DESIGNATED_VM=""
+      DESIGNATED_VM_NAMESPACE=""
+      DESIGNATED_KUBECTX=""
+      # shellcheck disable=SC2034
+      ENT_KUBECTL_CMD=""
+    ;;
+    "--cfg")
+      detach_kubeconfig
+      detach_vm --preserve-config-file
+      save_cfg_value "DESIGNATED_KUBECTX" ""
+      save_cfg_value "ENT_KUBECTL_CMD" ""
+    ;;
+    esac
+    shift
+  done
 }
 
 print_ent_operative_infos() {
@@ -397,6 +413,10 @@ print_ent_operative_infos() {
   kubectl_update_once_options ""
   print_hr
   _log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-{ENVIRONMENT\}}"
+  if [ -z "$DESIGNATED_KUBECONFIG" ]; then
+    echo " - The current environment KUBECONFIG is: ${KUBECONFIG:-{EMPTY\}}"
+  fi
   case "$ENTANDO_KUBECTL_MODE" in
   "COMMAND")
     echo " - The designated kubectl command is: ${ENTANDO_KUBECTL:-{ERR-NO-FOUND\}}"
@@ -411,8 +431,6 @@ print_ent_operative_infos() {
     FATAL "Unknown kubectl mode"
     ;;
   esac
-  echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-{ENVIRONMENT\}}"
-  echo " - The current environment KUBECONFIG is: ${KUBECONFIG:-{EMPTY\}}"
   print_hr
 }
 

@@ -17,6 +17,19 @@ RUN() {
   reload_cfg "$C_ENT_PRJ_FILE"
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
+  
+  if [[ "$1" =~ --app=.* ]]; then
+    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_APP_PROFILE" "--app/ext_ic_id//" "$@"
+    if [ "$DESIGNATED_APP_PROFILE" != "$ENTANDO_USE_APP_PROFILE" ]; then
+      reset_kubectl_mode --mem 
+      DESIGNATED_APP_PROFILE="$ENTANDO_USE_APP_PROFILE"
+      # shellcheck disable=SC2034
+      DESIGNATED_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$DESIGNATED_APP_PROFILE"
+      activate_designated_workdir --temporary
+    fi
+    shift
+  fi
+
 
   while true; do
     cmd="$1"
@@ -39,6 +52,12 @@ RUN() {
         ;;
       "detach-vm") #H: detach ent from the current ent-managed VM
         detach_vm "$@"
+        ;;
+      "attach-kubeconfig")  #H: links the current application profile to a kube context
+        attach_kubeconfig "$@"
+        ;;
+      "detach-kubeconfig")  #H: links the current application profile to a kube context
+        detach_kubeconfig "$@"
         ;;
       "fix-vm-ddns") #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
         # shellcheck disable=SC1091
@@ -151,7 +170,7 @@ handle_config_command() {
 }
 
 detach_vm() {
-  rm "$ENT_KUBECONF_FILE_PATH"
+  [ "$1" = "--preserve-config-file" ] || rm "$ENT_KUBECONF_FILE_PATH"
   save_cfg_value "DESIGNATED_KUBECONFIG" ""
   save_cfg_value "DESIGNATED_VM" ""
   save_cfg_value "DESIGNATED_VM_NAMESPACE" ""
@@ -177,7 +196,6 @@ attach_vm() {
     [ -f "$ENT_KUBECONF_FILE_PATH" ] && rm "$ENT_KUBECONF_FILE_PATH"
     touch "$ENT_KUBECONF_FILE_PATH"
     chmod 600 "$ENT_KUBECONF_FILE_PATH"
-    chmod u=rw,go= "$ENT_KUBECONF_FILE_PATH"
   ) || FATAL "Unable to prepare to KUBECONFIG file"
 
   multipass exec "$VM_NAME" -- bash -c "sudo cat /etc/rancher/k3s/k3s.yaml" \
@@ -186,6 +204,17 @@ attach_vm() {
   reset_kubectl_mode
   save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
   save_cfg_value "DESIGNATED_VM" "$VM_NAME"
+}
+
+attach_kubeconfig() {
+  local KUBECONFIG
+  args_or_ask ${HH:+"$HH"} -a -- KUBECONFIG '1///%sp kubeconfig file' "$@"  
+  #reset_kubectl_mode
+  save_cfg_value "DESIGNATED_KUBECONFIG" "$KUBECONFIG"
+}
+
+detach_kubeconfig() {
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
 }
 
 cmplt() {
@@ -201,6 +230,7 @@ cmplt() {
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "import" "activate"
       "set-kubectl-cmd" "reset-kubectl-mode" "status" "list-kube-contexts"
+      "attach-kubeconfig" "detach-kubeconfig"
   )
 
   for tc in "${topcmd[@]}"; do

@@ -46,3 +46,12 @@ C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
   [ -f w/_env ] && . w/_env
   [ -f _env ] && . _env
 }
+
+ENTANDO_STANDARD_IMAGES=(
+  "entando-component-manager" "entando-de-app-wildfly" "entando-k8s-app-controller"
+  "entando-k8s-app-plugin-link-controller" "entando-k8s-cluster-infrastructure-controller"
+  "entando-k8s-composite-app-controller" "entando-k8s-controller-coordinator"
+  "entando-k8s-dbjob" "entando-k8s-keycloak-controller"
+  "entando-k8s-plugin-controller" "entando-k8s-service"
+  "entando-keycloak" "entando-plugin-sidecar"
+)

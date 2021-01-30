@@ -785,9 +785,9 @@ print_current_app_profile_info() {
   fi
   
   $VERBOSE && {
-    echo " - The currently linked kube context is: ${DESIGNATED_KUBE_CTX:-{NONE\}}"
     echo " - The currently designated appname is: ${ENTANDO_APPNAME:-{NONE\}}"
     echo " - The currently designated namespace is: ${ENTANDO_NAMESPACE:-{NONE\}}"
+    echo " - The currently linked kube context is: ${DESIGNATED_KUBECTX:-{NONE\}}"
   }
 }
 
