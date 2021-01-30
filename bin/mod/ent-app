@@ -247,6 +247,8 @@ new_app_ctx() {
   [ -d "${app_dir}" ] && FATAL "Application context \"$APP_CTX\" already exists under dir: \"$app_dir\""
 
   mkdir -p "${app_dir}/w"
+  chmod 600 -R "$ENTANDO_ENT_HOME/w"
+  chmod 700 "$ENTANDO_ENT_HOME/w"
   _log_i 0 "Application context \"$APP_CTX\" created"
   #cp -r "$ENT_WORK_DIR" "${app_dir}" || true
   #_log_i 0 "New configuration and state created under \"$APP_CTX\""

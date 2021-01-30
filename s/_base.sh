@@ -170,7 +170,11 @@ $SYS_OS_UNKNOWN && {
   exit 99
 }
 
-mkdir -p "$ENTANDO_ENT_HOME/w"
+[ ! -d "$ENTANDO_ENT_HOME/w" ] && {
+  mkdir -p "$ENTANDO_ENT_HOME/w"
+  chmod 600 -R "$ENTANDO_ENT_HOME/w"
+  chmod 700 "$ENTANDO_ENT_HOME/w"
+}
 mkdir -p "$ENTANDO_ENT_HOME/d"
 mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
