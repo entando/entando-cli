@@ -12,6 +12,7 @@
   SYS_OS_UNKNOWN=false
   ENT_KUBECTL_CMD=""
   ENTANDO_KUBECTL_MODE=""
+  ENTANDO_KUBECTL_AUTO_DETECTED=""
   DESIGNATED_KUBECONFIG=""
   KUBECTL_ONCE_OPTIONS=""
 
@@ -107,8 +108,10 @@
 
   # Overwritten by utils.sh
   kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
+  reset_kubectl_mode() { :; }
 
   # KUBECTL
+  # shellcheck disable=SC2034
   setup_kubectl() {
     [ -n "$ENT_KUBECTL_CMD" ] && {
       ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
@@ -143,6 +146,7 @@
       ENTANDO_KUBECTL_MODE="AUTODETECT"
       
       if $OS_WIN; then
+        ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL"
         _kubectl() {
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
@@ -150,10 +154,15 @@
         }
         _kubectl-pre-sudo() { :; }
       else
+        ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL-PRIVILEGED"
         _kubectl() {
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
-          sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          if $ENT_KUBECTL_NO_AUTO_SUDO; then
+            kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          else
+            sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          fi
         }
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       fi

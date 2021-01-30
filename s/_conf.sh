@@ -20,8 +20,11 @@ ENT_KUBECONF_FILE_PATH="$ENT_WORK_DIR/.kubeconf"
 # CONSTS
 C_HOSTS_FILE="/etc/hosts"
 C_BUNDLE_DESCRIPTOR_FILE_NAME="descriptor.yaml"
-C_ENT_PRJ_FILE=".ent-prj"
-C_ENT_STATE_FILE=".ent-state"
+C_ENT_PRJ_ENT_DIR=".ent"
+C_ENT_PRJ_FILE="$C_ENT_PRJ_ENT_DIR/ent-prj"
+C_ENT_STATE_FILE="$C_ENT_PRJ_ENT_DIR/ent-state"
+C_ENT_OLD_PRJ_FILE=".ent-prj"
+C_ENT_OLD_STATE_FILE=".ent-state"
 
 C_GENERATOR_JHIPSTER_ENTANDO_NAME="generator-jhipster-entando"
 C_ENTANDO_BUNDLER_DIR="entando-bundle-tool"

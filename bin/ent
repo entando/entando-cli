@@ -13,7 +13,9 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 RUN() {
   local HH
+  upgrade_project_file "$C_ENT_PRJ_FILE" "$C_ENT_OLD_PRJ_FILE"
   reload_cfg "$C_ENT_PRJ_FILE"
+  upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
 
   while true; do
@@ -46,7 +48,7 @@ RUN() {
         # shellcheck disable=SC1091
         source ent help --simple
         ;;
-      "print-completion-setup") #H: setups the ent autocompletion
+      "completion") #H: setups the ent autocompletion
         [ -z "$1" ] && FATAL "Please provide the shell type (bash|zsh)"
         if [ "$1" = "zsh" ]; then
           echo "source \"$ENTANDO_ENT_HOME/s/completion.zsh\""
@@ -56,6 +58,18 @@ RUN() {
           FATAL "Unsupported shell"
         fi
         return 0
+        ;;
+      "set-kubectl-cmd") #H: setups kubectl alternative command to use
+        ent kubectl ent-set-cmd "$@"
+        ;;
+      "reset-kubectl-mode") #H: reset the kubectl mode to the default one
+        reset_kubectl_mode
+        ;;
+      "status") #H: reset the kubectl mode to the default one
+        print_ent_operative_infos
+        ;;
+      "list-kube-contexts")  #H: prints a list of available contexts from the current kubeconfig
+        list_kube_contexts "$@"
         ;;
       "")
         # shellcheck disable=SC1091
@@ -99,9 +113,6 @@ which_ent() {
     TAG="$(git describe --exact-match --tags)"
     echo "$ENTANDO_VERSION ($TAG)"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
-    echo "- APPCTX:"
-    echo "$ENTANDO_CURRENT_APP_CTX"
-    echo "$ENTANDO_CURRENT_APP_CTX_HOME"
   ) 1>&2
 }
 
@@ -171,12 +182,10 @@ attach_vm() {
 
   multipass exec "$VM_NAME" -- bash -c "sudo cat /etc/rancher/k3s/k3s.yaml" \
     | _perl_sed "s/127.0.0.1/$ADDR/" >> "$ENT_KUBECONF_FILE_PATH"
-
+    
+  reset_kubectl_mode
   save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
   save_cfg_value "DESIGNATED_VM" "$VM_NAME"
-
-  # reset kubectl command setup
-  save_cfg_value "ENT_KUBECTL_CMD" ""
 }
 
 cmplt() {
@@ -189,7 +198,10 @@ cmplt() {
     echo "$mod"
   done
 
-  local topcmd+=("attach-vm" "detach-vm" "fix-vm-ddns" "print-completion-setup" "config" "which" "import" "activate")
+  local topcmd+=(
+    "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "import" "activate"
+      "set-kubectl-cmd" "reset-kubectl-mode" "status" "list-kube-contexts"
+  )
 
   for tc in "${topcmd[@]}"; do
     echo "$tc"
@@ -200,12 +212,12 @@ cmplt() {
 # ######################################################################################################################
 # ######################################################################################################################
 
-(
+if (
  [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
  [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
     printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
  [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)
-) && {
+); then
   ENTANDO_ENT_TMPFILE_0002bb75="$(mktemp /tmp/ent-runner-XXXXXXXX)"
   ENTANDO_ENT_TMPVAR_0002bb75=0
   case "${1}" in
@@ -234,6 +246,22 @@ cmplt() {
 
   unset ENTANDO_ENT_TMPFILE_0002bb75
   exit "$ENTANDO_ENT_TMPVAR_0002bb75"
+else
+  # shellcheck disable=SC2034
+  ENTANDO_CALLER_PWD="$PWD"
+fi
+
+upgrade_project_file() {
+  local N=$1
+  local O=$2
+  if [ -f "$O" ]; then
+    mkdir -p "$C_ENT_PRJ_ENT_DIR"
+    if [ -f "$N" ]; then
+      mv "$O" "$C_ENT_PRJ_ENT_DIR/$O.backup"
+    else
+      mv "$O" "$N"
+    fi 
+  fi
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"

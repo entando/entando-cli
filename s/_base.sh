@@ -7,7 +7,11 @@ ${ENTANDO_BASE_EXECUTED:-false} && return 0
 ENTANDO_BASE_EXECUTED=true
 
 DDD() {
-  local FULLTRACE=false; [ "$1" = "-t" ] && { FULLTRACE=true; shift; }
+  local FULLTRACE=false
+  [ "$1" = "-t" ] && {
+    FULLTRACE=true
+    shift
+  }
   {
     echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
     echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"
@@ -53,7 +57,10 @@ function print_calltrace() {
     print_calltrace "$@" >"$ENTANDO_DEBUG_TTY"
   fi
   local NOFRAME=false
-  [ "$1" = "-n" ] && { NOFRAME=true; shift; }
+  [ "$1" = "-n" ] && {
+    NOFRAME=true
+    shift
+  }
 
   local start=0
   local steps=999
@@ -248,6 +255,32 @@ activate_application_workdir() {
   fi
 }
 
+# activates the current execution context
+# shellcheck disable=SC2034
+activate_designated_workdir() {
+  reload_cfg "$ENTANDO_GLOBAL_CFG"
+  if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+    activate_application_workdir
+  else
+    activate_ent_default_workdir
+  fi
+  save_cfg_value "THIS_APP_CTX" "${ENTANDO_CURRENT_APP_CTX}"
+  ENT_KUBECTL_CMD=""
+  ENABLE_AUTOLOGIN=""
+  reload_cfg
+  setup_kubectl
+}
+
+set_curr_app_ctx() {
+  [ -z "$1" ] && FATAL -t "Illegal application context name detected"
+  ENTANDO_CURRENT_APP_CTX="$1"
+  ENTANDO_CURRENT_APP_CTX_HOME="$2"
+  [ -z "$ENTANDO_CURRENT_APP_CTX_HOME" ] &&
+    ENTANDO_CURRENT_APP_CTX_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_CTX"
+  save_cfg_value "ENTANDO_CURRENT_APP_CTX" "$ENTANDO_CURRENT_APP_CTX" "$ENTANDO_GLOBAL_CFG"
+  save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "$ENTANDO_CURRENT_APP_CTX_HOME" "$ENTANDO_GLOBAL_CFG"
+}
+
 if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
   activate_application_workdir
 else
@@ -336,16 +369,57 @@ activate_designated_node() {
 
 # overrides the essential.sh base
 kubectl_update_once_options() {
-  local NS
+  KUBECTL_ONCE_OPTIONS=""
+  
   determine_namespace NS "$@"
 
-  NS="${NS//$'\n'/}"
+  local NS="${NS//$'\n'/}"
   # shellcheck disable=SC2034
   case "$NS" in
-  "*") KUBECTL_ONCE_OPTIONS="--all-namespaces" ;;
-  "") KUBECTL_ONCE_OPTIONS="" ;;
-  *) KUBECTL_ONCE_OPTIONS="--namespace=$NS" ;;
+  "*") KUBECTL_ONCE_OPTIONS+="--all-namespaces " ;;
+  "") ;;
+  *) KUBECTL_ONCE_OPTIONS+="--namespace=$NS " ;;
   esac
+  
+  local CTX="${DESIGNATED_KUBE_CTX//$'\n'/}"
+  
+  if [ -n "$CTX" ]; then
+    KUBECTL_ONCE_OPTIONS+="--context=$CTX "
+  fi
+}
+
+reset_kubectl_mode() {
+  save_cfg_value "DESIGNATED_KUBECONFIG" ""
+  save_cfg_value "DESIGNATED_VM" ""
+  save_cfg_value "APP_LOGIN_URL" ""
+  save_cfg_value "APP_LOGIN_TOKEN" ""
+  save_cfg_value "ENT_KUBECTL_CMD" ""
+}
+
+print_ent_operative_infos() {
+  print_hr
+  print_current_app_context_info -v
+  setup_kubectl
+  kubectl_update_once_options ""
+  print_hr
+  _log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  case "$ENTANDO_KUBECTL_MODE" in
+  "COMMAND")
+    echo " - The designated kubectl command is: ${ENTANDO_KUBECTL:-{ERR-NO-FOUND\}}"
+    ;;
+  "CONFIG")
+    echo " - The designated kubectl command is: {DEFAULT}"
+    ;;
+  "AUTODETECT")
+    echo " - The auto detected kubectl is: {${ENTANDO_KUBECTL_AUTO_DETECTED:-ERR-NO-FOUND}}"
+    ;;
+  *)
+    FATAL "Unknown kubectl mode"
+    ;;
+  esac
+  echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-{ENVIRONMENT\}}"
+  echo " - The current environment KUBECONFIG is: ${KUBECONFIG:-{EMPTY\}}"
+  print_hr
 }
 
 determine_namespace() {

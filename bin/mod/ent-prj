@@ -274,7 +274,7 @@ prj_ecr_uninstall() {
 }
 
 prj_ecr_deploy() {
-  print_current_app_context_name
+  print_current_app_context_info
   generate_custom_resource "$@" | _kubectl apply -f -
 }
 
@@ -460,14 +460,14 @@ be_update_plugin_descriptor() {
 }
 
 be_list_pods() {
-  print_current_app_context_name
+  print_current_app_context_info
   get_be_info
   get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
 }
 
 be_restart_pods() {
   local restart_pods_after="$1"
-  print_current_app_context_name
+  print_current_app_context_info
   get_be_info
   local pods
   pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | grep "server-deployment" | cut -d' ' -f 1)"
@@ -484,7 +484,7 @@ be_restart_pods() {
 }
 
 be_purge_k8s() {
-  print_current_app_context_name
+  print_current_app_context_info
   get_be_info
   local pn="$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
   local tpn="${pn:0:31}"

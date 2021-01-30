@@ -343,6 +343,10 @@ print_entando_banner() {
   fi
 }
 
+print_hr() {
+  printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
+}
+
 # requires that the system environment was checked for development mode
 #
 require_develop_checked() {
@@ -771,12 +775,20 @@ stdin_to_arr() {
   done
 }
 
-print_current_app_context_name() {
+# shellcheck disable=SC2120
+print_current_app_context_info() {
+  VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if [ -n "$THIS_APP_CTX" ]; then
     _log_i 0 "Currently using the application context \"$THIS_APP_CTX\"" 1>&2
   else
     _log_i 0 "Currently not using any app context" 1>&2
   fi
+  
+  $VERBOSE && {
+    echo " - The currently linked kube context is: ${DESIGNATED_KUBE_CTX:-{NONE\}}"
+    echo " - The currently designated appname is: ${ENTANDO_APPNAME:-{NONE\}}"
+    echo " - The currently designated namespace is: ${ENTANDO_NAMESPACE:-{NONE\}}"
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -999,7 +1011,7 @@ ecr-prepare-action() {
   shift
   local var_token="$1"
   shift
-  print_current_app_context_name
+  print_current_app_context_info
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress scheme
   app-get-main-ingresses main_ingress ecr_ingress

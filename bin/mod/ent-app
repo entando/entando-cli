@@ -37,23 +37,30 @@ RUN() {
 
   case "$CMD" in
   "use") #H: selects the app context that ent should use
-    show_help_option "$HH" "$CMD"
     args_or_ask ${HH:+"$HH"} -n -F "NO_AUTO_LOGIN" "--no-auto-login///Disable auto-login" "$@"
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
     args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APPCTX" "--none///Assumes the global application context" "$@"
+    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     APP_LOGIN_URL=""
     APP_LOGIN_TOKEN=""
     DESIGNATED_VM=""
     use_app_ctx "$@"
-    app_ctx_auto_login
-    app_ctx_auto_attach
+    ! $USE_NO_APPCTX && {
+      #app_ctx_auto_login
+      app_ctx_auto_select_kube_context
+      app_ctx_auto_attach
+    }
     ;;
   "new") #H: created a new app context
     shift
     new_app_ctx "$@"
+    ;;
+  "set") #H: created a new app context
+    shift
+    setup_curr_app_ctx "$@"
     ;;
   "stop") #H: stops the app associated with the the given app context
     [ -n "$HH" ] && exit 0
@@ -73,19 +80,28 @@ RUN() {
     ;;
   "delete") #H: delete the given app context
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     delete_app_ctx "$@"
     ;;
   "list") #H: prints a list of the available app contexts
+    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     list_app_ctx "$@"
     ;;
   "login") #H: logins to an application context using a token
-    [ -n "$HH" ] && exit 0
     shift
     login_to_app_ctx "$@"
+    ;;
+  "list-kube-contexts")  #H: prints a list of available contexts from the current kubeconfig
+    shift
+    list_kube_contexts "$@"
+    ;;
+  "link-kube-context")  #H: links the current application context to a kube context
+    shift
+    link_kube_context "$1"
     ;;
   "images") #H: print the images running in the current EntandoApp
     print_images "$@"
@@ -108,8 +124,9 @@ RUN() {
     fi
     ;;
   "")
+    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
-    print_current_app_context_name
+    print_current_app_context_info
     _log_i 2 "The available application contexts are:"
     list_app_ctx "$@"
     ;;
@@ -150,10 +167,27 @@ print_images() {
   fi
 }
 
+setup_curr_app_ctx() {
+  HH="$(parse_help_option "$@")"
+  args_or_ask ${HH:+"$HH"} ENTANDO_APPNAME "--appname/ext_ic_id/$APP_CTX/%sp EntandoApp name" "$@" && {
+    save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME"
+  }
+  args_or_ask ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_ic_id/$APP_CTX/%sp default namespace" "$@" && {
+    save_cfg_value ENTANDO_NAMESPACE "$ENTANDO_NAMESPACE"
+  }
+  [ -n "$HH" ] && exit 0
+}
+
 use_app_ctx() {
   # shellcheck disable=SC2034
   local application_context
-  local apps_base_dir="$ENTANDO_HOME/apps"
+  local apps_base_dir
+
+  if $USE_CURRENT_DIR; then
+    apps_base_dir="$ENTANDO_CALLER_PWD/.ent/apps"
+  else
+    apps_base_dir="$ENTANDO_HOME/apps"
+  fi
 
   $USE_NO_APPCTX && application_context="--none"
   args_or_ask ${HH:+"$HH"} -a -p -n -- "application_context" '1///%sp application context (or --none)' "$@"
@@ -162,119 +196,140 @@ use_app_ctx() {
   # shellcheck disable=SC2034
   ENTANDO_CURRENT_APP_CTX_HOME=""
 
-  (
-    if $USE_NO_APPCTX; then
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
-    else
+  if $USE_NO_APPCTX; then
+    save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    activate_designated_workdir
+    return 0
+  else
+    (
       # shellcheck disable=SC2030
-      local APP_CTX
+      local tmp_app_ctx
       if [ "$application_context" = "" ]; then
         __cd "$apps_base_dir"
         # shellcheck disable=SC2035
-        map-from-stdin application_context $'\n\r' < <(ls -d *)
-        args_or_ask_from_list application_context -m -a ${HH:+"$HH"} APP_CTX 1 "any" \
+        map-from-stdin application_context $'\n\r' < <(ls -d * 2>/dev/null)
+        args_or_ask_from_list application_context -m -a ${HH:+"$HH"} tmp_app_ctx 1 "any" \
           "application context" "Select the application context" "$@"
       else
-        APP_CTX="$application_context"
+        tmp_app_ctx="$application_context"
       fi
 
-      local app_dir="$ENTANDO_HOME/apps/$APP_CTX"
+      local app_dir="$apps_base_dir/$tmp_app_ctx"
 
       if [ ! -d "$app_dir" ]; then
-        _log_w 0 "Application context \"$APP_CTX\" not found"
+        _log_w 0 "Application context \"$tmp_app_ctx\" not found"
         $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
         $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
-        new_app_ctx "$APP_CTX"
+        new_app_ctx "$tmp_app_ctx"
       fi
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${APP_CTX}" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
-    fi
 
-    true
-  ) && {
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${tmp_app_ctx}" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+      true
+    ) || return $?
+
     reload_cfg "$ENTANDO_GLOBAL_CFG"
-    if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
-      activate_application_workdir
-    else
-      activate_ent_default_workdir
-    fi
-    save_cfg_value "THIS_APP_CTX" "${ENTANDO_CURRENT_APP_CTX}"
-    ENT_KUBECTL_CMD=""
-    ENABLE_AUTOLOGIN=""
-    reload_cfg
-    setup_kubectl
-  }
+    set_curr_app_ctx "$ENTANDO_CURRENT_APP_CTX" "$ENTANDO_CURRENT_APP_CTX_HOME"
+    activate_designated_workdir
+
+    ${APP_CTX_NEVER_USED:-false} && {
+      save_cfg_value APP_CTX_NEVER_USED ""
+      print_first_use_readme
+    }
+  fi
+}
+
+parse_basic_app_ctx_args() {
+  local from="$1"
+  shift
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$APP_CTX/%sp EntandoApp name" "$@"
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$APP_CTX/%sp default namespace" "$@"
 }
 
 new_app_ctx() {
-  local LOGIN_URL LOGIN_TOKEN ATTACH_VM
-
   HH="$(parse_help_option "$@")"
-  show_help_option "$HH" ":main"
-
   args_or_ask ${HH:+"$HH"} -a APP_CTX "1/ext_ic_id//%sp application context name" "$@"
-  # shellcheck disable=SC2031
-  [ -z "$APP_CTX" ] && FATAL "Please provide the application context"
+  args_or_ask ${HH:+"$HH"} -n -F AUTO_USE \
+    "--auto-use//true/%sp if true (default) automatically switches to the new application context" "$@"
+  args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
+  parse_basic_app_ctx_args 2 "$@"
+  [ -n "$HH" ] && exit 0
+  # ~~~~~~~~~~~~~~
 
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "2/ext_ic_id/$APP_CTX/%sp EntandoApp name" "$@"
-  args_or_ask ${HH:+"$HH"} -a DEFAULT_NAMESPACE "3/ext_ic_id/$APP_CTX/%sp namespace name" "$@"
-
-  args_or_ask -n ${HH:+"$HH"} ATTACH_VM "--attach-vm/ext_ic_id?//%sp name of the vm to attach (if applicable)" "$@"
-  args_or_ask -n ${HH:+"$HH"} MAN_CMD "--kubecmd/ext_ic_id?//%sp the kubernetes management command (or nothing)" "$@"
-  args_or_ask -n ${HH:+"$HH"} LOGIN_URL "--login-url///%sp the login url (if applicable)" "$@"
-  args_or_ask -n  ${HH:+"$HH"} LOGIN_TOKEN "--login-token///%sp the login token (if applicable)" "$@"
-
-  if [ -z "$ATTACH_VM" ]; then
-    set_or_ask MAN_CMD "$MAN_CMD" "%sp the kubernetes management command (or nothing)" "$MAN_CMD" "assert_ext_ic_id?"
-    set_or_ask LOGIN_URL "$LOGIN_URL" "%sp the login url (if applicable)" "$LOGIN_URL" "assert_url?"
-    if [ -n "$LOGIN_URL" ]; then
-      set_or_ask LOGIN_TOKEN "$LOGIN_TOKEN" "%sp the login token (if applicable)" "$LOGIN_TOKEN" ""
-    fi
+  local app_dir
+  if $USE_CURRENT_DIR; then
+    app_dir="$ENTANDO_CALLER_PWD/.ent/apps/$APP_CTX"
+  else
+    app_dir="$ENTANDO_HOME/apps/$APP_CTX"
   fi
 
-  [ -n "$HH" ] && exit 0
-
-  local APP_CTX="$1"
-  local app_dir="$ENTANDO_HOME/apps/$APP_CTX"
-
   [ -d "${app_dir}" ] && FATAL "Application context \"$APP_CTX\" already exists under dir: \"$app_dir\""
-
   mkdir -p "${app_dir}/w"
   chmod 600 -R "$ENTANDO_ENT_HOME/w"
   chmod 700 "$ENTANDO_ENT_HOME/w"
   _log_i 0 "Application context \"$APP_CTX\" created"
-  #cp -r "$ENT_WORK_DIR" "${app_dir}" || true
-  #_log_i 0 "New configuration and state created under \"$APP_CTX\""
-  local CFG="$app_dir/w/.cfg"
 
-  save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME" "$CFG"
-  save_cfg_value DEFAULT_NAMESPACE "$DEFAULT_NAMESPACE" "$CFG"
-  save_cfg_value ENTANDO_NAMESPACE "$DEFAULT_NAMESPACE" "$CFG"
+  local cfg_file="$app_dir/w/.cfg"
+  save_cfg_value THIS_APP_CTX "$APP_CTX" "$cfg_file"
+  save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME" "$cfg_file"
+  save_cfg_value ENTANDO_NAMESPACE "$ENTANDO_NAMESPACE" "$cfg_file"
 
-  if [ -n "$ATTACH_VM" ]; then
-    save_cfg_value DESIGNATED_VM "$ATTACH_VM" "$CFG"
+  if $AUTO_USE; then
+    set_curr_app_ctx "$APP_CTX" "$app_dir"
+    _log_i 0 "Application context \"$APP_CTX\" activated"
+    activate_designated_workdir
+    print_first_use_readme
   else
-    if [ -n "$MAN_CMD" ]; then
-      save_cfg_value ENT_KUBECTL_CMD "$MAN_CMD" "$CFG"
-    fi
-
-    if [ -n "$LOGIN_URL" ]; then
-      save_cfg_value APP_LOGIN_URL "$LOGIN_URL" "$CFG"
-      save_cfg_value APP_LOGIN_TOKEN "$LOGIN_TOKEN" "$CFG"
-    fi
+    save_cfg_value APP_CTX_NEVER_USED "true" "$cfg_file"
   fi
+}
+
+print_first_use_readme() {
+  {
+    echo ""
+    print_hr
+    MSG="README PLEASE:"
+    MSG+=$'\n'
+    MSG+=$'\n'"The kubectl \"mode\" is set to automatic, which means that I'll try to adapt to your system."
+    MSG+=$'\n'"However, should that not be enough, you have these options:"
+    ((i++))
+    MSG+=$'\n'"~"
+    MSG+=$'\n'"$i) LOGIN TO A K8S API ENDPOINT:"
+    MSG+=$'\n'"   ent app login {url} --token={token} [--kubectl-cmd={command}]"
+    ((i++))
+    MSG+=$'\n'"~"
+    MSG+=$'\n'"$i) SELECT A CONTEXT TO USE:"
+    MSG+=$'\n'"   ent app list-contexts"
+    MSG+=$'\n'"   ent app set-context {context-name}"
+    ((i++))
+    MSG+=$'\n'"~"
+    MSG+=$'\n'"$i) ATTACH TO A MANAGED VM:"
+    MSG+=$'\n'"   ent attach-vm {vm-name}"
+    ((i++))
+    MSG+=$'\n'"~"
+    MSG+=$'\n'"$i) PROVIDE A CUSTOM COMMAND:"
+    MSG+=$'\n'"   ent set-kubectl-cmd {command} [--kubeconfig={config}]"
+    echo "$MSG"
+    print_hr
+    echo ""
+  } 1>&2
 }
 
 delete_app_ctx() {
   # shellcheck disable=SC2034
   local application_context
-  local apps_base_dir="$ENTANDO_HOME/apps"
+  local apps_base_dir
+  if $USE_CURRENT_DIR; then
+    apps_base_dir="$ENTANDO_CALLER_PWD/.ent/apps"
+  else
+    apps_base_dir="$ENTANDO_HOME/apps"
+  fi
 
   local APP_CTX
   __cd "$apps_base_dir"
   # shellcheck disable=SC2035
-  map-from-stdin "application_context" $'\n\r' < <(ls -d *)
+  map-from-stdin "application_context" $'\n\r' < <(ls -d * 2>/dev/null)
   args_or_ask_from_list "application_context" -m -a ${HH:+"$HH"} APP_CTX 1 "any" \
     "application context" "Select the application context" "$@"
   [ ! -d "$APP_CTX" ] && FATAL "Application not found"
@@ -288,7 +343,7 @@ delete_app_ctx() {
     # shellcheck disable=SC2030
     (
       ENTANDO_CURRENT_APP_CTX="$APP_CTX"
-      ENTANDO_CURRENT_APP_CTX_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_CTX"
+      ENTANDO_CURRENT_APP_CTX_HOME="$apps_base_dir/$ENTANDO_CURRENT_APP_CTX"
       activate_application_workdir
       reload_cfg
 
@@ -314,19 +369,23 @@ delete_app_ctx() {
       save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
       save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
     fi
-    print_current_app_context_name
+    print_current_app_context_info
   }
 }
 
 list_app_ctx() {
   # shellcheck disable=SC2034
   local application_context
-  local apps_base_dir="$ENTANDO_HOME/apps"
+  if $USE_CURRENT_DIR; then
+    apps_base_dir="$ENTANDO_CALLER_PWD/.ent/apps"
+  else
+    apps_base_dir="$ENTANDO_HOME/apps"
+  fi
 
   (
     __cd "$apps_base_dir"
     # shellcheck disable=SC2035
-    stdin_to_arr $'\n\r' application_context < <(ls -d *)
+    stdin_to_arr $'\n\r' application_context < <(ls -d * 2>/dev/null)
 
     for file in "${application_context[@]}"; do
       echo "$file"
@@ -335,16 +394,20 @@ list_app_ctx() {
 }
 
 login_to_app_ctx() {
-  local CACHED
-  args_or_ask ${HH:+"$HH"} -F -- "CACHED" "--cached///%sp authentication token" "$@"
-
+  local CACHED=false
+  args_or_ask -n ${HH:+"$HH"} -F -- "CACHED" "--cached///%sp use cached credential" "$@"
   if ! $CACHED; then
     args_or_ask ${HH:+"$HH"} -a -p -- "APP_LOGIN_URL" '1///%sp URL' "$@"
     args_or_ask ${HH:+"$HH"} -- "APP_LOGIN_TOKEN" "--token///%sp authentication token" "$@"
-    [[ -n "$HH" && -z "$CMD" ]] && exit
-    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN"
+    args_or_ask -n ${HH:+"$HH"} -- "ENT_KUBECTL_CMD" "--kubectl-cmd///%sp command to use instead of kubectl" "$@"
+    [[ -n "$HH" ]] && exit
+
+    reset_kubectl_mode
     save_cfg_value "APP_LOGIN_URL" "$APP_LOGIN_URL"
     save_cfg_value "APP_LOGIN_TOKEN" "$APP_LOGIN_TOKEN"
+    save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
+    setup_kubectl
+    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN"
   else
     [[ -n "$HH" && -z "$CMD" ]] && exit
     [[ -z "$APP_LOGIN_URL" || -z "$APP_LOGIN_TOKEN" ]] && FATAL "Credential cache missing or incomplete"
@@ -352,16 +415,60 @@ login_to_app_ctx() {
   fi
 }
 
-app_ctx_auto_login() {
-  if ! $NO_AUTO_LOGIN && login_supported && [[ -n "$APP_LOGIN_URL" && -n "$APP_LOGIN_TOKEN" ]]; then
-    _log_i 0 "Autologin to \"$APP_LOGIN_URL\""
-    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN" || {
-      _log_w 0 "AutoLogin failed, clearing the credentials cache"
-      APP_LOGIN_TOKEN=""
-      save_cfg_value "APP_LOGIN_TOKEN" ""
-    }
+select_kube_context() {
+  local res_var="$1"; shift
+  local kube_context="$1"; shift
+  local LST
+  stdin_to_arr $'\n\r' LST < <(list_kube_contexts "$kube_context")
+  
+  if [ "${#LST[@]}" -le 0 ]; then
+   [ -n "$kube_context" ] && FATAL "No kube context was found with the provided data"
+   FATAL "No kube context was found"
   fi
+  
+  select_one -s -a "KUBECTX" "${LST[@]}"
+  # shellcheck disable=SC2154
+  _set_var "$res_var" "$select_one_res_alt" 
 }
+
+link_kube_context() {
+  local kube_context use_def
+  args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kube-context' "$@"  
+
+  if $use_def; then
+    args_or_ask -n -a -- kube_context '1///' "$@" && {
+      FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
+    }
+    [ -n "$HH" ] && exit 0
+    DESIGNATED_KUBE_CTX=""
+    save_cfg_value "DESIGNATED_KUBE_CTX" "$DESIGNATED_KUBE_CTX"
+  else
+    args_or_ask ${HH:+"$HH"} -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
+    [ -n "$HH" ] && exit 0
+    local RES
+    select_kube_context RES "$kube_context"
+    [ -n "$HH" ] && exit 0
+    DESIGNATED_KUBE_CTX="$RES"
+    save_cfg_value "DESIGNATED_KUBE_CTX" "$DESIGNATED_KUBE_CTX"   
+  fi
+  
+  exit
+}
+
+app_ctx_auto_select_kube_context() {
+  :;
+}
+
+#app_ctx_auto_login() {
+#  if ! $NO_AUTO_LOGIN && login_supported && [[ -n "$APP_LOGIN_URL" && -n "$APP_LOGIN_TOKEN" ]]; then
+#    _log_i 0 "Autologin to \"$APP_LOGIN_URL\""
+#    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN" || {
+#      _log_w 0 "AutoLogin failed, clearing the credentials cache"
+#      APP_LOGIN_TOKEN=""
+#      save_cfg_value "APP_LOGIN_TOKEN" ""
+#    }
+#  fi
+#}
 
 app_ctx_auto_attach() {
   # shellcheck disable=SC2031

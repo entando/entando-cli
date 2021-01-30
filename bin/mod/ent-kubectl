@@ -85,12 +85,15 @@ set_kubectl_command() {
     echo "> Parameters:"
   }
 
+  # reset kubeconfig setup
+  reset_kubectl_mode
+  
   args_or_ask -a ${HH:+"$HH"} "ENT_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
   save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
-
-  # reset kubeconfig setup
-  save_cfg_value "DESIGNATED_KUBECONFIG" ""
-  save_cfg_value "DESIGNATED_VM" ""
+  
+  args_or_ask -n ${HH:+"$HH"} KUBECONFIG "--kubeconfig" "$@" && {
+    save_cfg_value "DESIGNATED_KUBECONFIG" "$KUBECONFIG"
+  }
 }
 
 print_status_info() {

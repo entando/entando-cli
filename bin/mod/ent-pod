@@ -29,10 +29,6 @@ cd "$DIR/../.." || {
 RUN() {
   HH="$(parse_help_option "$@")"
 
-  [[ -n "$HH" && -z "$CMD" ]] && {
-    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-  }
-
   show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
 

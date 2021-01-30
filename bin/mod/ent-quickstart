@@ -33,8 +33,9 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
 
 ENT_KUBECTL_CMD=""
 
-args_or_ask ${HH:+"$HH"} -n "ENT_KUBECTL_CMD" \
-  "--kubectl-cmd///Forces the quickstart to use the given kubectl command" "$@"
+args_or_ask ${HH:+"$HH"} -n "APP_CTX" "--use-app///Forces the quickstart to use the application context" "$@" && {
+  ent app use "$APP_CTX"
+}
 
 if [ -z "$HH" ]; then
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -266,11 +267,13 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
 
-  ent app new "qs-$ENTANDO_VM_NAME" \
-    "$ENTANDO_APPNAME" \
-    "$ENTANDO_NAMESPACE" \
-    --attach-vm="$ENTANDO_VM_NAME" \
+  if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$APP_CTX" ]; then
+    ent app new "qs-$ENTANDO_VM_NAME" \
+      "$ENTANDO_APPNAME" \
+      "$ENTANDO_NAMESPACE" \
     ;
+    ent app use "qs-$ENTANDO_VM_NAME"
+  fi
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
   $ENTANDO_MOCK_TEST_RUN && VM_OPT+=" --use-mocks"
@@ -514,7 +517,9 @@ RUN_DIRECT() {
   }
 
   # -- POST-DEPLOYMENT
-  ent app use "qs-$ENTANDO_VM_NAME"
+  if ! $ENTANDO_NO_AUTO_ATTACH; then
+    ent app use "qs-$ENTANDO_VM_NAME"
+  fi
 
   # shellcheck disable=SC2015
   ask "Should I start the monitor?" && {
