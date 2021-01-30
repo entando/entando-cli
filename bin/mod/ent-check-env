@@ -195,7 +195,7 @@ $M_DEVL && {
   # shellcheck disable=SC2015
   find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
     DESIGNATED_NODE_VERSION="$RES"
-    save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION"
+    save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION" "$ENT_DEFAULT_CFG_FILE"
     activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
     true
   } || {
