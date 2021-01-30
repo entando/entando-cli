@@ -29,17 +29,11 @@ cd "$DIR/../.." || {
 RUN() {
   HH="$(parse_help_option "$@")"
 
-  [[ -n "$HH" && -z "$CMD" ]] && {
-    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-  }
-
   show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
 
-  [[ -n "$HH" && -z "$CMD" ]] && exit
-
-  show_help_option "$HH" "\"$CMD\""
+  show_help_option "$HH" "$CMD"
 
   case "$CMD" in
   "use") #H: selects the app context that ent should use

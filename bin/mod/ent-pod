@@ -44,11 +44,9 @@ RUN() {
   }
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
 
-  [[ -n "$HH" && -z "$CMD" ]] && exit
-
   show_help_option "$HH" "\"$CMD\""
 
-  process_pod_pattern
+  [ -z "$HH" ] && process_pod_pattern
 
   case "$CMD" in
     "grep") #H: greps the pods logs
@@ -82,7 +80,7 @@ RUN() {
       pod_action xx "$CMD" "$@"
       ;;
     "")
-      "${BASH_SOURCE[0]}" --help
+      [ -z "$HH" ] && "${BASH_SOURCE[0]}" --help
       ;;
     *)
       [ -n "$HH" ] && exit 0
