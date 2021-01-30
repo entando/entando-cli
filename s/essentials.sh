@@ -113,13 +113,17 @@
     [ -n "$ENT_KUBECTL_CMD" ] && {
       ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
     }
-
+    
     if [ -n "$ENTANDO_KUBECTL" ]; then
       ENTANDO_KUBECTL_MODE="COMMAND"
       _kubectl() {
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
-        "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+        if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
+          "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+        else
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+        fi
       }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
