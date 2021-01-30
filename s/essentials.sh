@@ -120,9 +120,9 @@
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
         if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
-          "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+          $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
         else
-          KUBECONFIG="$DESIGNATED_KUBECONFIG" "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
         fi
       }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
