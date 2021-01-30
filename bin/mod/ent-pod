@@ -230,6 +230,7 @@ mk_target_desc() {
   fi
 }
 
+# shellcheck disable=SC2034
 process_pod_pattern() {
   local POD_P=()
   stdin_to_arr "/" POD_P <<< "$POD_PATT"

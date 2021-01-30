@@ -565,6 +565,7 @@ del_resource() {
     done
     DEL="${DEL%"${DEL##*[! ]}"}"
     if [ -n "$DEL" ]; then
+      # shellcheck disable=SC2086
       _kubectl delete "$type" $DEL
       res=$?
     else
