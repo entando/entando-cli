@@ -776,12 +776,12 @@ stdin_to_arr() {
 }
 
 # shellcheck disable=SC2120
-print_current_app_context_info() {
+print_current_app_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
-  if [ -n "$THIS_APP_CTX" ]; then
-    _log_i 0 "Currently using the application context \"$THIS_APP_CTX\"" 1>&2
+  if [ -n "$THIS_APP_PROFILE" ]; then
+    _log_i 0 "Currently using the application profile \"$THIS_APP_PROFILE\"" 1>&2
   else
-    _log_i 0 "Currently not using any app context" 1>&2
+    _log_i 0 "Currently not using any application profile" 1>&2
   fi
   
   $VERBOSE && {
@@ -1011,7 +1011,7 @@ ecr-prepare-action() {
   shift
   local var_token="$1"
   shift
-  print_current_app_context_info
+  print_current_app_profile_info
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress scheme
   app-get-main-ingresses main_ingress ecr_ingress

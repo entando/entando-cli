@@ -36,33 +36,28 @@ RUN() {
   show_help_option "$HH" "$CMD"
 
   case "$CMD" in
-  "use") #H: selects the app context that ent should use
-    args_or_ask ${HH:+"$HH"} -n -F "NO_AUTO_LOGIN" "--no-auto-login///Disable auto-login" "$@"
+  "use") #H: selects the application profile that ent should use
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APPCTX" "--none///Assumes the global application context" "$@"
+    args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APPCTX" "--none///Assumes the global application profile" "$@"
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
-    APP_LOGIN_URL=""
-    APP_LOGIN_TOKEN=""
-    DESIGNATED_VM=""
-    use_app_ctx "$@"
+    reset_kubectl_mode
+    use_app_profile "$@"
     ! $USE_NO_APPCTX && {
-      #app_ctx_auto_login
-      app_ctx_auto_select_kube_context
-      app_ctx_auto_attach
+      app_profile_auto_attach
     }
     ;;
-  "new") #H: created a new app context
+  "new") #H: created a new application profile
     shift
-    new_app_ctx "$@"
+    new_app_profile "$@"
     ;;
-  "set") #H: created a new app context
+  "set") #H: created a new application profile
     shift
-    setup_curr_app_ctx "$@"
+    setup_curr_app_profile "$@"
     ;;
-  "stop") #H: stops the app associated with the the given app context
+  "stop") #H: stops the app associated with the the given application profile
     [ -n "$HH" ] && exit 0
     if [ -n "$DESIGNATED_VM" ]; then
       multipass stop "$DESIGNATED_VM"
@@ -70,7 +65,7 @@ RUN() {
       _log_e 0 "This command only works with managed VMs"
     fi
     ;;
-  "start") #H: starts the app associated with the the given app context
+  "start") #H: starts the app associated with the the given application profile
     [ -n "$HH" ] && exit 0
     if [ -n "$DESIGNATED_VM" ]; then
       multipass start "$DESIGNATED_VM"
@@ -78,28 +73,20 @@ RUN() {
       _log_e 0 "This command only works with managed VMs"
     fi
     ;;
-  "delete") #H: delete the given app context
+  "delete") #H: delete the given application profile
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
-    delete_app_ctx "$@"
+    delete_app_profile "$@"
     ;;
-  "list") #H: prints a list of the available app contexts
+  "list") #H: prints a list of the available application profiles
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
-    list_app_ctx "$@"
+    list_app_profile "$@"
     ;;
-  "login") #H: logins to an application context using a token
-    shift
-    login_to_app_ctx "$@"
-    ;;
-  "list-kube-contexts")  #H: prints a list of available contexts from the current kubeconfig
-    shift
-    list_kube_contexts "$@"
-    ;;
-  "link-kube-context")  #H: links the current application context to a kube context
+  "link")  #H: links the current application profile to a kube context
     shift
     link_kube_context "$1"
     ;;
@@ -126,9 +113,9 @@ RUN() {
   "")
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
-    print_current_app_context_info
-    _log_i 2 "The available application contexts are:"
-    list_app_ctx "$@"
+    print_current_app_profile_info
+    _log_i 2 "The available application profiles are:"
+    list_app_profile "$@"
     ;;
   *)
     [ -n "$HH" ] && exit 0
@@ -167,20 +154,20 @@ print_images() {
   fi
 }
 
-setup_curr_app_ctx() {
+setup_curr_app_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask ${HH:+"$HH"} ENTANDO_APPNAME "--appname/ext_ic_id/$APP_CTX/%sp EntandoApp name" "$@" && {
+  args_or_ask ${HH:+"$HH"} ENTANDO_APPNAME "--appname/ext_ic_id/$APP_PROFILE/%sp EntandoApp name" "$@" && {
     save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME"
   }
-  args_or_ask ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_ic_id/$APP_CTX/%sp default namespace" "$@" && {
+  args_or_ask ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_ic_id/$APP_PROFILE/%sp default namespace" "$@" && {
     save_cfg_value ENTANDO_NAMESPACE "$ENTANDO_NAMESPACE"
   }
   [ -n "$HH" ] && exit 0
 }
 
-use_app_ctx() {
+use_app_profile() {
   # shellcheck disable=SC2034
-  local application_context
+  local application_profile
   local apps_base_dir
 
   if $USE_CURRENT_DIR; then
@@ -189,99 +176,99 @@ use_app_ctx() {
     apps_base_dir="$ENTANDO_HOME/apps"
   fi
 
-  $USE_NO_APPCTX && application_context="--none"
-  args_or_ask ${HH:+"$HH"} -a -p -n -- "application_context" '1///%sp application context (or --none)' "$@"
+  $USE_NO_APPCTX && application_profile="--none"
+  args_or_ask ${HH:+"$HH"} -a -p -n -- "application_profile" '1///%sp application profile (or --none)' "$@"
 
-  ENTANDO_CURRENT_APP_CTX=""
+  ENTANDO_CURRENT_APP_PROFILE=""
   # shellcheck disable=SC2034
-  ENTANDO_CURRENT_APP_CTX_HOME=""
+  ENTANDO_CURRENT_APP_PROFILE_HOME=""
 
   if $USE_NO_APPCTX; then
-    save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
-    save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
     activate_designated_workdir
     return 0
   else
     (
       # shellcheck disable=SC2030
-      local tmp_app_ctx
-      if [ "$application_context" = "" ]; then
+      local tmp_app_profile
+      if [ "$application_profile" = "" ]; then
         __cd "$apps_base_dir"
         # shellcheck disable=SC2035
-        map-from-stdin application_context $'\n\r' < <(ls -d * 2>/dev/null)
-        args_or_ask_from_list application_context -m -a ${HH:+"$HH"} tmp_app_ctx 1 "any" \
-          "application context" "Select the application context" "$@"
+        map-from-stdin application_profile $'\n\r' < <(ls -d * 2>/dev/null)
+        args_or_ask_from_list application_profile -m -a ${HH:+"$HH"} tmp_app_profile 1 "any" \
+          "application profile" "Select the application profile" "$@"
       else
-        tmp_app_ctx="$application_context"
+        tmp_app_profile="$application_profile"
       fi
 
-      local app_dir="$apps_base_dir/$tmp_app_ctx"
+      local app_dir="$apps_base_dir/$tmp_app_profile"
 
       if [ ! -d "$app_dir" ]; then
-        _log_w 0 "Application context \"$tmp_app_ctx\" not found"
+        _log_w 0 "Application profile \"$tmp_app_profile\" not found"
         $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
         $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
-        new_app_ctx "$tmp_app_ctx"
+        new_app_profile "$tmp_app_profile"
       fi
 
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "${tmp_app_ctx}" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "${tmp_app_profile}" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
       true
     ) || return $?
 
     reload_cfg "$ENTANDO_GLOBAL_CFG"
-    set_curr_app_ctx "$ENTANDO_CURRENT_APP_CTX" "$ENTANDO_CURRENT_APP_CTX_HOME"
+    set_curr_app_profile "$ENTANDO_CURRENT_APP_PROFILE" "$ENTANDO_CURRENT_APP_PROFILE_HOME"
     activate_designated_workdir
 
-    ${APP_CTX_NEVER_USED:-false} && {
-      save_cfg_value APP_CTX_NEVER_USED ""
+    ${APP_PROFILE_NEVER_USED:-false} && {
+      save_cfg_value APP_PROFILE_NEVER_USED ""
       print_first_use_readme
     }
   fi
 }
 
-parse_basic_app_ctx_args() {
+parse_basic_app_profile_args() {
   local from="$1"
   shift
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$APP_CTX/%sp EntandoApp name" "$@"
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$APP_CTX/%sp default namespace" "$@"
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$APP_PROFILE/%sp EntandoApp name" "$@"
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$APP_PROFILE/%sp default namespace" "$@"
 }
 
-new_app_ctx() {
+new_app_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask ${HH:+"$HH"} -a APP_CTX "1/ext_ic_id//%sp application context name" "$@"
+  args_or_ask ${HH:+"$HH"} -a APP_PROFILE "1/ext_ic_id//%sp application profile name" "$@"
   args_or_ask ${HH:+"$HH"} -n -F AUTO_USE \
-    "--auto-use//true/%sp if true (default) automatically switches to the new application context" "$@"
+    "--auto-use//true/%sp if true (default) automatically switches to the new application profile" "$@"
   args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
-  parse_basic_app_ctx_args 2 "$@"
+  parse_basic_app_profile_args 2 "$@"
   [ -n "$HH" ] && exit 0
   # ~~~~~~~~~~~~~~
 
   local app_dir
   if $USE_CURRENT_DIR; then
-    app_dir="$ENTANDO_CALLER_PWD/.ent/apps/$APP_CTX"
+    app_dir="$ENTANDO_CALLER_PWD/.ent/apps/$APP_PROFILE"
   else
-    app_dir="$ENTANDO_HOME/apps/$APP_CTX"
+    app_dir="$ENTANDO_HOME/apps/$APP_PROFILE"
   fi
 
-  [ -d "${app_dir}" ] && FATAL "Application context \"$APP_CTX\" already exists under dir: \"$app_dir\""
+  [ -d "${app_dir}" ] && FATAL "Application profile \"$APP_PROFILE\" already exists under dir: \"$app_dir\""
   mkdir -p "${app_dir}/w"
   chmod 600 -R "$ENTANDO_ENT_HOME/w"
   chmod 700 "$ENTANDO_ENT_HOME/w"
-  _log_i 0 "Application context \"$APP_CTX\" created"
+  _log_i 0 "Application profile \"$APP_PROFILE\" created"
 
   local cfg_file="$app_dir/w/.cfg"
-  save_cfg_value THIS_APP_CTX "$APP_CTX" "$cfg_file"
+  save_cfg_value THIS_APP_PROFILE "$APP_PROFILE" "$cfg_file"
   save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME" "$cfg_file"
   save_cfg_value ENTANDO_NAMESPACE "$ENTANDO_NAMESPACE" "$cfg_file"
 
   if $AUTO_USE; then
-    set_curr_app_ctx "$APP_CTX" "$app_dir"
-    _log_i 0 "Application context \"$APP_CTX\" activated"
+    set_curr_app_profile "$APP_PROFILE" "$app_dir"
+    _log_i 0 "Application profile \"$APP_PROFILE\" activated"
     activate_designated_workdir
     print_first_use_readme
   else
-    save_cfg_value APP_CTX_NEVER_USED "true" "$cfg_file"
+    save_cfg_value APP_PROFILE_NEVER_USED "true" "$cfg_file"
   fi
 }
 
@@ -295,20 +282,16 @@ print_first_use_readme() {
     MSG+=$'\n'"However, should that not be enough, you have these options:"
     ((i++))
     MSG+=$'\n'"~"
-    MSG+=$'\n'"$i) LOGIN TO A K8S API ENDPOINT:"
-    MSG+=$'\n'"   ent app login {url} --token={token} [--kubectl-cmd={command}]"
-    ((i++))
-    MSG+=$'\n'"~"
     MSG+=$'\n'"$i) SELECT A CONTEXT TO USE:"
-    MSG+=$'\n'"   ent app list-contexts"
-    MSG+=$'\n'"   ent app set-context {context-name}"
+    MSG+=$'\n'"   ent list-contexts"
+    MSG+=$'\n'"   ent app link {context-name}"
     ((i++))
     MSG+=$'\n'"~"
     MSG+=$'\n'"$i) ATTACH TO A MANAGED VM:"
     MSG+=$'\n'"   ent attach-vm {vm-name}"
     ((i++))
     MSG+=$'\n'"~"
-    MSG+=$'\n'"$i) PROVIDE A CUSTOM COMMAND:"
+    MSG+=$'\n'"$i) AND/OR PROVIDE A CUSTOM COMMAND:"
     MSG+=$'\n'"   ent set-kubectl-cmd {command} [--kubeconfig={config}]"
     echo "$MSG"
     print_hr
@@ -316,9 +299,9 @@ print_first_use_readme() {
   } 1>&2
 }
 
-delete_app_ctx() {
+delete_app_profile() {
   # shellcheck disable=SC2034
-  local application_context
+  local application_profile
   local apps_base_dir
   if $USE_CURRENT_DIR; then
     apps_base_dir="$ENTANDO_CALLER_PWD/.ent/apps"
@@ -326,29 +309,29 @@ delete_app_ctx() {
     apps_base_dir="$ENTANDO_HOME/apps"
   fi
 
-  local APP_CTX
+  local APP_PROFILE
   __cd "$apps_base_dir"
   # shellcheck disable=SC2035
-  map-from-stdin "application_context" $'\n\r' < <(ls -d * 2>/dev/null)
-  args_or_ask_from_list "application_context" -m -a ${HH:+"$HH"} APP_CTX 1 "any" \
-    "application context" "Select the application context" "$@"
-  [ ! -d "$APP_CTX" ] && FATAL "Application not found"
-  [ ! -d "$APP_CTX/w" ] && FATAL "Invalid application context dir"
+  map-from-stdin "application_profile" $'\n\r' < <(ls -d * 2>/dev/null)
+  args_or_ask_from_list "application_profile" -m -a ${HH:+"$HH"} APP_PROFILE 1 "any" \
+    "application profile" "Select the application profile" "$@"
+  [ ! -d "$APP_PROFILE" ] && FATAL "Application not found"
+  [ ! -d "$APP_PROFILE/w" ] && FATAL "Invalid application profile dir"
 
   (
-    _log_w 0 "Application context \"$APP_CTX\" found"
+    _log_w 0 "Application profile \"$APP_PROFILE\" found"
     $AUTO_YES || ask "Should I really delete it?" || EXIT_UE "User interrupted"
     ##########
     # shellcheck disable=SC2034
     # shellcheck disable=SC2030
     (
-      ENTANDO_CURRENT_APP_CTX="$APP_CTX"
-      ENTANDO_CURRENT_APP_CTX_HOME="$apps_base_dir/$ENTANDO_CURRENT_APP_CTX"
+      ENTANDO_CURRENT_APP_PROFILE="$APP_PROFILE"
+      ENTANDO_CURRENT_APP_PROFILE_HOME="$apps_base_dir/$ENTANDO_CURRENT_APP_PROFILE"
       activate_application_workdir
       reload_cfg
 
       if [ -n "$DESIGNATED_VM" ]; then
-        _log_w 0 "This application context is associated with a managed VM"
+        _log_w 0 "This application profile is associated with a managed VM"
         if $AUTO_YES || ask "Should I remove the VM too?"; then
           multipass delete "$DESIGNATED_VM"
           _log_i 0 "VM deleted, to completely remove it run \"multipass purge\""
@@ -356,26 +339,26 @@ delete_app_ctx() {
       fi
     )
     ##########
-    rm -rf "$APP_CTX"
-    _log_i 0 "Application context \"$APP_CTX\" deleted"
+    rm -rf "$APP_PROFILE"
+    _log_i 0 "Application profile \"$APP_PROFILE\" deleted"
 
-    save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
-    save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
     true
   ) && {
     reload_cfg "$ENTANDO_GLOBAL_CFG"
-    if [ "$APP_CTX" = "$THIS_APP_CTX" ]; then
-      THIS_APP_CTX=""
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX" "" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "" "$ENTANDO_GLOBAL_CFG"
+    if [ "$APP_PROFILE" = "$THIS_APP_PROFILE" ]; then
+      THIS_APP_PROFILE=""
+      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
     fi
-    print_current_app_context_info
+    print_current_app_profile_info
   }
 }
 
-list_app_ctx() {
+list_app_profile() {
   # shellcheck disable=SC2034
-  local application_context
+  local application_profile
   if $USE_CURRENT_DIR; then
     apps_base_dir="$ENTANDO_CALLER_PWD/.ent/apps"
   else
@@ -385,34 +368,12 @@ list_app_ctx() {
   (
     __cd "$apps_base_dir"
     # shellcheck disable=SC2035
-    stdin_to_arr $'\n\r' application_context < <(ls -d * 2>/dev/null)
+    stdin_to_arr $'\n\r' application_profile < <(ls -d * 2>/dev/null)
 
-    for file in "${application_context[@]}"; do
+    for file in "${application_profile[@]}"; do
       echo "$file"
     done
   )
-}
-
-login_to_app_ctx() {
-  local CACHED=false
-  args_or_ask -n ${HH:+"$HH"} -F -- "CACHED" "--cached///%sp use cached credential" "$@"
-  if ! $CACHED; then
-    args_or_ask ${HH:+"$HH"} -a -p -- "APP_LOGIN_URL" '1///%sp URL' "$@"
-    args_or_ask ${HH:+"$HH"} -- "APP_LOGIN_TOKEN" "--token///%sp authentication token" "$@"
-    args_or_ask -n ${HH:+"$HH"} -- "ENT_KUBECTL_CMD" "--kubectl-cmd///%sp command to use instead of kubectl" "$@"
-    [[ -n "$HH" ]] && exit
-
-    reset_kubectl_mode
-    save_cfg_value "APP_LOGIN_URL" "$APP_LOGIN_URL"
-    save_cfg_value "APP_LOGIN_TOKEN" "$APP_LOGIN_TOKEN"
-    save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
-    setup_kubectl
-    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN"
-  else
-    [[ -n "$HH" && -z "$CMD" ]] && exit
-    [[ -z "$APP_LOGIN_URL" || -z "$APP_LOGIN_TOKEN" ]] && FATAL "Credential cache missing or incomplete"
-    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN"
-  fi
 }
 
 select_kube_context() {
@@ -455,22 +416,7 @@ link_kube_context() {
   exit
 }
 
-app_ctx_auto_select_kube_context() {
-  :;
-}
-
-#app_ctx_auto_login() {
-#  if ! $NO_AUTO_LOGIN && login_supported && [[ -n "$APP_LOGIN_URL" && -n "$APP_LOGIN_TOKEN" ]]; then
-#    _log_i 0 "Autologin to \"$APP_LOGIN_URL\""
-#    _kubectl login "$APP_LOGIN_URL" --token="$APP_LOGIN_TOKEN" || {
-#      _log_w 0 "AutoLogin failed, clearing the credentials cache"
-#      APP_LOGIN_TOKEN=""
-#      save_cfg_value "APP_LOGIN_TOKEN" ""
-#    }
-#  fi
-#}
-
-app_ctx_auto_attach() {
+app_profile_auto_attach() {
   # shellcheck disable=SC2031
   if [ -n "$DESIGNATED_VM" ]; then
     ent attach-vm "$DESIGNATED_VM"

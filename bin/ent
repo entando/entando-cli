@@ -123,12 +123,12 @@ handle_config_command() {
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_DEFAULT_CFG_FILE"
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
-    THIS_APP_CTX=""
+    THIS_APP_PROFILE=""
   }
 
   args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
-    if [ -n "$THIS_APP_CTX" ]; then
-      _log_i 0 "Configuration of the application context \"$THIS_APP_CTX\"" 1>&2
+    if [ -n "$THIS_APP_PROFILE" ]; then
+      _log_i 0 "Configuration of the application profile \"$THIS_APP_PROFILE\"" 1>&2
     else
       _log_i 0 "Default configuration of the current ent installation" 1>&2
     fi

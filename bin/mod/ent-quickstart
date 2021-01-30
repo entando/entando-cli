@@ -33,8 +33,8 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
 
 ENT_KUBECTL_CMD=""
 
-args_or_ask ${HH:+"$HH"} -n "APP_CTX" "--use-app///Forces the quickstart to use the application context" "$@" && {
-  ent app use "$APP_CTX"
+args_or_ask ${HH:+"$HH"} -n "APP_PROFILE" "--use-app///Forces the quickstart to use the application profile" "$@" && {
+  ent app use "$APP_PROFILE"
 }
 
 if [ -z "$HH" ]; then
@@ -267,7 +267,7 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
 
-  if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$APP_CTX" ]; then
+  if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$APP_PROFILE" ]; then
     ent app new "qs-$ENTANDO_VM_NAME" \
       "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \

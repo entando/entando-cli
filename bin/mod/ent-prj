@@ -55,12 +55,12 @@ RUN() {
       require_ent_project_dir
       generate_custom_resource "$@"
       ;;
-    "deploy") #H: generates the CR and deploys it to the current application context
+    "deploy") #H: generates the CR and deploys it to the current application profile
       require_develop_checked
       require_ent_project_dir
       prj_ecr_deploy "$@"
       ;;
-    "install") #H: generates the CR and deploys it to the current application context
+    "install") #H: generates the CR and deploys it to the current application profile
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
       local VERSION_TO_INSTALL CONFLICT_STRATEGY
@@ -73,7 +73,7 @@ RUN() {
       require_ent_project_dir
       prj_ecr_install "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
       ;;
-    "uninstall") #H: generates the CR and deploys it to the current application context
+    "uninstall") #H: generates the CR and deploys it to the current application profile
       HH="$(parse_help_option "$@")"
       args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
       args_or_ask ${HH:+"$HH"} -n -F "PURGE_VOLUMES" "--volumes///Also deletes the volumes" "$@"
@@ -274,7 +274,7 @@ prj_ecr_uninstall() {
 }
 
 prj_ecr_deploy() {
-  print_current_app_context_info
+  print_current_app_profile_info
   generate_custom_resource "$@" | _kubectl apply -f -
 }
 
@@ -460,19 +460,19 @@ be_update_plugin_descriptor() {
 }
 
 be_list_pods() {
-  print_current_app_context_info
+  print_current_app_profile_info
   get_be_info
   get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
 }
 
 be_restart_pods() {
   local restart_pods_after="$1"
-  print_current_app_context_info
+  print_current_app_profile_info
   get_be_info
   local pods
   pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | grep "server-deployment" | cut -d' ' -f 1)"
   [ "${#pods}" -eq 0 ] && {
-    _log_i 0 "Restart pods was not able to find any pod in the current app context"
+    _log_i 0 "Restart pods was not able to find any pod in the current application profile"
     return 0
   }
   _log_i 0 "Restart pods will start in $restart_pods_after seconds"
@@ -484,7 +484,7 @@ be_restart_pods() {
 }
 
 be_purge_k8s() {
-  print_current_app_context_info
+  print_current_app_profile_info
   get_be_info
   local pn="$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
   local tpn="${pn:0:31}"

@@ -78,10 +78,10 @@ ent_set_default_ent() {
 }
 
 ent_set_appctx_default_ent() {
-  if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+  if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
     ENT="$1"
     save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
-    _log_i 0 "Ent \"$ENT\" is now the default ent for the application context \"$ENTANDO_CURRENT_APP_CTX\""
+    _log_i 0 "Ent \"$ENT\" is now the default ent for the application profile \"$ENTANDO_CURRENT_APP_PROFILE\""
   fi
 }
 
@@ -89,7 +89,7 @@ ent_set_appctx_default_ent() {
 
 RUN() {
   case "$1" in
-    "activate") #H: selects the app context that ent should use
+    "activate") #H: selects the application profile that ent should use
       shift
       ! $FOR_SOURCED_EXECUTION && FATAL "You need to source-execute me"
       ent_activate "$@"

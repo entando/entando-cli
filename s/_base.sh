@@ -203,11 +203,11 @@ ENTANDO_NAMESPACE=""
   ENABLE_AUTOLOGIN=""
 }
 
-if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
-  if assert_ext_ic_id "" "$ENTANDO_CURRENT_APP_CTX" "silent"; then
-    ENTANDO_CURRENT_APP_CTX_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_CTX"
+if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
+  if assert_ext_ic_id "" "$ENTANDO_CURRENT_APP_PROFILE" "silent"; then
+    ENTANDO_CURRENT_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_PROFILE"
   else
-    FATAL "Illegal value provided in environment var ENTANDO_CURRENT_APP_CTX"
+    FATAL "Illegal value provided in environment var ENTANDO_CURRENT_APP_PROFILE"
   fi
 fi
 
@@ -215,22 +215,17 @@ reload_cfg "$ENTANDO_GLOBAL_CFG"
 
 # activates the default workdir of the current ent installation
 #
-# the default workdir is not related t any application context
+# the default workdir is not related t any application profile
 # and it's located the ent installation directory
 activate_ent_default_workdir() {
-  if [ -z "$ENTANDO_CURRENT_APP_CTX" ]; then
+  if [ -z "$ENTANDO_CURRENT_APP_PROFILE" ]; then
     # shellcheck disable=SC2034
-    THIS_APP_CTX=""
-    ENTANDO_CURRENT_APP_CTX_HOME=""
+    THIS_APP_PROFILE=""
+    ENTANDO_CURRENT_APP_PROFILE_HOME=""
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_WORK_DIR/.cfg"
     mkdir -p "$ENT_WORK_DIR"
-    # shellcheck disable=SC2034
-    {
-      APP_LOGIN_URL=""
-      APP_LOGIN_TOKEN=""
-    }
   fi
 }
 
@@ -239,17 +234,17 @@ activate_ent_default_workdir() {
 # the application workdir is the specific ent app directory
 # and can be potentially used by more that on ent installation
 activate_application_workdir() {
-  if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
-    if [ -d "$ENTANDO_CURRENT_APP_CTX_HOME/w" ]; then
-      ENT_WORK_DIR="$ENTANDO_CURRENT_APP_CTX_HOME/w"
+  if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
+    if [ -d "$ENTANDO_CURRENT_APP_PROFILE_HOME/w" ]; then
+      ENT_WORK_DIR="$ENTANDO_CURRENT_APP_PROFILE_HOME/w"
       # shellcheck disable=SC2034
       CFG_FILE="$ENT_WORK_DIR/.cfg"
       return 0
     else
       _log_e 0 \
-        "Unable to load the application context \"$ENTANDO_CURRENT_APP_CTX\", falling back to the default context"
-      ENTANDO_CURRENT_APP_CTX_HOME=""
-      ENTANDO_CURRENT_APP_CTX=""
+        "Unable to load the application profile \"$ENTANDO_CURRENT_APP_PROFILE\", falling back to the default profile"
+      ENTANDO_CURRENT_APP_PROFILE_HOME=""
+      ENTANDO_CURRENT_APP_PROFILE=""
       return 1
     fi
   fi
@@ -259,29 +254,29 @@ activate_application_workdir() {
 # shellcheck disable=SC2034
 activate_designated_workdir() {
   reload_cfg "$ENTANDO_GLOBAL_CFG"
-  if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+  if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
     activate_application_workdir
   else
     activate_ent_default_workdir
   fi
-  save_cfg_value "THIS_APP_CTX" "${ENTANDO_CURRENT_APP_CTX}"
+  save_cfg_value "THIS_APP_PROFILE" "${ENTANDO_CURRENT_APP_PROFILE}"
   ENT_KUBECTL_CMD=""
   ENABLE_AUTOLOGIN=""
   reload_cfg
   setup_kubectl
 }
 
-set_curr_app_ctx() {
-  [ -z "$1" ] && FATAL -t "Illegal application context name detected"
-  ENTANDO_CURRENT_APP_CTX="$1"
-  ENTANDO_CURRENT_APP_CTX_HOME="$2"
-  [ -z "$ENTANDO_CURRENT_APP_CTX_HOME" ] &&
-    ENTANDO_CURRENT_APP_CTX_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_CTX"
-  save_cfg_value "ENTANDO_CURRENT_APP_CTX" "$ENTANDO_CURRENT_APP_CTX" "$ENTANDO_GLOBAL_CFG"
-  save_cfg_value "ENTANDO_CURRENT_APP_CTX_HOME" "$ENTANDO_CURRENT_APP_CTX_HOME" "$ENTANDO_GLOBAL_CFG"
+set_curr_app_profile() {
+  [ -z "$1" ] && FATAL -t "Illegal application profile name detected"
+  ENTANDO_CURRENT_APP_PROFILE="$1"
+  ENTANDO_CURRENT_APP_PROFILE_HOME="$2"
+  [ -z "$ENTANDO_CURRENT_APP_PROFILE_HOME" ] &&
+    ENTANDO_CURRENT_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$ENTANDO_CURRENT_APP_PROFILE"
+  save_cfg_value "ENTANDO_CURRENT_APP_PROFILE" "$ENTANDO_CURRENT_APP_PROFILE" "$ENTANDO_GLOBAL_CFG"
+  save_cfg_value "ENTANDO_CURRENT_APP_PROFILE_HOME" "$ENTANDO_CURRENT_APP_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
 }
 
-if [ -n "$ENTANDO_CURRENT_APP_CTX" ]; then
+if [ -n "$ENTANDO_CURRENT_APP_PROFILE" ]; then
   activate_application_workdir
 else
   activate_ent_default_workdir
@@ -390,15 +385,14 @@ kubectl_update_once_options() {
 
 reset_kubectl_mode() {
   save_cfg_value "DESIGNATED_KUBECONFIG" ""
-  save_cfg_value "DESIGNATED_VM" ""
-  save_cfg_value "APP_LOGIN_URL" ""
-  save_cfg_value "APP_LOGIN_TOKEN" ""
+  detach_vm
+  save_cfg_value "DESIGNATED_KUBE_CTX" ""
   save_cfg_value "ENT_KUBECTL_CMD" ""
 }
 
 print_ent_operative_infos() {
   print_hr
-  print_current_app_context_info -v
+  print_current_app_profile_info -v
   setup_kubectl
   kubectl_update_once_options ""
   print_hr
