@@ -186,6 +186,7 @@ mkdir -p "$ENTANDO_ENT_HOME/d"
 mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
 mkdir -p "$ENTANDO_HOME/apps"
+mkdir -p "$ENTANDO_HOME/ttys"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # UTILS
@@ -253,7 +254,8 @@ activate_application_workdir() {
 # activates the current execution context
 # shellcheck disable=SC2034
 activate_designated_workdir() {
-  TEMPORARY=false;[ "$1" = "--temporary" ] && TEMPORARY=true
+  TEMPORARY=false
+  [ "$1" = "--temporary" ] && TEMPORARY=true
   ! $TEMPORARY && reload_cfg "$ENTANDO_GLOBAL_CFG"
   if [ -n "$DESIGNATED_APP_PROFILE" ]; then
     activate_application_workdir
@@ -366,7 +368,7 @@ activate_designated_node() {
 # overrides the essential.sh base
 kubectl_update_once_options() {
   KUBECTL_ONCE_OPTIONS=""
-  
+
   determine_namespace NS "$@"
 
   local NS="${NS//$'\n'/}"
@@ -376,31 +378,38 @@ kubectl_update_once_options() {
   "") ;;
   *) KUBECTL_ONCE_OPTIONS+="--namespace=$NS " ;;
   esac
-  
+
   local CTX="${DESIGNATED_KUBECTX//$'\n'/}"
-  
+
   if [ -n "$CTX" ]; then
     KUBECTL_ONCE_OPTIONS+="--context=$CTX "
   fi
 }
 
-reset_kubectl_mode() {
+kubectl_mode() {
   while [ -n "$1" ]; do
     case "$1" in
-    "--mem")
+    "--export")
+      export DESIGNATED_KUBECONFIG
+      export DESIGNATED_VM
+      export DESIGNATED_VM_NAMESPACE
+      export DESIGNATED_KUBECTX
+      export ENT_KUBECTL_CMD
+      ;;
+    "--reset-mem")
       DESIGNATED_KUBECONFIG=""
       DESIGNATED_VM=""
       DESIGNATED_VM_NAMESPACE=""
       DESIGNATED_KUBECTX=""
       # shellcheck disable=SC2034
       ENT_KUBECTL_CMD=""
-    ;;
-    "--cfg")
+      ;;
+    "--reset-cfg")
       detach_kubeconfig
       detach_vm --preserve-config-file
       save_cfg_value "DESIGNATED_KUBECTX" ""
       save_cfg_value "ENT_KUBECTL_CMD" ""
-    ;;
+      ;;
     esac
     shift
   done
@@ -413,24 +422,34 @@ print_ent_operative_infos() {
   kubectl_update_once_options ""
   print_hr
   _log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
-  echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-{ENVIRONMENT\}}"
+  #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-[ENVIRONMENT]}"
+  echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-[ENVIRONMENT]}"
   if [ -z "$DESIGNATED_KUBECONFIG" ]; then
-    echo " - The current environment KUBECONFIG is: ${KUBECONFIG:-{EMPTY\}}"
+    echo " - KUBECONFIG (ENV):  ${KUBECONFIG:-[DEFAULT]}"
   fi
   case "$ENTANDO_KUBECTL_MODE" in
   "COMMAND")
-    echo " - The designated kubectl command is: ${ENTANDO_KUBECTL:-{ERR-NO-FOUND\}}"
+    echo " - KUBECTL_CMD:       ${ENTANDO_KUBECTL:-[ERR-NO-FOUND]}"
     ;;
   "CONFIG")
-    echo " - The designated kubectl command is: {DEFAULT}"
+    echo " - KUBECTL_CMD:       [DEFAULT]"
     ;;
   "AUTODETECT")
-    echo " - The auto detected kubectl is: {${ENTANDO_KUBECTL_AUTO_DETECTED:-ERR-NO-FOUND}}"
+    echo " - KUBECTL_CMD:       ${ENTANDO_KUBECTL_AUTO_DETECTED:-[ERR-NO-FOUND]} (autodetected)"
     ;;
   *)
     FATAL "Unknown kubectl mode"
     ;;
   esac
+  print_hr
+  _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
+  env | grep "ENTANDO_" | grep "_0e7e8d89_$ENTANDO_TTY_QUALIFIER" \
+  | sed "s/_0e7e8d89_$ENTANDO_TTY_QUALIFIER//" \
+  | sed "s/ENTANDO_FORCE_//" \
+  | sed "s/_/ /g" \
+  | sed "s/=/: /" \
+  |  xargs -L 1 -I {} echo " - TTY SESSION {}"
+
   print_hr
 }
 
@@ -475,3 +494,5 @@ determine_namespace() {
 
   return 1
 }
+
+handle_forced_app_profile "$@"

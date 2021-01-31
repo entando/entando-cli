@@ -1,17 +1,20 @@
 #!/bin/bash
-# shellcheck disable=SC2034
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-. s/essentials.sh --with-state
-[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift
-[ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
+cd "$DIR/.." || {
+  echo "Internal error: unable to find the script source dir" 1>&2
+  exit
+}
+
+# PARAMS
+
 [ -n "$1" ] && ENTANDO_APPNAME="$1" && shift
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 
-if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then
-  ENT_KUBECTL_CMD="$ENTANDO_ENT_KUBECTL_CMD"
-fi
+[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift
+[ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
 
-setup_kubectl
+# ~~~
 
 start_time="$1"
 if [ -n "$start_time" ]; then
@@ -40,7 +43,9 @@ RUN() {
   PODS="$(_kubectl get pods -n "$ENTANDO_NAMESPACE" 2>&1)"
 
   if $ENTANDO_STANDARD_QUICKSTART; then
-    INGR=$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" 2> /dev/null)
+    INGR=$(
+      _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null
+    )
 
     ingr_check "KC " "kc-ingress" "auth/"
     ingr_check "ECI" "eci-ingress" "k8s/"
@@ -49,7 +54,7 @@ RUN() {
       READY=true
     }
   else
-    local e c R
+    local e c
     IFS='/' read -r e c < <(
       echo "$PODS" | grep 'quickstart-server-deployment' | awk '{print $2}'
     )
@@ -101,7 +106,7 @@ RUN() {
 ingr_check() {
   local DRY=false
   [ "$1" = "--dry" ] && shift && DRY=true
-  ADDR="$(echo "$INGR" | grep "$2" | awk '{print $3}')"
+  ADDR="$(echo "$INGR" | grep "$2" | awk '{print $2}')"
 
   [ -z "$ADDR" ] && {
     echo "> $1 endpoint not registered.."

@@ -38,17 +38,17 @@ RUN() {
   case "$CMD" in
   "use") #H: selects the application profile that ent should use
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
+    args_or_ask ${HH:+"$HH"} -n -F "APP_ONLY" "--app-only///Only deletes the app profile an no other resource" "$@"
     args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APP_PROFILE" "--none///Assumes the global application profile" "$@"
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
-    reset_kubectl_mode --mem
+    kubectl_mode --reset-mem
     use_app_profile "$@"
 
-    ! $USE_NO_APP_PROFILE && {
-      app_profile_auto_attach
-    }
+    #! $USE_NO_APP_PROFILE && {
+    #  app_profile_auto_attach
+    #}
     ;;
   "first-use-readme") #H: prints the first-use readme
     print_first_use_readme
@@ -79,6 +79,7 @@ RUN() {
     ;;
   "delete") #H: delete the given application profile
     args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+    args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
@@ -109,9 +110,9 @@ RUN() {
     [ -n "$HH" ] && exit 0
 
     if $WATCH; then
-      ent app-info watch "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+      ent app-info watch "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE"
     else
-      ent app-info "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+      ent app-info "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE"
     fi
     ;;
   "")
@@ -189,10 +190,22 @@ use_app_profile() {
   DESIGNATED_APP_PROFILE_HOME=""
 
   if $USE_NO_APP_PROFILE; then
-    save_cfg_value "DESIGNATED_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
-    save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
-    activate_designated_workdir
-    return 0
+    if [ -n "$COMMAND_FILE" ]; then
+      save_cfg_value "DESIGNATED_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
+      save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
+      activate_designated_workdir
+      return 0
+    else
+      # shellcheck disable=SC2016
+      {
+        echo "export ENTANDO_FORCE_APP_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"-\""
+        echo "export ENTANDO_FORCE_APP_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"-\""
+        echo 'if [ "$1" = "--full" ]; then'
+        echo "  DESIGNATED_APP_PROFILE=\"\""
+        echo "  DESIGNATED_APP_PROFILE_HOME=\"\""
+        echo 'fi'
+      } >> "$COMMAND_FILE"
+    fi
   else
     (
       # shellcheck disable=SC2030
@@ -210,22 +223,45 @@ use_app_profile() {
         $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
         new_app_profile "$tmp_app_profile"
       fi
-
-      save_cfg_value "DESIGNATED_APP_PROFILE" "${tmp_app_profile}" "$ENTANDO_GLOBAL_CFG"
-      save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+      
+      # shellcheck disable=SC2030
+      if [ -n "$COMMAND_FILE" ]; then
+        # shellcheck disable=SC2016
+        {
+          echo "export ENTANDO_FORCE_APP_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${tmp_app_profile}\""
+          echo "export ENTANDO_FORCE_APP_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${app_dir}\""
+          echo 'if [ "$1" = "--full" ]; then'
+          echo "  DESIGNATED_APP_PROFILE=\"${tmp_app_profile}\""
+          echo "  DESIGNATED_APP_PROFILE_HOME=\"${app_dir}\""
+          echo 'fi'
+        } >> "$COMMAND_FILE"
+      else
+        save_cfg_value "DESIGNATED_APP_PROFILE" "${tmp_app_profile}" "$ENTANDO_GLOBAL_CFG"
+        save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
+      fi
       true
     ) || return $?
-
-    reload_cfg "$ENTANDO_GLOBAL_CFG"
-    set_curr_app_profile "$DESIGNATED_APP_PROFILE" "$DESIGNATED_APP_PROFILE_HOME"
-    activate_designated_workdir
+    
+    # shellcheck disable=SC2031 disable=SC1090
+    {
+      reload_cfg "$ENTANDO_GLOBAL_CFG"
+      if [ -n "$COMMAND_FILE" ]; then
+        . "$COMMAND_FILE" --full
+        activate_designated_workdir --temporary
+      else
+        set_curr_app_profile "$DESIGNATED_APP_PROFILE" "$DESIGNATED_APP_PROFILE_HOME"
+        activate_designated_workdir
+      fi
+    }
 
     print_current_app_profile_info -v
 
-    ${APP_PROFILE_NEVER_USED:-false} && {
-      save_cfg_value APP_PROFILE_NEVER_USED ""
-      print_first_use_readme
-    }
+      ${APP_PROFILE_NEVER_USED:-false} && {
+        if [ -n "$COMMAND_FILE" ]; then
+          save_cfg_value APP_PROFILE_NEVER_USED ""
+        fi
+        print_first_use_readme
+      }
   fi
 }
 
@@ -270,7 +306,7 @@ new_app_profile() {
   HH="$(parse_help_option "$@")"
   args_or_ask ${HH:+"$HH"} -a APP_PROFILE "1/ext_ic_id//%sp application profile name" "$@"
   args_or_ask ${HH:+"$HH"} -n -F AUTO_USE \
-    "--auto-use//true/%sp if true (default) automatically switches to the new application profile" "$@"
+    "--and-use//true/%sp if true (default) automatically switches to the new application profile" "$@"
   args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
   parse_basic_app_profile_args 2 "$@"
   [ -n "$HH" ] && exit 0
@@ -369,9 +405,11 @@ delete_app_profile() {
 
       if [ -n "$DESIGNATED_VM" ]; then
         _log_w 0 "This application profile is associated with a managed VM"
-        if $AUTO_YES || ask "Should I remove the VM too?"; then
-          multipass delete "$DESIGNATED_VM"
-          _log_i 0 "VM deleted, to completely remove it run \"multipass purge\""
+        if ! $APP_ONLY; then
+          if $AUTO_YES || ask "Should I remove the VM too?"; then
+            multipass delete "$DESIGNATED_VM"
+            _log_i 0 "VM deleted, to completely remove it run \"multipass purge\""
+          fi
         fi
       fi
     )
@@ -457,4 +495,11 @@ app_profile_auto_attach() {
   fi
 }
 
+if [ "$1" = "--for-sourced-execution" ];  then
+  COMMAND_FILE="$2";shift 2
+else
+  COMMAND_FILE=""
+fi
+
 RUN "$@"
+

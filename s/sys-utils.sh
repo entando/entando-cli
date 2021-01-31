@@ -169,6 +169,10 @@ if ! $ENTANDO_IS_TTY || $OS_WIN; then
   }
 else
   _watch() {
+    export ENTANDO_TTY_QUALIFIER
+    export ENTANDO_DEV_TTY
+    export -f _kubectl
+    kubectl_mode --export
     watch "$@"
   }
 fi

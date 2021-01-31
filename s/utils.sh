@@ -779,15 +779,19 @@ stdin_to_arr() {
 print_current_app_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if [ -n "$THIS_APP_PROFILE" ]; then
-    _log_i 0 "Currently using the application profile \"$THIS_APP_PROFILE\"" 1>&2
+    _log_i 0 "Current application profile:"
+    echo " - PROFILE NAME:  ${THIS_APP_PROFILE}"
   else
     _log_i 0 "Currently not using any application profile" 1>&2
   fi
   
   $VERBOSE && {
-    echo " - The currently designated appname is: ${ENTANDO_APPNAME:-{NONE\}}"
-    echo " - The currently designated namespace is: ${ENTANDO_NAMESPACE:-{NONE\}}"
-    echo " - The currently linked kube context is: ${DESIGNATED_KUBECTX:-{NONE\}}"
+#    echo " - The currently designated appname is: ${ENTANDO_APPNAME:-{NONE\}}"
+#    echo " - The currently designated namespace is: ${ENTANDO_NAMESPACE:-{NONE\}}"
+#    echo " - The currently linked kube context is: ${DESIGNATED_KUBECTX:-{NONE\}}"
+    echo " - APPNAME:       ${ENTANDO_APPNAME:-{NONE\}}"
+    echo " - NAMESPACE:     ${ENTANDO_NAMESPACE:-{NONE\}}"
+    echo " - K8S CONTEXT:   ${DESIGNATED_KUBECTX:-{NONE\}}"
   }
 }
 
@@ -1138,4 +1142,42 @@ ecr-watch-installation-result() {
     esac
     sleep 3
   done
+}
+
+# Implements a mechanism restrict and preserve in the current tty the application profile to use 
+#
+# How:
+# 1) The application profile name to use is saved on environment variables
+# 2) The environment variables are qualified with a string derived from the current tty name
+# 3) The environment variables are set by sourcing the app-use: "source ent use my-app"
+# 
+# Why:
+# 1) In order to avoid interferences between ttys 
+# 2) The qualifiers allows to prevent from reusing the same environment variables on forked ttys
+#
+handle_forced_app_profile() {
+  local pv="ENTANDO_FORCE_APP_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local phv="ENTANDO_FORCE_APP_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  if [[ "$1" =~ --app=.* ]]; then
+    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_APP_PROFILE" "--app/ext_ic_id//" "$@"
+    _set_var "$pv" "$ENTANDO_USE_APP_PROFILE"
+    _set_var "$phv" "$ENTANDO_HOME/apps/$ENTANDO_USE_APP_PROFILE"
+  fi
+  
+  local pvv phvv
+  if [ -n "$ZSH_VERSION" ]; then
+    pvv=${(P)pv}
+    phvv=${(P)phv}
+  else
+    pvv=${!pv}
+    phvv=${!phv}
+  fi
+  
+  if [[ -n "$pvv" && "$DESIGNATED_APP_PROFILE" != "$pvv" ]]; then
+    kubectl_mode --reset-mem 
+    DESIGNATED_APP_PROFILE="$pvv"
+    # shellcheck disable=SC2034
+    DESIGNATED_APP_PROFILE_HOME="$phvv"
+    activate_designated_workdir --temporary
+  fi
 }

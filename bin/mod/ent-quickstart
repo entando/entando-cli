@@ -34,7 +34,8 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
 ENT_KUBECTL_CMD=""
 
 args_or_ask ${HH:+"$HH"} -n "APP_PROFILE" "--use-app///Forces the quickstart to use the application profile" "$@" && {
-  ent app use "$APP_PROFILE"
+  # shellcheck disable=SC1091
+  . ent app use "$APP_PROFILE"
 }
 
 if [ -z "$HH" ]; then
@@ -55,6 +56,7 @@ fi
 
 ENTANDO_INTERACTIVE="true"
 EDIT_MANIFEST=false
+ENTANDO_VM_REUSE=""
 args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
 args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
 args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
@@ -67,7 +69,7 @@ args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 5G" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 15G" "$@"
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_VM_REUSE" "--vm-reuse///Allows the quickstart to reuse an existing VM" "$@"
+args_or_ask ${HH:+"$HH"} -n -p -F "ENTANDO_VM_REUSE" "--vm-reuse///Allows the quickstart to reuse an existing VM" "$@"
 args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
 args_or_ask ${HH:+"$HH"} -n "ENTANDO_COCOO_VERSION_OVERRIDE" \
   "--override-cocoo-version///Overrides the version of the controller coordinator with the supplied version" "$@"
@@ -267,12 +269,40 @@ RUN_WITH_VM() {
   [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
   [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
 
+  _log_i 2 "> Preflight checks"
+  if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
+    local err_msg="A VM named \"$ENTANDO_VM_NAME\" already exists"
+
+    if [ -z "${ENTANDO_VM_REUSE}" ]; then
+      _log_w 2 "$err_msg"
+      ! $ENTANDO_INTERACTIVE && FATAL "$err_msg"
+      
+      multipass info "$ENTANDO_VM_NAME"
+      ask "Should I try reusing it?" || {
+        EXIT_UE "$err_msg"
+      }
+    elif $ENTANDO_VM_REUSE; then
+      _log_i 2 "$err_msg and you choose to reuse it"
+    else
+      _log_w 0 "${err_msg}"
+      multipass info "$ENTANDO_VM_NAME"
+      FATAL "$err_msg"
+    fi
+    multipass start "$ENTANDO_VM_NAME" || FATAL "VM can't be reused"
+    LAUNCH_NEW_VM=false
+  else
+    LAUNCH_NEW_VM=true
+  fi
+  
   if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$APP_PROFILE" ]; then
+    ent app delete "qs-$ENTANDO_VM_NAME" --yes --app-only
     ent app new "qs-$ENTANDO_VM_NAME" \
       "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \
+      --auto-use=false \
     ;
-    ent app use "qs-$ENTANDO_VM_NAME"
+    # shellcheck disable=SC1091
+    . ent app use "qs-$ENTANDO_VM_NAME"
   fi
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
@@ -285,27 +315,11 @@ RUN_WITH_VM() {
   }
 
   #~ LAUNCH OR REUSE VM
-  _log_i 2 "> Generating the base VM"
-  if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
-    local err_msg="A VM named \"$ENTANDO_VM_NAME\" already exists"
-
-    if $ENTANDO_VM_REUSE; then
-      _log_i 2 "$err_msg"
-    else
-      _log_w 0 "${err_msg}:"
-      multipass info "$ENTANDO_VM_NAME"
-
-      if $ENTANDO_INTERACTIVE; then
-        ask "Should I try reusing it?" || {
-          EXIT_UE "$err_msg"
-        }
-      else
-        FATAL "$err_msg"
-      fi
-    fi
-    _log_i 2 "Trying to reuse the VM"
-  else
+  if $LAUNCH_NEW_VM; then
+    _log_i 2 "> Generating the base VM"
     multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
+  else
+    _log_i 2 "Trying to reuse the exiting base VM"
   fi
 
   #~ PREPARES OVERRIDES
@@ -518,7 +532,8 @@ RUN_DIRECT() {
 
   # -- POST-DEPLOYMENT
   if ! $ENTANDO_NO_AUTO_ATTACH; then
-    ent app use "qs-$ENTANDO_VM_NAME"
+    # shellcheck disable=SC1091
+    . ent app use "qs-$ENTANDO_VM_NAME"
   fi
 
   # shellcheck disable=SC2015

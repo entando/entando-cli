@@ -25,6 +25,8 @@
   if [ $? -eq 0 ]; then
     if [[ -z "$ENTANDO_DEV_TTY" ]]; then
       ENTANDO_DEV_TTY="$(tty)"
+      # shellcheck disable=SC2034
+      ENTANDO_TTY_QUALIFIER="${ENTANDO_DEV_TTY//\//_}"
     fi
   fi
 
@@ -108,7 +110,7 @@
 
   # Overwritten by utils.sh
   kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
-  reset_kubectl_mode() { :; }
+  kubectl_mode() { :; }
 
   # KUBECTL
   # shellcheck disable=SC2034

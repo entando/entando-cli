@@ -15,6 +15,14 @@ _set_var() {
   return 0
 }
 
+_print_var() {
+  if [ -n "$ZSH_VERSION" ]; then
+    echo "${(P)1}"
+  else
+    echo "${!1}"
+  fi
+}
+
 # set variable with nonnull value
 # - $1: variable to set
 # - $2: value

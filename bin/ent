@@ -18,18 +18,7 @@ RUN() {
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
   
-  if [[ "$1" =~ --app=.* ]]; then
-    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_APP_PROFILE" "--app/ext_ic_id//" "$@"
-    if [ "$DESIGNATED_APP_PROFILE" != "$ENTANDO_USE_APP_PROFILE" ]; then
-      reset_kubectl_mode --mem 
-      DESIGNATED_APP_PROFILE="$ENTANDO_USE_APP_PROFILE"
-      # shellcheck disable=SC2034
-      DESIGNATED_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$DESIGNATED_APP_PROFILE"
-      activate_designated_workdir --temporary
-    fi
-    shift
-  fi
-
+  [[ "$1" =~ --app=.* ]] && shift
 
   while true; do
     cmd="$1"
@@ -67,6 +56,8 @@ RUN() {
         # shellcheck disable=SC1091
         source ent help --simple
         ;;
+      "print-completion-setup")
+        ent completion "$@";;
       "completion") #H: setups the ent autocompletion
         [ -z "$1" ] && FATAL "Please provide the shell type (bash|zsh)"
         if [ "$1" = "zsh" ]; then
@@ -82,9 +73,9 @@ RUN() {
         ent kubectl ent-set-cmd "$@"
         ;;
       "reset-kubectl-mode") #H: reset the kubectl mode to the default one
-        reset_kubectl_mode
+        kubectl_mode --reset-cfg
         ;;
-      "status") #H: reset the kubectl mode to the default one
+      "status") #H: shows the ent general status
         print_ent_operative_infos
         ;;
       "list-kube-contexts")  #H: prints a list of available contexts from the current kubeconfig
@@ -201,7 +192,7 @@ attach_vm() {
   multipass exec "$VM_NAME" -- bash -c "sudo cat /etc/rancher/k3s/k3s.yaml" \
     | _perl_sed "s/127.0.0.1/$ADDR/" >> "$ENT_KUBECONF_FILE_PATH"
     
-  reset_kubectl_mode
+  kubectl_mode --reset-cfg
   save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
   save_cfg_value "DESIGNATED_VM" "$VM_NAME"
 }
@@ -209,7 +200,7 @@ attach_vm() {
 attach_kubeconfig() {
   local KUBECONFIG
   args_or_ask ${HH:+"$HH"} -a -- KUBECONFIG '1///%sp kubeconfig file' "$@"  
-  #reset_kubectl_mode
+  #kubectl_mode --reset-cfg
   save_cfg_value "DESIGNATED_KUBECONFIG" "$KUBECONFIG"
 }
 
@@ -255,16 +246,27 @@ if (
       "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
       ENTANDO_ENT_TMPVAR_0002bb75="$?"
       ;;
+    "app")
+      if [ "$2" = "use" ]; then
+        shift 2
+        "$ENTANDO_ENT_HOME/bin/mod/ent-app" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
+      else
+        rm "$ENTANDO_ENT_TMPFILE_0002bb75"
+      fi
+      ;;
     "help")
       shift
       "$ENTANDO_ENT_HOME/bin/mod/ent-help" "$@"
       ;;
-  *)
-    [ -f "$ENTANDO_ENT_TMPFILE_0002bb75" ] && rm "$ENTANDO_ENT_TMPFILE_0002bb75"
+    *)
+      rm "$ENTANDO_ENT_TMPFILE_0002bb75"
+      ;;
+  esac
+  
+  if [ ! -f "$ENTANDO_ENT_TMPFILE_0002bb75" ]; then 
     echo "Sourced execution is not permitted for the command $1" 1>&2
     return 99
-    ;;
-  esac
+  fi
 
   [ -f "$ENTANDO_ENT_TMPFILE_0002bb75" ] && {
     if [ "$ENTANDO_ENT_TMPVAR_0002bb75" = 0 ]; then
@@ -275,7 +277,7 @@ if (
   }
 
   unset ENTANDO_ENT_TMPFILE_0002bb75
-  exit "$ENTANDO_ENT_TMPVAR_0002bb75"
+  return "$ENTANDO_ENT_TMPVAR_0002bb75"
 else
   # shellcheck disable=SC2034
   ENTANDO_CALLER_PWD="$PWD"

@@ -86,7 +86,7 @@ set_kubectl_command() {
   }
 
   # reset kubeconfig setup
-  # reset_kubectl_mode
+  # kubectl_mode --reset-cfg
   
   args_or_ask -a ${HH:+"$HH"} "ENT_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
   save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
