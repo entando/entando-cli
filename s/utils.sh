@@ -779,135 +779,23 @@ stdin_to_arr() {
 print_current_app_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if [ -n "$THIS_APP_PROFILE" ]; then
-    _log_i 0 "Current application profile:"
-    echo " - PROFILE NAME:  ${THIS_APP_PROFILE}"
+    if $VERBOSE; then
+      _log_i 0 "Current application profile:"
+      echo " - PROFILE NAME:  ${THIS_APP_PROFILE}"
+    else
+      _log_i 0 "Current application profile: ${THIS_APP_PROFILE}" 1>&2
+    fi
   else
     _log_i 0 "Currently not using any application profile" 1>&2
   fi
   
   $VERBOSE && {
-#    echo " - The currently designated appname is: ${ENTANDO_APPNAME:-{NONE\}}"
-#    echo " - The currently designated namespace is: ${ENTANDO_NAMESPACE:-{NONE\}}"
-#    echo " - The currently linked kube context is: ${DESIGNATED_KUBECTX:-{NONE\}}"
     echo " - APPNAME:       ${ENTANDO_APPNAME:-{NONE\}}"
     echo " - NAMESPACE:     ${ENTANDO_NAMESPACE:-{NONE\}}"
     echo " - K8S CONTEXT:   ${DESIGNATED_KUBECTX:-{NONE\}}"
   }
 }
 
-#-----------------------------------------------------------------------------------------------------------------------
-
-map-clear() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  shift
-  for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
-      unset "${name}"
-    fi
-  done
-}
-
-map-count() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  shift
-  local i=0
-  for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
-      i=$((i + 1))
-    fi
-  done
-  _set_var "$1" "$i"
-  [ "$i" -gt 0 ] && return 0
-  return 255
-}
-
-map-set() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  shift
-  local name="$1"
-  local address="$2"
-  _set_var "${arr_var_name}${name}" "$address"
-}
-
-map-get() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  shift
-  local name
-
-  if [ "$1" = "--first" ]; then
-    shift
-    local dst_var_name="$1"
-    name="$(map-list REMOTES | head -n 1)"
-  else
-    local dst_var_name="$1"
-    name="$2"
-  fi
-  local tmp
-  tmp="${arr_var_name}${name}"
-  value="${!tmp}"
-  _set_var "$dst_var_name" "$value"
-  [ -n "$value" ] && return 0
-  return 255
-}
-
-map-del() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  shift
-  local name="$1"
-  unset "${arr_var_name}${name}"
-}
-
-# shellcheck disable=SC2120
-map-list() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  shift
-  local SEP="$1"
-  local tmp
-  for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
-      if [ "$SEP" == "-k" ]; then
-        tmp="${name}"
-        echo "${!tmp}"
-      elif [ -z "$SEP" ]; then
-        echo "${name/${arr_var_name}/}"
-      else
-        tmp="${name}"
-        echo "${name/${arr_var_name}/}${SEP}${!tmp}"
-      fi
-    fi
-  done
-}
-
-map-get-keys() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
-  local dst_var_name="$2"
-  shift
-  local i=0
-  for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
-      _set_var "dst_var_name[$i]" "$line"
-    fi
-  done
-}
-
-map-save() {
-  local arrname="$1"
-  shift
-  save_cfg_value -m "ENTANDO_${arrname}"
-}
-
-map-from-stdin() {
-  local arrname="$1"
-  local SEP="$2"
-  local i=0
-  local arr
-  IFS="$SEP" read -d '' -r -a arr
-
-  for line in "${arr[@]}"; do
-    map-set "$arrname" "$i" "$line"
-    ((i++))
-  done
-}
 
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -982,11 +870,12 @@ keycloak-get-token() {
   [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
 
   local client_secret_name="${ENTANDO_APPNAME}-server-secret"
-  local client_id
-  local client_secret
-  IFS=':' read -r client_id client_secret < <(
+  local client_id client_secret tmp
+  tmp="$(
     _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
-  )
+  )"
+  client_id="$(echo "$tmp" | cut -d':' -f1)"
+  client_secret="$(echo "$tmp" | cut -d':' -f2)"
 
   [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
 
@@ -994,6 +883,8 @@ keycloak-get-token() {
   client_secret=$(base64 -d <<< "$client_secret")
 
   local TOKEN
+  TOKEN_ENDPOINT="http://quickstart-kc-release-e6-3-0.apps.rd.entando"
+  TOKEN_ENDPOINT+=".org/auth/realms/entando/protocol/openid-connect/token"""
   TOKEN="$(curl -s "$TOKEN_ENDPOINT" \
     -H "Accept: application/json" \
     -H "Accept-Language: en_US" \
@@ -1019,9 +910,21 @@ ecr-prepare-action() {
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress scheme
   app-get-main-ingresses main_ingress ecr_ingress
-  http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
-  [ -z "$main_ingress" ] && FATAL "Unable to determine the main main_ingress url"
+  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
+  [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
+  DEFAULT_APP_SCHEME="${DEFAULT_APP_SCHEME:-$LATEST_APP_SCHEME}"
+  case "$DEFAULT_APP_SCHEME" in
+    "https")
+      http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
+      ;;
+    *)
+      http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
+      ;;
+  esac
+  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
   http-get-url-scheme scheme "$main_ingress"
+  LATEST_APP_SCHEME="${scheme}"
+  save_cfg_value LATEST_APP_SCHEME "$LATEST_APP_SCHEME"
   local token
   keycloak-get-token token "$scheme"
   _set_var "$var_url" "$scheme://$ecr_ingress"

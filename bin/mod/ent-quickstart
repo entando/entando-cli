@@ -12,10 +12,12 @@ cd "$DIR/../.." || {
 debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     trace_vars \
+      DESIGNATED_APP_PROFILE DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
+      ENTANDO_NAMESPACE ENTANDO_APPNAME \
       ENTANDO_STANDARD_QUICKSTART ENTANDO_PRE_EXISTING K8S_TEMPLATE \
       AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME \
       ENTANDO_DEBUG ENTANDO_RELEASE ENTANDO_CLI_VERSION WITH_VM ENTANDO_OPT_YES_FOR_ALL ENTANDO_INTERACTIVE \
-      JUST_SET_CFG ENTANDO_NAMESPACE ENTANDO_APPNAME \
+      JUST_SET_CFG \
       ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK ENTANDO_VM_REUSE \
       ENTANDO_AUTO_HOSTNAME ENTANDO_CONFIGMAP_OVERRIDE_FILE ENTANDO_COCOO_VERSION_OVERRIDE EDIT_MANIFEST \
       ENT_KUBECTL_CMD
@@ -33,10 +35,7 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
 
 ENT_KUBECTL_CMD=""
 
-args_or_ask ${HH:+"$HH"} -n "APP_PROFILE" "--use-app///Forces the quickstart to use the application profile" "$@" && {
-  # shellcheck disable=SC1091
-  . ent app use "$APP_PROFILE"
-}
+args_or_ask ${HH:+"$HH"} -n "APP_PROFILE" "--use-app///Forces the quickstart to use the application profile" "$@"
 
 if [ -z "$HH" ]; then
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -110,6 +109,21 @@ handle-edit-manifest() {
     "$1" "$2"
   fi
 }
+sourced-ent-app-use() {
+  # shellcheck disable=SC1091
+  . ent app use "$@"
+}
+ent-app-new() {
+  ent app new "$@"
+}
+
+ent-app-delete() {
+  ent app delete "$@"
+}
+
+ent-set-kubectl-cmd() {
+  ent kubectl ent-set-cmd "sudo k3s kubectl"
+}
 
 $ENTANDO_MOCK_TEST_RUN && {
   . s/quickstart-mocks.sh
@@ -131,6 +145,12 @@ args_or_ask -f -- "--destroy" "$@" && {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+
+[ -n "$APP_PROFILE" ] && {
+  # shellcheck disable=SC1091
+  sourced-ent-app-use "$APP_PROFILE"
+}
+
 if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
   assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
 fi
@@ -295,14 +315,14 @@ RUN_WITH_VM() {
   fi
   
   if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$APP_PROFILE" ]; then
-    ent app delete "qs-$ENTANDO_VM_NAME" --yes --app-only
-    ent app new "qs-$ENTANDO_VM_NAME" \
+    ent-app-delete "qs-$ENTANDO_VM_NAME" --yes --app-only
+    ent-app-new "qs-$ENTANDO_VM_NAME" \
       "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \
       --auto-use=false \
     ;
     # shellcheck disable=SC1091
-    . ent app use "qs-$ENTANDO_VM_NAME"
+    sourced-ent-app-use "qs-$ENTANDO_VM_NAME"
   fi
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
@@ -409,6 +429,18 @@ RUN_DIRECT() {
   # -- CHECK-ENV
 
   ! $JUST_SET_CFG && ! $ENTANDO_NO_CHECK && {
+    ent-app-delete "qs-localhost" --yes --app-only
+    ent-app-new "qs-localhost" \
+      "$ENTANDO_APPNAME" \
+      "$ENTANDO_NAMESPACE" \
+      --auto-use=false \
+    ;
+    sourced-ent-app-use "qs-localhost"
+    kubectl_mode --reset-mem --reset-cfg
+    if $ENTANDO_STANDARD_QUICKSTART; then
+      ent-set-kubectl-cmd "sudo k3s kubectl"
+    fi
+
     local YES_OPT=""
     if $ENTANDO_OPT_YES_FOR_ALL; then
       YES_OPT="--yes"
@@ -531,10 +563,6 @@ RUN_DIRECT() {
   }
 
   # -- POST-DEPLOYMENT
-  if ! $ENTANDO_NO_AUTO_ATTACH; then
-    # shellcheck disable=SC1091
-    . ent app use "qs-$ENTANDO_VM_NAME"
-  fi
 
   # shellcheck disable=SC2015
   ask "Should I start the monitor?" && {

@@ -98,4 +98,25 @@ test_asserters() {
   assert_giga "VER" "10" "$OPT" && FATAL "failed! $LINENO"
 }
 
+test_map_functions() {
+    print_current_function_name "> " ".."
+    map-clear REMOTES
+    map-save REMOTES
+    map-count REMOTES N
+    [ "$N" = 0 ] || FATAL "failed! $LINENO"
+    map-set REMOTES "test" "a-test"
+    map-set REMOTES "test2" "another test"
+    map-count REMOTES N
+    [ "$N" = 2 ] || FATAL "failed! $LINENO"
+    map-save REMOTES
+    map-clear REMOTES
+    reload_cfg
+    map-count REMOTES N
+    [ "$N" = 2 ] || FATAL "failed! $LINENO"
+    map-get REMOTES V "test"
+    [ "$V" = "a-test" ] || FATAL "failed! $LINENO"
+    map-get REMOTES V "test2"
+    [ "$V" = "another test" ] || FATAL "failed! $LINENO"
+}
+
 true

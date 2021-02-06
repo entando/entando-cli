@@ -20,6 +20,7 @@ mock-log() {
 
   echo -e "$(B)######## MOCK: [$MOCK_CALL_ID]\n$1$(E)" 1>&2
   echo -e "######## MOCK: [$MOCK_CALL_ID]\n$1" >> "$TEST_WORKDIR/mock.log"
+  print_hr 1>&2
 }
 
 mock-log-param() {
@@ -183,4 +184,29 @@ net_is_address_present() {
   new-mock-call-id
   mock-log "## Run net_is_address_present params: $*"
   true;
+}
+
+sourced-ent-app-use() {
+  new-mock-call-id
+  mock-log "## Using app profile \"$1\" in this tty session"
+  true;
+}
+
+ent-app-new() {
+  new-mock-call-id
+  name="$1"; shift
+  mock-log "## Creating app profile \"$name\" with data: $*"
+  true;
+}
+
+ent-app-delete() {
+  new-mock-call-id
+  mock-log "## Deleting app profile \"$1\""
+  true;
+}
+
+ent-set-kubectl-cmd() {
+  new-mock-call-id
+  mock-log "## Setting kubectl command to \"$1\""
+  ent kubectl ent-set-cmd "sudo k3s kubectl"
 }

@@ -135,6 +135,7 @@ mkdir -p "$ENTANDO_HOME/ttys"
 
 . s/utils.sh
 . s/var-utils.sh
+. s/app-utils.sh
 . s/logger.sh
 
 DESIGNATED_VM=""
@@ -161,7 +162,7 @@ reload_cfg "$ENTANDO_GLOBAL_CFG"
 # the default workdir is not related t any application profile
 # and it's located the ent installation directory
 activate_ent_default_workdir() {
-  if [ -z "$DESIGNATED_APP_PROFILE" ]; then
+  if [[ -z "$DESIGNATED_APP_PROFILE" || "$DESIGNATED_APP_PROFILE" = "-" ]]; then
     # shellcheck disable=SC2034
     THIS_APP_PROFILE=""
     DESIGNATED_APP_PROFILE_HOME=""
@@ -199,7 +200,7 @@ activate_designated_workdir() {
   TEMPORARY=false
   [ "$1" = "--temporary" ] && TEMPORARY=true
   ! $TEMPORARY && reload_cfg "$ENTANDO_GLOBAL_CFG"
-  if [ -n "$DESIGNATED_APP_PROFILE" ]; then
+  if [[ -n "$DESIGNATED_APP_PROFILE" && "$DESIGNATED_APP_PROFILE" != "-" ]]; then
     activate_application_workdir
   else
     activate_ent_default_workdir
@@ -347,8 +348,8 @@ kubectl_mode() {
       ENT_KUBECTL_CMD=""
       ;;
     "--reset-cfg")
-      detach_kubeconfig
-      detach_vm --preserve-config-file
+      kubeconfig-detach
+      managed-vm-detach --preserve-config-file
       save_cfg_value "DESIGNATED_KUBECTX" ""
       save_cfg_value "ENT_KUBECTL_CMD" ""
       ;;

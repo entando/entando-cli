@@ -37,16 +37,25 @@ RUN() {
         handle_config_command "$@"
         ;;
       "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
-        attach_vm "$@"
+        managed-vm-attach "$@"
         ;;
       "detach-vm") #H: detach ent from the current ent-managed VM
-        detach_vm "$@"
+        managed-vm-detach "$@"
         ;;
-      "attach-kubeconfig")  #H: links the current application profile to a kube context
-        attach_kubeconfig "$@"
+      "attach-kubeconfig")  #H: attaches ent a kube configuration
+        kubeconfig-attach "$@"
         ;;
-      "detach-kubeconfig")  #H: links the current application profile to a kube context
-        detach_kubeconfig "$@"
+      "detach-kubeconfig")  #H: attaches ent a kube configuration
+        kubeconfig-detach "$@"
+        ;;
+      "attach-kubectx")  #H: attaches ent a kube configuration
+        ent app link "$@"
+        ;;
+      "detach-kubectx")  #H: attaches ent a kube configuration
+        kubectx-detach
+        ;;
+      "list-kubectx")  #H: prints a list of available contexts from the current kubeconfig
+        kubectx-list "$@"
         ;;
       "fix-vm-ddns") #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
         # shellcheck disable=SC1091
@@ -77,9 +86,6 @@ RUN() {
         ;;
       "status") #H: shows the ent general status
         print_ent_operative_infos
-        ;;
-      "list-kube-contexts")  #H: prints a list of available contexts from the current kubeconfig
-        list_kube_contexts "$@"
         ;;
       "")
         # shellcheck disable=SC1091
@@ -160,54 +166,6 @@ handle_config_command() {
   [ -n "$HH" ] && exit 0
 }
 
-detach_vm() {
-  [ "$1" = "--preserve-config-file" ] || rm "$ENT_KUBECONF_FILE_PATH"
-  save_cfg_value "DESIGNATED_KUBECONFIG" ""
-  save_cfg_value "DESIGNATED_VM" ""
-  save_cfg_value "DESIGNATED_VM_NAMESPACE" ""
-}
-
-attach_vm() {
-  args_or_ask -n -f -- '--help' "$@" && {
-    local HH="--help"
-    echo "> Parameters:"
-  }
-
-  args_or_ask_from_list REMOTES -m -a ${HH:+"$HH"} VM_NAME 1 "any" \
-    "remotes" "%sp VM to which ent kubectl should attach" "$@"
-
-  [ -n "$HH" ] && return 0
-
-  local ADDR
-  ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
-  [ -z "$ADDR" ] && FATAL "Unable to determine the VM address (\"$VM_NAME\")"
-
-  (
-    set -e
-    [ -f "$ENT_KUBECONF_FILE_PATH" ] && rm "$ENT_KUBECONF_FILE_PATH"
-    touch "$ENT_KUBECONF_FILE_PATH"
-    chmod 600 "$ENT_KUBECONF_FILE_PATH"
-  ) || FATAL "Unable to prepare to KUBECONFIG file"
-
-  multipass exec "$VM_NAME" -- bash -c "sudo cat /etc/rancher/k3s/k3s.yaml" \
-    | _perl_sed "s/127.0.0.1/$ADDR/" >> "$ENT_KUBECONF_FILE_PATH"
-    
-  kubectl_mode --reset-cfg
-  save_cfg_value "DESIGNATED_KUBECONFIG" "$ENT_KUBECONF_FILE_PATH"
-  save_cfg_value "DESIGNATED_VM" "$VM_NAME"
-}
-
-attach_kubeconfig() {
-  local KUBECONFIG
-  args_or_ask ${HH:+"$HH"} -a -- KUBECONFIG '1///%sp kubeconfig file' "$@"  
-  #kubectl_mode --reset-cfg
-  save_cfg_value "DESIGNATED_KUBECONFIG" "$KUBECONFIG"
-}
-
-detach_kubeconfig() {
-  save_cfg_value "DESIGNATED_KUBECONFIG" ""
-}
-
 cmplt() {
   cd "$ENTANDO_ENT_HOME/bin/mod" || {
     echo "Unable to enter directory $PWD/bin"
@@ -220,8 +178,9 @@ cmplt() {
 
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "import" "activate"
-      "set-kubectl-cmd" "reset-kubectl-mode" "status" "list-kube-contexts"
+      "set-kubectl-cmd" "reset-kubectl-mode" "status"
       "attach-kubeconfig" "detach-kubeconfig"
+      "attach-kubectx" "detach-kubectx" "list-kubectx"
   )
 
   for tc in "${topcmd[@]}"; do

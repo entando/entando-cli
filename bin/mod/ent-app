@@ -42,13 +42,21 @@ RUN() {
     args_or_ask ${HH:+"$HH"} -n -F "USE_NO_APP_PROFILE" "--none///Assumes the global application profile" "$@"
     args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
+    
+    if [ -z "$COMMAND_FILE" ]; then
+      local V="ENTANDO_FORCE_APP_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER"
+      [ -n "${!V}" ] && {
+        local MSG="On this TTY normal \"ent app\" commands will be overridden"
+        MSG+=" by the TTY local setup (see \"ent status\");" 
+        MSG+=" you can switch the another app or free the tty by issuing another sourced ent-app."
+        _log_e 0 "$MSG"
+        FATAL "TTY_APP_LOCKED"
+      }
+    fi
+
     shift
     kubectl_mode --reset-mem
     use_app_profile "$@"
-
-    #! $USE_NO_APP_PROFILE && {
-    #  app_profile_auto_attach
-    #}
     ;;
   "first-use-readme") #H: prints the first-use readme
     print_first_use_readme
@@ -93,7 +101,7 @@ RUN() {
     ;;
   "link") #H: links the current application profile to a kube context
     shift
-    link_kube_context "$1"
+    app_link_context "$1"
     ;;
   "images") #H: print the images running in the current EntandoApp
     print_images "$@"
@@ -190,7 +198,7 @@ use_app_profile() {
   DESIGNATED_APP_PROFILE_HOME=""
 
   if $USE_NO_APP_PROFILE; then
-    if [ -n "$COMMAND_FILE" ]; then
+    if [ -z "$COMMAND_FILE" ]; then
       save_cfg_value "DESIGNATED_APP_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
       save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
       activate_designated_workdir
@@ -273,9 +281,10 @@ _list_app_profiles() {
   [ -n "$HH" ] && exit 0
 
   if [ -n "$filter" ]; then
-    find . -maxdepth 1 ! -path . -printf '%f\n' | grep "$filter"
+    # shellcheck disable=SC2035
+    ls -d */ | grep "$filter"
   else
-    find . -maxdepth 1 ! -path . -printf '%f\n'
+    ls -d */
   fi
 }
 
@@ -289,10 +298,15 @@ select_application_profile() {
     [ -n "$application_profile" ] && FATAL "No application profile was found with the provided data"
     FATAL "No application profile was found"
   fi
+  
+  # shellcheck disable=SC2076 disable=SC2199
+  if [[ ! " ${LST[@]} " =~ " ${application_profile} " ]]; then
+    select_one "Application Profile" "${LST[@]}"
+    # shellcheck disable=SC2154
+    application_profile="$select_one_res_alt"
+  fi
 
-  select_one -s "Application Profile" "${LST[@]}"
-  # shellcheck disable=SC2154
-  _set_var "$res_var" "$select_one_res_alt"
+  _set_var "$res_var" "$application_profile"
 }
 
 parse_basic_app_profile_args() {
@@ -360,7 +374,7 @@ print_first_use_readme() {
     ((i++))
     MSG+=$'\n'"~"
     MSG+=$'\n'"$i) AND/OR SELECT A CONTEXT TO USE:"
-    MSG+=$'\n'"   ent list-kube-contexts"
+    MSG+=$'\n'"   ent list-kubectx"
     MSG+=$'\n'"   ent app link {context-name}"
     ((i++))
     MSG+=$'\n'"~"
@@ -446,52 +460,23 @@ list_app_profiles() {
   )
 }
 
-select_kube_context() {
-  local res_var="$1";shift
-  local kube_context="$1";shift
-  local LST
-  stdin_to_arr $'\n\r' LST < <(list_kube_contexts "$kube_context")
-
-  if [ "${#LST[@]}" -le 0 ]; then
-    [ -n "$kube_context" ] && FATAL "No kube context was found with the provided data"
-    FATAL "No kube context was found"
-  fi
-
-  select_one -s "Kube Context" "${LST[@]}"
-  # shellcheck disable=SC2154
-  _set_var "$res_var" "$select_one_res_alt"
-}
-
-link_kube_context() {
+app_link_context() {
   local kube_context use_def
-  args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kube-context' "$@"
-
-  if $use_def; then
+  if args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kubectx' "$@"; then
     args_or_ask -n -a -- kube_context '1///' "$@" && {
       FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
     }
-    [ -n "$HH" ] && exit 0
-    DESIGNATED_KUBECTX=""
-    save_cfg_value "DESIGNATED_KUBECTX" "$DESIGNATED_KUBECTX"
   else
     args_or_ask ${HH:+"$HH"} -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
-    [ -n "$HH" ] && exit 0
-    local RES
-    select_kube_context RES "$kube_context"
-    [ -n "$HH" ] && exit 0
-    DESIGNATED_KUBECTX="$RES"
-    save_cfg_value "DESIGNATED_KUBECTX" "$DESIGNATED_KUBECTX"
   fi
-}
+  [ -n "$HH" ] && exit 0
 
-app_profile_auto_attach() {
-  # shellcheck disable=SC2031
-  if [ -n "$DESIGNATED_VM" ]; then
-    ent attach-vm "$DESIGNATED_VM"
+  if $use_def; then
+    kubectx-detach
   else
-    [ -n "$DESIGNATED_KUBECONFIG" ] && save_cfg_value "DESIGNATED_KUBECONFIG" "$DESIGNATED_KUBECONFIG"
-    [ -n "$DESIGNATED_KUBECTX" ] && save_cfg_value "DESIGNATED_KUBECTX" "$DESIGNATED_KUBECTX"
-    [ -n "$ENT_KUBECTL_CMD" ] && save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
+    kubectx-select RES "$kube_context" && {
+      kubectx-attach "$RES"
+    }
   fi
 }
 

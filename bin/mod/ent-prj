@@ -249,14 +249,13 @@ prj_ecr_install() {
   local CONFLICT_STRATEGY="${2}"
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
-  local DATA="{\"version\":\"$VERSION_TO_INSTALL\"@@}"
+  local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
 
   if [ -n "$CONFLICT_STRATEGY" ]; then
     assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
-    DATA="${DATA/"@@"/",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""}"
-  else
-    DATA="${DATA/"@@"/}"
+    DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
   fi
+  DATA+="}"
 
   ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" "$DATA" &>/dev/null ||
     return $?

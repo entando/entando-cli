@@ -56,13 +56,16 @@ case "$ARG1" in
     M_CFG=true
     ;;
   runtime) #H: kubernetes execution environment
+    ! $OS_LINUX && FATAL "not supported on this OS"
     M_KUBE=true ;;
   qs-runtime) #H: kubernetes execution environment for the quickstart
+    ! $OS_LINUX && FATAL "not supported on this OS"
     ask "I need to alter your resolv.conf. Can I proceed?" || FATAL "Quitting"
     M_KUBE=true
     M_QS=true
     ;;
   all) #H: all checks
+    ! $OS_LINUX && FATAL "not supported on this OS"
     M_DEVL=true
     M_KUBE=true
     ;;
@@ -100,6 +103,7 @@ $M_DEVL && {
 
 # MISC
 
+check_ver "jq" "*.*.*" "--version" || MAYBE_FATAL "Quitting"
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
 check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"

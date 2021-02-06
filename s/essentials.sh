@@ -15,6 +15,8 @@
   ENTANDO_KUBECTL_AUTO_DETECTED=""
   DESIGNATED_KUBECONFIG=""
   KUBECTL_ONCE_OPTIONS=""
+  # shellcheck disable=SC2034
+  DEFAULT_APP_SCHEME=""
 
   if [ "$1" = "--with-state" ]; then
     DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENT_WORK_DIR/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
@@ -147,7 +149,7 @@
       # shellcheck disable=SC2034
       ENTANDO_KUBECTL_MODE="AUTODETECT"
       
-      if $OS_WIN; then
+      if $OS_WIN || [[ -n "$DESIGNATED_KUBECTX" || -n "$DESIGNATED_KUBECONFIG" ]]; then
         ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL"
         _kubectl() {
           kubectl_update_once_options "$@"

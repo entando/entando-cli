@@ -211,3 +211,118 @@ SET_KV() {
   _sed_in_place -E "s/(^.*$K\:[[:space:]]*).*$/\1$V/" "$FILE"
   return 0
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# MAP MANAGEMENT FUNCTIONS
+
+map-clear() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      unset "${name}"
+    fi
+  done
+}
+
+map-count() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local i=0
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      i=$((i + 1))
+    fi
+  done
+  _set_var "$1" "$i"
+  [ "$i" -gt 0 ] && return 0
+  return 255
+}
+
+map-set() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name="$1"
+  local address="$2"
+  _set_var "${arr_var_name}${name}" "$address"
+}
+
+map-get() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name
+
+  if [ "$1" = "--first" ]; then
+    shift
+    local dst_var_name="$1"
+    name="$(map-list REMOTES | head -n 1)"
+  else
+    local dst_var_name="$1"
+    name="$2"
+  fi
+  local tmp
+  tmp="${arr_var_name}${name}"
+  value="${!tmp}"
+  _set_var "$dst_var_name" "$value"
+  [ -n "$value" ] && return 0
+  return 255
+}
+
+map-del() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name="$1"
+  unset "${arr_var_name}${name}"
+}
+
+# shellcheck disable=SC2120
+map-list() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local SEP="$1"
+  local tmp
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      if [ "$SEP" == "-k" ]; then
+        tmp="${name}"
+        echo "${!tmp}"
+      elif [ -z "$SEP" ]; then
+        echo "${name/${arr_var_name}/}"
+      else
+        tmp="${name}"
+        echo "${name/${arr_var_name}/}${SEP}${!tmp}"
+      fi
+    fi
+  done
+}
+
+map-get-keys() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  local dst_var_name="$2"
+  shift
+  local i=0
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      _set_var "dst_var_name[$i]" "$line"
+    fi
+  done
+}
+
+map-save() {
+  local arrname="$1"
+  shift
+  save_cfg_value -m "ENTANDO_${arrname}"
+}
+
+map-from-stdin() {
+  local arrname="$1"
+  local SEP="$2"
+  local i=0
+  local arr
+  IFS="$SEP" read -d '' -r -a arr
+
+  for line in "${arr[@]}"; do
+    map-set "$arrname" "$i" "$line"
+    ((i++))
+  done
+}

@@ -41,7 +41,7 @@ RUN() {
   [[ -n "$HH" && -z "$CMD" ]] && exit
 
   show_help_option "$HH" "\"$CMD\""
-  local INGRESS_URL TOKEN RES
+  local INGRESS_URL TOKEN
 
   shift
   case "$CMD" in

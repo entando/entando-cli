@@ -578,20 +578,4 @@ import_ent_installation() {
   }
 }
 
-list_kube_contexts() {
-  local OPT filter
-  HH="$(parse_help_option "$@")"
-  show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a -- filter '1///filter' "$@"
-  [ -n "$HH" ] && exit 0
-
-  if [ -n "$filter" ]; then
-    ENT_KUBECTL_NO_AUTO_SUDO=true _kubectl config view -o jsonpath='{.contexts[*].name}' \
-    | tr -s ' ' $'\n' | grep "$filter"
-  else
-    ENT_KUBECTL_NO_AUTO_SUDO=true _kubectl config view -o jsonpath='{.contexts[*].name}' \
-    | tr -s ' ' $'\n'
-  fi
-}
-
 return 0
