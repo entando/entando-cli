@@ -159,7 +159,7 @@ attach_vm() {
   save_cfg_value "DESIGNATED_VM" "$VM_NAME"
 
   # reset kubectl command setup
-  save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
+  save_cfg_value "ENT_KUBECTL_CMD" ""
 }
 
 cmplt() {

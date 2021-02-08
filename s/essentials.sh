@@ -10,14 +10,14 @@
   OS_BSD=false
   SYS_GNU_LIKE=false
   SYS_OS_UNKNOWN=false
-  DESIGNATED_KUBECTL_CMD=""
+  ENT_KUBECTL_CMD=""
   ENTANDO_KUBECTL_MODE=""
   DESIGNATED_KUBECONFIG=""
   KUBECTL_ONCE_OPTIONS=""
 
   if [ "$1" = "--with-state" ]; then
     DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
-    DESIGNATED_KUBECTL_CMD=$(grep DESIGNATED_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECTL_CMD=//")
+    ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
   perl -e 'print -t 1 ? exit 0 : exit 1;'
@@ -101,8 +101,8 @@
 
   # KUBECTL
   setup_kubectl() {
-    [ -n "$DESIGNATED_KUBECTL_CMD" ] && {
-      ENTANDO_KUBECTL="$DESIGNATED_KUBECTL_CMD"
+    [ -n "$ENT_KUBECTL_CMD" ] && {
+      ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
     }
 
     if [ -n "$ENTANDO_KUBECTL" ]; then

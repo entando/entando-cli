@@ -1,6 +1,14 @@
 #!/bin/bash
 
-[[ "$1" = "--help" && "$2" = "--short " ]] && {
+#H::
+#H:: Helps dealing with the entando pods
+#H::
+#H:: Syntax:
+#H::  - ent pod {command} ...
+#H::
+#H:: Commands:
+
+[[ "$1" == "--help" && "$2" == "--short" ]] && {
   echo -e "Displays information related to a set of pods" && exit 0
 }
 
@@ -14,7 +22,12 @@ cd "$DIR/../.." || {
 
 RUN() {
   HH="$(parse_help_option "$@")"
-  show_help_option "$HH" "the base command"
+
+  [[ -n "$HH" && -z "$CMD" ]] && {
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+  }
+
+  show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
 
   args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '2/any?/.*/%sp pod pattern (or --all)' "$@"
@@ -32,25 +45,31 @@ RUN() {
   process_pod_pattern "$CMD" "$@"
 
   case "$CMD" in
-    "grep")
+    "grep") #H: greps the pods logs
       multi_pod_action grep "$@"
       ;;
-    "describe")
+    "describe") #H: describes a pod
       multi_pod_action describe "$@"
       ;;
-    "list")
+    "list") #H: shows the list of pods
       pod_list "$@"
       ;;
-    "shell")
+    "shell") #H: run a shell into the pod
+      ENT_SHELL_CMD="/bin/sh"
+      args_or_ask ${HH:+"$HH"} -n -p -- ENT_SHELL_CMD "--shell-cmd/any?/the shell command" "$@"
       pod_action shell "$@"
       ;;
-    "exec")
+    "exec") #H: run a command into the pod container
       shift 2
       pod_action exec "$@"
       ;;
-    "logs")
+    "logs") #H: show the logs of a pod
       shift 2
       pod_action xx logs "$@"
+      ;;
+    "x") #H: executes the given k8s command against the a given pod
+      shift 2
+      pod_action "$CMD" "$@"
       ;;
     "xx") #H: executes the given k8s command against a given  pod container
       shift 2
@@ -67,7 +86,8 @@ RUN() {
 }
 
 multi_pod_action() {
-  local ACTION="$1"; shift
+  local ACTION="$1"
+  shift
   local LOG_PATT
   local IGNORE_CASE=true
 
@@ -122,7 +142,7 @@ pod_list() {
       done
     done
   else
-    if [[ "$POD_PATT" = ".*" || -z "$POD_PATT" ]]; then
+    if [[ "$POD_PATT" == ".*" || -z "$POD_PATT" ]]; then
       _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
     else
       _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"} | grep -- "$POD_PATT"
@@ -131,7 +151,8 @@ pod_list() {
 }
 
 pod_action() {
-  ACTION="$1"; shift
+  ACTION="$1"
+  shift
   [ -n "$HH" ] && exit 0
 
   local SELECTED_POD SELECTED_CONTAINER
@@ -159,14 +180,16 @@ pod_action() {
   case "$ACTION" in
     "shell")
       echo "Opening shell for $(mk_target_desc)"
-      _kubectl exec --stdin --tty ${NAMESPACE:+-n "$NAMESPACE"} "$SELECTED_POD" -c "$SELECTED_CONTAINER" -- /bin/bash
+      _kubectl exec --stdin --tty ${NAMESPACE:+-n "$NAMESPACE"} "$SELECTED_POD" -c "$SELECTED_CONTAINER" -- \
+        "$ENT_SHELL_CMD"
       ;;
     "exec")
       echo "Executing \"exec\" command against $(mk_target_desc)"
       _kubectl exec --stdin --tty ${NAMESPACE:+-n "$NAMESPACE"} "$SELECTED_POD" -c "$SELECTED_CONTAINER" -- "$@"
       ;;
-    "x"|"xx")
-      ACTION="$1"; shift
+    "x" | "xx")
+      ACTION="$1"
+      shift
       echo "Executing user-provided command against $(mk_target_desc)"
       if [ -n "$SELECTED_CONTAINER" ]; then
         _kubectl "$ACTION" ${NAMESPACE:+-n "$NAMESPACE"} "pod/$SELECTED_POD" -c "$SELECTED_CONTAINER" "$@"
@@ -181,7 +204,7 @@ pod_action() {
 }
 
 read_pod_list() {
-  if [[ "$POD_PATT" = ".*" || -z "$POD_PATT" ]]; then
+  if [[ "$POD_PATT" == ".*" || -z "$POD_PATT" ]]; then
     _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"} | awk 'NR>1' | awk '{print $1}'
   else
     _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"} | awk 'NR>1' | awk '{print $1}' | grep -- "$POD_PATT"
@@ -189,7 +212,7 @@ read_pod_list() {
 }
 
 read_container_list() {
-  if [[ "$CONTAINER_PATT" = ".*" || -z "$CONTAINER_PATT" ]]; then
+  if [[ "$CONTAINER_PATT" == ".*" || -z "$CONTAINER_PATT" ]]; then
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"}
   else
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"} \
@@ -205,12 +228,12 @@ mk_target_desc() {
   fi
 }
 
-
 process_pod_pattern() {
-  CMD="$1"; shift
+  CMD="$1"
+  shift
 
   local POD_P=()
-  stdin_to_arr "/" POD_P <<<"$POD_PATT"
+  stdin_to_arr "/" POD_P <<< "$POD_PATT"
 
   if [ "${#POD_P[@]}" -eq 2 ]; then
     POD_PATT="${POD_P[0]}"

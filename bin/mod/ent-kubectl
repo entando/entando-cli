@@ -50,7 +50,7 @@ RUN() {
       args_or_ask ${HH:+"$HH"} -n -s -p "NAMESPACE" "-n" "$@"
       [ -n "$HH" ] && exit 0
 
-      if [ -z "$DESIGNATED_KUBECTL_CMD" ]; then
+      if [ -z "$ENT_KUBECTL_CMD" ]; then
         if [[ "$1" = "create" || "$1" = "apply" ]]; then
           if [ -z "$NAMESPACE" ]; then
             if [ -n "$DESIGNATED_VM" ]; then
@@ -75,7 +75,7 @@ RUN() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 clear_kubectl_command() {
   args_or_ask -f -- "--clear" "$@" && {
-    save_cfg_value "DESIGNATED_KUBECTL_CMD" ""
+    save_cfg_value "ENT_KUBECTL_CMD" ""
   }
 }
 
@@ -85,8 +85,8 @@ set_kubectl_command() {
     echo "> Parameters:"
   }
 
-  args_or_ask -a ${HH:+"$HH"} "DESIGNATED_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
-  save_cfg_value "DESIGNATED_KUBECTL_CMD" "$DESIGNATED_KUBECTL_CMD"
+  args_or_ask -a ${HH:+"$HH"} "ENT_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
+  save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
 
   # reset kubeconfig setup
   save_cfg_value "DESIGNATED_KUBECONFIG" ""
@@ -94,8 +94,8 @@ set_kubectl_command() {
 }
 
 print_status_info() {
-  if [ -n "$DESIGNATED_KUBECTL_CMD" ]; then
-    local mode="via user command: \"$DESIGNATED_KUBECTL_CMD\""
+  if [ -n "$ENT_KUBECTL_CMD" ]; then
+    local mode="via user command: \"$ENT_KUBECTL_CMD\""
   elif [ -n "$DESIGNATED_VM" ]; then
     local mode="via VM link to: \"$DESIGNATED_VM\""
   else
