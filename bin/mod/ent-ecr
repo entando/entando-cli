@@ -34,6 +34,7 @@ RUN() {
 
   [[ -n "$HH" || -z "$CMD" ]] && {
     print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+    exit 0
   }
 
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
@@ -60,7 +61,7 @@ RUN() {
       ;;
     "install-status") #H: shows the uninstall status of the bundle
       ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
+      mybundlemybundleecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
       ;;
     "uninstall-status") #H: shows the uninstall status of the bundle
       ecr-prepare-action INGRESS_URL TOKEN

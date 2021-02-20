@@ -186,22 +186,22 @@ net_is_address_present() {
   true;
 }
 
-sourced-ent-app-use() {
+sourced-ent-profile-use() {
   new-mock-call-id
-  mock-log "## Using app profile \"$1\" in this tty session"
+  mock-log "## Using profile \"$1\" in this tty session"
   true;
 }
 
-ent-app-new() {
+ent-profile-new() {
   new-mock-call-id
   name="$1"; shift
-  mock-log "## Creating app profile \"$name\" with data: $*"
+  mock-log "## Creating profile \"$name\" with data: $*"
   true;
 }
 
-ent-app-delete() {
+ent-profile-delete() {
   new-mock-call-id
-  mock-log "## Deleting app profile \"$1\""
+  mock-log "## Deleting profile \"$1\""
   true;
 }
 

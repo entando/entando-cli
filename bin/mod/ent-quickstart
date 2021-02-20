@@ -12,7 +12,7 @@ cd "$DIR/../.." || {
 debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     trace_vars \
-      DESIGNATED_APP_PROFILE DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
+      DESIGNATED_PROFILE DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
       ENTANDO_NAMESPACE ENTANDO_APPNAME \
       ENTANDO_STANDARD_QUICKSTART ENTANDO_PRE_EXISTING K8S_TEMPLATE \
       AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME \
@@ -35,7 +35,7 @@ args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
 
 ENT_KUBECTL_CMD=""
 
-args_or_ask ${HH:+"$HH"} -n "APP_PROFILE" "--use-app///Forces the quickstart to use the application profile" "$@"
+args_or_ask ${HH:+"$HH"} -n "PROFILE" "--profile///Forces the quickstart to use the profile" "$@"
 
 if [ -z "$HH" ]; then
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -109,16 +109,16 @@ handle-edit-manifest() {
     "$1" "$2"
   fi
 }
-sourced-ent-app-use() {
+sourced-ent-profile-use() {
   # shellcheck disable=SC1091
-  . ent app use "$@"
+  . ent profile use "$@"
 }
-ent-app-new() {
-  ent app new "$@"
+ent-profile-new() {
+  ent profile new "$@"
 }
 
-ent-app-delete() {
-  ent app delete "$@"
+ent-profile-delete() {
+  ent profile delete "$@"
 }
 
 ent-set-kubectl-cmd() {
@@ -146,9 +146,9 @@ args_or_ask -f -- "--destroy" "$@" && {
 
 #-----------------------------------------------------------------------------------------------------------------------
 
-[ -n "$APP_PROFILE" ] && {
+[ -n "$PROFILE" ] && {
   # shellcheck disable=SC1091
-  sourced-ent-app-use "$APP_PROFILE"
+  sourced-ent-profile-use "$PROFILE"
 }
 
 if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
@@ -314,15 +314,15 @@ RUN_WITH_VM() {
     LAUNCH_NEW_VM=true
   fi
   
-  if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$APP_PROFILE" ]; then
-    ent-app-delete "qs-$ENTANDO_VM_NAME" --yes --app-only
-    ent-app-new "qs-$ENTANDO_VM_NAME" \
+  if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$PROFILE" ]; then
+    ent-profile-delete "qs-$ENTANDO_VM_NAME" --yes
+    ent-profile-new "qs-$ENTANDO_VM_NAME" \
       "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \
       --auto-use=false \
     ;
     # shellcheck disable=SC1091
-    sourced-ent-app-use "qs-$ENTANDO_VM_NAME"
+    sourced-ent-profile-use "qs-$ENTANDO_VM_NAME"
   fi
 
   [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
@@ -429,13 +429,13 @@ RUN_DIRECT() {
   # -- CHECK-ENV
 
   ! $JUST_SET_CFG && ! $ENTANDO_NO_CHECK && {
-    ent-app-delete "qs-localhost" --yes --app-only
-    ent-app-new "qs-localhost" \
+    ent-profile-delete "qs-localhost" --yes
+    ent-profile-new "qs-localhost" \
       "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \
       --auto-use=false \
     ;
-    sourced-ent-app-use "qs-localhost"
+    sourced-ent-profile-use "qs-localhost"
     kubectl_mode --reset-mem --reset-cfg
     if $ENTANDO_STANDARD_QUICKSTART; then
       ent-set-kubectl-cmd "sudo k3s kubectl"

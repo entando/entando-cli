@@ -18,7 +18,7 @@ RUN() {
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
   
-  [[ "$1" =~ --app=.* ]] && shift
+  [[ "$1" =~ --profile=.* ]] && shift
 
   while true; do
     cmd="$1"
@@ -36,6 +36,16 @@ RUN() {
       "config") #H: [--edit] -- helps dealing with ent configurations
         handle_config_command "$@"
         ;;
+      "namespace") #H: [--edit] -- helps dealing with ent configurations
+        handle_status_config ENTANDO_NAMESPACE "$@"
+        ;;
+      "appname") #H: [--edit] -- helps dealing with ent configurations
+        handle_status_config ENTANDO_APPNAME "$@"
+        ;;
+      "profile"|"P"|"pro") #H: helps creating and managing profiles
+        # shellcheck disable=SC1090
+        source "$ENTANDO_ENT_HOME/bin/mod/ent-profile" "$@"
+        ;;
       "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
         managed-vm-attach "$@"
         ;;
@@ -49,7 +59,7 @@ RUN() {
         kubeconfig-detach "$@"
         ;;
       "attach-kubectx")  #H: attaches ent a kube configuration
-        ent app link "$@"
+        ent profile link "$@"
         ;;
       "detach-kubectx")  #H: attaches ent a kube configuration
         kubectx-detach
@@ -61,7 +71,7 @@ RUN() {
         # shellcheck disable=SC1091
         source ent host "$cmd" "$@"
         ;;
-      "commands") #H: shows the ent top level commands
+      "commands") #H: shows other ent top level commands
         # shellcheck disable=SC1091
         source ent help --simple
         ;;
@@ -78,14 +88,14 @@ RUN() {
         fi
         return 0
         ;;
-      "set-kubectl-cmd") #H: setups kubectl alternative command to use
-        ent kubectl ent-set-cmd "$@"
+      "kubectl-cmd") #H: setups kubectl alternative command to use
+        handle_kubectl_cmd "$@"
         ;;
       "reset-kubectl-mode") #H: reset the kubectl mode to the default one
         kubectl_mode --reset-cfg
         ;;
       "status") #H: shows the ent general status
-        print_ent_operative_infos
+        print_ent_general_status
         ;;
       "")
         # shellcheck disable=SC1091
@@ -139,12 +149,12 @@ handle_config_command() {
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_DEFAULT_CFG_FILE"
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
-    THIS_APP_PROFILE=""
+    THIS_PROFILE=""
   }
 
   args_or_ask ${HH:+"$HH"} -f -d -- '--print///print the configuration (default)' "$@" && {
-    if [ -n "$THIS_APP_PROFILE" ]; then
-      _log_i 0 "Configuration of the application profile \"$THIS_APP_PROFILE\"" 1>&2
+    if [ -n "$THIS_PROFILE" ]; then
+      _log_i 0 "Configuration of the profile \"$THIS_PROFILE\"" 1>&2
     else
       _log_i 0 "Default configuration of the current ent installation" 1>&2
     fi
@@ -205,10 +215,10 @@ if (
       "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
       ENTANDO_ENT_TMPVAR_0002bb75="$?"
       ;;
-    "app")
+    "profile")
       if [ "$2" = "use" ]; then
         shift 2
-        "$ENTANDO_ENT_HOME/bin/mod/ent-app" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
+        "$ENTANDO_ENT_HOME/bin/mod/ent-profile" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
       else
         rm "$ENTANDO_ENT_TMPFILE_0002bb75"
       fi
@@ -252,6 +262,22 @@ upgrade_project_file() {
     else
       mv "$O" "$N"
     fi 
+  fi
+}
+
+handle_status_config() {
+  if [ "$2"  = "" ]; then
+    ent config --get "$1"
+  else
+    ent config --set "$1" "$2"
+  fi
+}
+
+handle_kubectl_cmd() {
+  if [ "$1"  = "" ]; then
+    ent config --get "ENT_KUBECTL_CMD"
+  else
+    ent kubectl ent-set-cmd "$@"
   fi
 }
 

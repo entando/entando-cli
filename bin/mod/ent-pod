@@ -39,6 +39,11 @@ RUN() {
     GREP_PATT_POS="2"
   }
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  
+  [[ -n "$HH" || -z "$CMD" ]] && {
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+    exit 0
+  }
 
   show_help_option "$HH" "\"$CMD\""
 

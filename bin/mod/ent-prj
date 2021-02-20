@@ -55,12 +55,12 @@ RUN() {
       require_ent_project_dir
       generate_custom_resource "$@"
       ;;
-    "deploy") #H: generates the CR and deploys it to the current application profile
+    "deploy") #H: generates the CR and deploys it to the current profile
       require_develop_checked
       require_ent_project_dir
       prj_ecr_deploy "$@"
       ;;
-    "install") #H: generates the CR and deploys it to the current application profile
+    "install") #H: generates the CR and deploys it to the current profile
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
       local VERSION_TO_INSTALL CONFLICT_STRATEGY
@@ -73,7 +73,7 @@ RUN() {
       require_ent_project_dir
       prj_ecr_install "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
       ;;
-    "uninstall") #H: generates the CR and deploys it to the current application profile
+    "uninstall") #H: generates the CR and deploys it to the current profile
       HH="$(parse_help_option "$@")"
       args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
       args_or_ask ${HH:+"$HH"} -n -F "PURGE_VOLUMES" "--volumes///Also deletes the volumes" "$@"
@@ -273,7 +273,7 @@ prj_ecr_uninstall() {
 }
 
 prj_ecr_deploy() {
-  print_current_app_profile_info
+  print_current_profile_info
   generate_custom_resource "$@" | _kubectl apply -f -
 }
 
@@ -459,19 +459,19 @@ be_update_plugin_descriptor() {
 }
 
 be_list_pods() {
-  print_current_app_profile_info
+  print_current_profile_info
   get_be_info
   get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
 }
 
 be_restart_pods() {
   local restart_pods_after="$1"
-  print_current_app_profile_info
+  print_current_profile_info
   get_be_info
   local pods
   pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | grep "server-deployment" | cut -d' ' -f 1)"
   [ "${#pods}" -eq 0 ] && {
-    _log_i 0 "Restart pods was not able to find any pod in the current application profile"
+    _log_i 0 "Restart pods was not able to find any pod in the current profile"
     return 0
   }
   _log_i 0 "Restart pods will start in $restart_pods_after seconds"
@@ -483,7 +483,7 @@ be_restart_pods() {
 }
 
 be_purge_k8s() {
-  print_current_app_profile_info
+  print_current_profile_info
   get_be_info
   local pn="$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
   local tpn="${pn:0:31}"
@@ -497,7 +497,7 @@ be_purge_k8s() {
   del_resource -l "ingress" "$tpn"
   del_resource -l "secret" "$tpn"
   del_resource -m "secret" "$tpn" \
-    "^$pn-server-secret$" "^$pn-sidecar-secret$" "^$ENTANDO_APPNAME-quickstart-$pn-link-controller-ca-cert-secret$"
+    "^$pn-server-secret$" "^$pn-sidecar-secret$" "^$ENTANDO_APPNAME-$pn-link-controller-ca-cert-secret$"
   ${PURGE_VOLUMES:-false} && {
     _log_i 0 "Warning, this will delete the volumes of the plugin"
     ask "Should I proceed?" || EXIT_UE "User interrupted"
@@ -531,12 +531,12 @@ del_resource() {
     fi
 
     ${DRY_RUN:-true} && return 0
-    
+
     if $FORCE && [ "$type" = "pvc" ]; then
       # shellcheck disable=SC2086
       ent kubectl patch pvc $LST -p '{"metadata":{"finalizers":null}}'
     fi
-    
+
     # shellcheck disable=SC2086
     _kubectl delete "$type" $LST
   }

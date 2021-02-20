@@ -28,7 +28,7 @@ cd "$DIR/../.." || {
 
 [[ "$1" == "--help" || -z "$1" ]] && {
   print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-  exit
+  exit 0
 }
 
 args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"

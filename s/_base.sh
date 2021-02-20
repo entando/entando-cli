@@ -127,7 +127,7 @@ $SYS_OS_UNKNOWN && {
 mkdir -p "$ENTANDO_ENT_HOME/d"
 mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
-mkdir -p "$ENTANDO_HOME/apps"
+mkdir -p "$ENTANDO_HOME/profiles"
 mkdir -p "$ENTANDO_HOME/ttys"
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ mkdir -p "$ENTANDO_HOME/ttys"
 
 . s/utils.sh
 . s/var-utils.sh
-. s/app-utils.sh
+. s/attach-utils.sh
 . s/logger.sh
 
 DESIGNATED_VM=""
@@ -147,11 +147,11 @@ ENTANDO_NAMESPACE=""
   ENABLE_AUTOLOGIN=""
 }
 
-if [ -n "$DESIGNATED_APP_PROFILE" ]; then
-  if assert_ext_ic_id "" "$DESIGNATED_APP_PROFILE" "silent"; then
-    DESIGNATED_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$DESIGNATED_APP_PROFILE"
+if [ -n "$DESIGNATED_PROFILE" ]; then
+  if assert_ext_ic_id "" "$DESIGNATED_PROFILE" "silent"; then
+    DESIGNATED_PROFILE_HOME="$ENTANDO_HOME/profiles/$DESIGNATED_PROFILE"
   else
-    FATAL "Illegal value provided in environment var DESIGNATED_APP_PROFILE"
+    FATAL "Illegal value provided in environment var DESIGNATED_PROFILE"
   fi
 fi
 
@@ -159,13 +159,13 @@ reload_cfg "$ENTANDO_GLOBAL_CFG"
 
 # activates the default workdir of the current ent installation
 #
-# the default workdir is not related t any application profile
+# the default workdir is not related t any profile
 # and it's located the ent installation directory
 activate_ent_default_workdir() {
-  if [[ -z "$DESIGNATED_APP_PROFILE" || "$DESIGNATED_APP_PROFILE" = "-" ]]; then
+  if [[ -z "$DESIGNATED_PROFILE" || "$DESIGNATED_PROFILE" = "-" ]]; then
     # shellcheck disable=SC2034
-    THIS_APP_PROFILE=""
-    DESIGNATED_APP_PROFILE_HOME=""
+    THIS_PROFILE=""
+    DESIGNATED_PROFILE_HOME=""
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_WORK_DIR/.cfg"
@@ -178,17 +178,17 @@ activate_ent_default_workdir() {
 # the application workdir is the specific ent app directory
 # and can be potentially used by more that on ent installation
 activate_application_workdir() {
-  if [ -n "$DESIGNATED_APP_PROFILE" ]; then
-    if [ -d "$DESIGNATED_APP_PROFILE_HOME/w" ]; then
-      ENT_WORK_DIR="$DESIGNATED_APP_PROFILE_HOME/w"
+  if [ -n "$DESIGNATED_PROFILE" ]; then
+    if [ -d "$DESIGNATED_PROFILE_HOME/w" ]; then
+      ENT_WORK_DIR="$DESIGNATED_PROFILE_HOME/w"
       # shellcheck disable=SC2034
       CFG_FILE="$ENT_WORK_DIR/.cfg"
       return 0
     else
       _log_e 0 \
-        "Unable to load the application profile \"$DESIGNATED_APP_PROFILE\", falling back to the default profile"
-      DESIGNATED_APP_PROFILE_HOME=""
-      DESIGNATED_APP_PROFILE=""
+        "Unable to load the profile \"$DESIGNATED_PROFILE\", falling back to the default profile"
+      DESIGNATED_PROFILE_HOME=""
+      DESIGNATED_PROFILE=""
       return 1
     fi
   fi
@@ -200,29 +200,29 @@ activate_designated_workdir() {
   TEMPORARY=false
   [ "$1" = "--temporary" ] && TEMPORARY=true
   ! $TEMPORARY && reload_cfg "$ENTANDO_GLOBAL_CFG"
-  if [[ -n "$DESIGNATED_APP_PROFILE" && "$DESIGNATED_APP_PROFILE" != "-" ]]; then
+  if [[ -n "$DESIGNATED_PROFILE" && "$DESIGNATED_PROFILE" != "-" ]]; then
     activate_application_workdir
   else
     activate_ent_default_workdir
   fi
-  ! $TEMPORARY && save_cfg_value "THIS_APP_PROFILE" "${DESIGNATED_APP_PROFILE}"
+  ! $TEMPORARY && save_cfg_value "THIS_PROFILE" "${DESIGNATED_PROFILE}"
   ENT_KUBECTL_CMD=""
   ENABLE_AUTOLOGIN=""
   reload_cfg
   setup_kubectl
 }
 
-set_curr_app_profile() {
-  [ -z "$1" ] && FATAL -t "Illegal application profile name detected"
-  DESIGNATED_APP_PROFILE="$1"
-  DESIGNATED_APP_PROFILE_HOME="$2"
-  [ -z "$DESIGNATED_APP_PROFILE_HOME" ] &&
-    DESIGNATED_APP_PROFILE_HOME="$ENTANDO_HOME/apps/$DESIGNATED_APP_PROFILE"
-  save_cfg_value "DESIGNATED_APP_PROFILE" "$DESIGNATED_APP_PROFILE" "$ENTANDO_GLOBAL_CFG"
-  save_cfg_value "DESIGNATED_APP_PROFILE_HOME" "$DESIGNATED_APP_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
+set_curr_profile() {
+  [ -z "$1" ] && FATAL -t "Illegal profile name detected"
+  DESIGNATED_PROFILE="$1"
+  DESIGNATED_PROFILE_HOME="$2"
+  [ -z "$DESIGNATED_PROFILE_HOME" ] &&
+    DESIGNATED_PROFILE_HOME="$ENTANDO_HOME/profiles/$DESIGNATED_PROFILE"
+  save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
+  save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
 }
 
-if [ -n "$DESIGNATED_APP_PROFILE" ]; then
+if [ -n "$DESIGNATED_PROFILE" ]; then
   activate_application_workdir
 else
   activate_ent_default_workdir
@@ -358,42 +358,48 @@ kubectl_mode() {
   done
 }
 
-print_ent_operative_infos() {
+print_ent_general_status() {
   print_hr
-  print_current_app_profile_info -v
+  print_current_profile_info -v
   setup_kubectl
   kubectl_update_once_options ""
-  print_hr
-  _log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
-  #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-[ENVIRONMENT]}"
-  echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-[ENVIRONMENT]}"
+  #print_hr
+  #_log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
+  echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
   if [ -z "$DESIGNATED_KUBECONFIG" ]; then
-    echo " - KUBECONFIG (ENV):  ${KUBECONFIG:-[DEFAULT]}"
+    echo " - KUBECONFIG (ENV):  ${KUBECONFIG:-<DEFAULT>}"
   fi
   case "$ENTANDO_KUBECTL_MODE" in
   "COMMAND")
-    echo " - KUBECTL_CMD:       ${ENTANDO_KUBECTL:-[ERR-NO-FOUND]}"
+    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL:-<ERR-NO-FOUND>}"
     ;;
   "CONFIG")
-    echo " - KUBECTL_CMD:       [DEFAULT]"
+    echo " - KUBECTL CMD:       <DEFAULT>"
     ;;
   "AUTODETECT")
-    echo " - KUBECTL_CMD:       ${ENTANDO_KUBECTL_AUTO_DETECTED:-[ERR-NO-FOUND]} (autodetected)"
+    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL_AUTO_DETECTED:-<ERR-NO-FOUND>} (autodetected)"
     ;;
   *)
     FATAL "Unknown kubectl mode"
     ;;
   esac
+  echo " - KUBECTL MODE:      $ENTANDO_KUBECTL_MODE"
   print_hr
-  _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
-  env | grep "ENTANDO_" | grep "_0e7e8d89_$ENTANDO_TTY_QUALIFIER" \
-  | sed "s/_0e7e8d89_$ENTANDO_TTY_QUALIFIER//" \
-  | sed "s/ENTANDO_FORCE_//" \
-  | sed "s/_/ /g" \
-  | sed "s/=/: /" \
-  |  xargs -L 1 -I {} echo " - TTY SESSION {}"
-
-  print_hr
+  local TTY_ENV
+  TTY_ENV=$(
+    env | grep "ENTANDO_" | grep "_0e7e8d89_$ENTANDO_TTY_QUALIFIER" \
+    | sed "s/_0e7e8d89_$ENTANDO_TTY_QUALIFIER//" \
+    | sed "s/ENTANDO_FORCE_//" \
+    | sed "s/_/ /g" \
+    | sed "s/=/: /" \
+    |  xargs -L 1 -I {} echo " - TTY SESSION {}"
+  )
+  if [ -n "$TTY_ENV" ]; then
+    _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
+    echo -n "$TTY_ENV"
+    print_hr
+  fi
 }
 
 determine_namespace() {
@@ -438,4 +444,4 @@ determine_namespace() {
   return 1
 }
 
-handle_forced_app_profile "$@"
+handle_forced_profile "$@"

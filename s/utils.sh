@@ -776,23 +776,23 @@ stdin_to_arr() {
 }
 
 # shellcheck disable=SC2120
-print_current_app_profile_info() {
+print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
-  if [ -n "$THIS_APP_PROFILE" ]; then
-    if $VERBOSE; then
-      _log_i 0 "Current application profile:"
-      echo " - PROFILE NAME:  ${THIS_APP_PROFILE}"
-    else
-      _log_i 0 "Current application profile: ${THIS_APP_PROFILE}" 1>&2
-    fi
+  if $VERBOSE; then
+    _log_i 0 "Current profile info:"
+    echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
   else
-    _log_i 0 "Currently not using any application profile" 1>&2
+    if [ -n "$THIS_PROFILE" ]; then
+      _log_i 0 "Currently using profile \"$THIS_PROFILE\"" 1>&2
+    else
+      _log_i 0 "Currently not using any profile" 1>&2
+    fi
   fi
   
   $VERBOSE && {
-    echo " - APPNAME:       ${ENTANDO_APPNAME:-{NONE\}}"
-    echo " - NAMESPACE:     ${ENTANDO_NAMESPACE:-{NONE\}}"
-    echo " - K8S CONTEXT:   ${DESIGNATED_KUBECTX:-{NONE\}}"
+    echo " - APPNAME:           ${ENTANDO_APPNAME:-<EMPTY>}"
+    echo " - NAMESPACE:         ${ENTANDO_NAMESPACE:-<EMPTY>}"
+    echo " - K8S CONTEXT:       ${DESIGNATED_KUBECTX:-<NO-CONTEXT>}"
   }
 }
 
@@ -883,8 +883,6 @@ keycloak-get-token() {
   client_secret=$(base64 -d <<< "$client_secret")
 
   local TOKEN
-  TOKEN_ENDPOINT="http://quickstart-kc-release-e6-3-0.apps.rd.entando"
-  TOKEN_ENDPOINT+=".org/auth/realms/entando/protocol/openid-connect/token"""
   TOKEN="$(curl -s "$TOKEN_ENDPOINT" \
     -H "Accept: application/json" \
     -H "Accept-Language: en_US" \
@@ -906,7 +904,7 @@ ecr-prepare-action() {
   shift
   local var_token="$1"
   shift
-  print_current_app_profile_info
+  print_current_profile_info
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress scheme
   app-get-main-ingresses main_ingress ecr_ingress
@@ -1047,10 +1045,10 @@ ecr-watch-installation-result() {
   done
 }
 
-# Implements a mechanism restrict and preserve in the current tty the application profile to use 
+# Implements a mechanism restrict and preserve in the current tty the profile to use 
 #
 # How:
-# 1) The application profile name to use is saved on environment variables
+# 1) The profile name to use is saved on environment variables
 # 2) The environment variables are qualified with a string derived from the current tty name
 # 3) The environment variables are set by sourcing the app-use: "source ent use my-app"
 # 
@@ -1058,13 +1056,13 @@ ecr-watch-installation-result() {
 # 1) In order to avoid interferences between ttys 
 # 2) The qualifiers allows to prevent from reusing the same environment variables on forked ttys
 #
-handle_forced_app_profile() {
-  local pv="ENTANDO_FORCE_APP_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
-  local phv="ENTANDO_FORCE_APP_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
-  if [[ "$1" =~ --app=.* ]]; then
-    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_APP_PROFILE" "--app/ext_ic_id//" "$@"
-    _set_var "$pv" "$ENTANDO_USE_APP_PROFILE"
-    _set_var "$phv" "$ENTANDO_HOME/apps/$ENTANDO_USE_APP_PROFILE"
+handle_forced_profile() {
+  local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  if [[ "$1" =~ --profile=.* ]]; then
+    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
+    _set_var "$pv" "$ENTANDO_USE_PROFILE"
+    _set_var "$phv" "$ENTANDO_HOME/profiles/$ENTANDO_USE_PROFILE"
   fi
   
   local pvv phvv
@@ -1076,11 +1074,11 @@ handle_forced_app_profile() {
     phvv=${!phv}
   fi
   
-  if [[ -n "$pvv" && "$DESIGNATED_APP_PROFILE" != "$pvv" ]]; then
+  if [[ -n "$pvv" && "$DESIGNATED_PROFILE" != "$pvv" ]]; then
     kubectl_mode --reset-mem 
-    DESIGNATED_APP_PROFILE="$pvv"
+    DESIGNATED_PROFILE="$pvv"
     # shellcheck disable=SC2034
-    DESIGNATED_APP_PROFILE_HOME="$phvv"
+    DESIGNATED_PROFILE_HOME="$phvv"
     activate_designated_workdir --temporary
   fi
 }

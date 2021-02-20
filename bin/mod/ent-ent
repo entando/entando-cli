@@ -56,7 +56,7 @@ ent_activate() {
 
   if $DEFSET; then
     ent_set_default_ent "$ENT"
-    ent_set_app_profile_default_ent "$ENT"
+    ent_set_profile_default_ent "$ENT"
   fi
 
   if $FOR_SOURCED_EXECUTION; then
@@ -77,11 +77,11 @@ ent_set_default_ent() {
   _log_i 0 "Ent \"$ENT\" is now the global default ent"
 }
 
-ent_set_app_profile_default_ent() {
-  if [ -n "$DESIGNATED_APP_PROFILE" ]; then
+ent_set_profile_default_ent() {
+  if [ -n "$DESIGNATED_PROFILE" ]; then
     ENT="$1"
     save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
-    _log_i 0 "Ent \"$ENT\" is now the default ent for the application profile \"$DESIGNATED_APP_PROFILE\""
+    _log_i 0 "Ent \"$ENT\" is now the default ent for the profile \"$DESIGNATED_PROFILE\""
   fi
 }
 
@@ -89,7 +89,7 @@ ent_set_app_profile_default_ent() {
 
 RUN() {
   case "$1" in
-    "activate") #H: selects the application profile that ent should use
+    "activate") #H: selects the profile that ent should use
       shift
       ! $FOR_SOURCED_EXECUTION && FATAL "You need to source-execute me"
       ent_activate "$@"
