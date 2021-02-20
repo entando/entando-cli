@@ -284,9 +284,9 @@ _ent-bundler() {
     # RUN
     if $OS_WIN; then
       if "$ENTANDO_IS_TTY"; then
-        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+        "winpty" "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
       else
-        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" |
+        "winpty" -Xallow-non-tty "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" |
           perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
       fi
     else
