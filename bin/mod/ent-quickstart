@@ -166,7 +166,7 @@ FOUND=false
 
 ! $JUST_SET_CFG && {
   # HOSTNAME MODE ----
-  args_or_ask -n -p "ADDR" "--hostname/fdn?" "$@" && {
+  args_or_ask -n -p "ADDR" "--hostname/dn?" "$@" && {
     if [ -n "$ADDR" ]; then
       FOUND=true
     else

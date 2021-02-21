@@ -274,7 +274,7 @@ prj_ecr_uninstall() {
 
 prj_ecr_deploy() {
   print_current_profile_info
-  generate_custom_resource "$@" | _kubectl apply -f -
+  ent prj cr "$@" | _kubectl apply -f -
 }
 
 prj_ecr_unregister_bundle() {

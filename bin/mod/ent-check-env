@@ -201,17 +201,19 @@ $M_DEVL && {
   # shellcheck disable=SC2015
   find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
     DESIGNATED_NODE_VERSION="$RES"
-    save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION" "$ENT_DEFAULT_CFG_FILE"
-    activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
     true
   } || {
     if ask "Should I try to install the preferred version ($VER_NODE_DEF)?" "y"; then
       _nvm install "$VER_NODE_DEF"
       _nvm use "$VER_NODE_DEF"
+      DESIGNATED_NODE_VERSION="$VER_NODE_DEF"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
   }
+  
+  save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION" "$ENT_DEFAULT_CFG_FILE"
+  activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
 }
 
 # ENT-LOCAL-JHIPSTER installation
