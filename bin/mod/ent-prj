@@ -660,7 +660,7 @@ push_git() {
   args_or_ask -n -F -- "FORCE" '--force' "$@" && {
     _log_i 0 "push_git: Force mode active"
   }
-  args_or_ask -a "VERSION_NUMBER" "1/ver/$LATEST_VERSION_NUMBER/%sp bundle version number" "$@"
+  args_or_ask -a "VERSION_NUMBER" "1/semver/$LATEST_VERSION_NUMBER/%sp bundle version number" "$@"
   DEF="$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')"
   args_or_ask -a "VERSION_COMMENT" "2/nn/$DEF/%sp bundle version comment" "$@"
 

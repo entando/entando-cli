@@ -96,6 +96,26 @@ test_asserters() {
   assert_giga "VER" "10G" "$OPT" || FATAL "failed! $LINENO"
   assert_giga "VER" "10GG" "$OPT" && FATAL "failed! $LINENO"
   assert_giga "VER" "10" "$OPT" && FATAL "failed! $LINENO"
+  
+  # Bundle SEMVER
+  # .. accepted bundle semver
+  assert_semver "SEMVER" "0.0.1" "$OPT" || FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "0.0.1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v0.0.1" "$OPT" || FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v0.0.1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
+  # .. ver but not bundle semver
+  assert_semver "SEMVER" "1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "0.0.0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v0.0.0.1" "$OPT" && FATAL "failed! $LINENO"
+  # .. corrupted bundle semver
+  assert_semver "SEMVER" "v.0.0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "x0.0.1" "$OPT" && FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "0.0.1-" "$OPT" && FATAL "failed! $LINENO"
 }
 
 test_map_functions() {

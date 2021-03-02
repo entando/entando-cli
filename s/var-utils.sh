@@ -149,6 +149,11 @@ assert_fdn() {
   _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "full domain" "$3"
 }
 
+assert_semver() {
+  _assert_regex_nn "$1" "$2" "^v?[0-9]\.[0-9]\.[0-9]$" \
+  "^v?[0-9]\.[0-9]\.[0-9]-[a-zA-Z0-9-]+$" "version" "$3"
+}
+
 assert_ver() {
   _assert_regex_nn "$1" "$2" "^v?[0-9.]+-?[a-zA-Z0-9-]+$" "" "version" "$3"
 }
