@@ -33,36 +33,29 @@ if [ -n "$DESIGNATED_VM" ]; then
   exit
 fi
 
-WATCH=false
-STATUS=false
-[ "$1" == "watch" ] && {
-  WATCH=true
-  shift
-}
-[ "$1" == "status" ] && {
-  STATUS=true
-  shift
-}
+APSS=false; [ "$1" = "--run-app-status-sourced" ] && { APSS=true; shift; }
+WATCH=false; [ "$1" = "watch" ] && { WATCH=true; shift; }
 
 reload_cfg
 
-[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift 
-[ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
-[ -n "$1" ] && ENTANDO_APPNAME="$1" && shift 
+[ -n "$1" ] && ENTANDO_APPNAME="$1" && shift
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
+[ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift
+[ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1
 
 export SYS_GNU_LIKE
 export ENTANDO_ENT_KUBECTL_CMD
 export ENTANDO_STANDARD_QUICKSTART
 
+if $APSS; then
+  shift
+  . s/check-app-status.sh "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE" "$@"
+  exit
+fi
+
 $WATCH && {
   start_time="$(date -u +%s)"
-  _watch s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME" "$start_time"
-  exit
-}
-
-$STATUS && {
-  s/check-app-status.sh "$ENTANDO_NAMESPACE" "$ENTANDO_APPNAME"
+  _watch bin/mod/ent-app-info --run-app-status-sourced "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE" "$start_time"
   exit
 }
 
@@ -72,7 +65,7 @@ _log_i 1 "NODES:"
 _kubectl get nodes
 
 _log_i 1 "PODS:"
-_kubectl get pods -n "$NAMESPACE"
+_kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
 
 _log_i 1 "Application Ingress path:"
 

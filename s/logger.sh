@@ -18,6 +18,11 @@ __log() { #NOTRACE
   TP=$1 && shift
   SY=$1 && shift
   LL=$1 && shift
+  [[ ! "$LL" =~ ^[0-9]+$ ]] && {
+    echo -e "➤ Logging instruction failed do to invalid log level provided" 1>&2 
+    print_calltrace 1 1>&2
+    return 0
+  }
   [[ ! $XU_ENABLED_LOG_TYPES =~ $TP ]] && return 0
   [[ $XU_LOG_LEVEL -lt $LL ]] && return 0
   echo -e "➤ $SY | $(date +'%Y-%m-%d %H-%M-%S') | $*"

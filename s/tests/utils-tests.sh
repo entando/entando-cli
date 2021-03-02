@@ -118,7 +118,7 @@ test_args_or_ask() {
   # Pure Flags
   args_or_ask -f -- "--clean" --build --clean || FATAL "failed! $LINENO"
   args_or_ask -f -- "--find" --build --clean && FATAL "failed! $LINENO"
-  # Flags with assigned var (-a)
+  # Flags with assigned var (-F)
   args_or_ask -n -F "RES" "--yes///Assumes yes for all yes-no questions" "--yes"
   [ "$RES" = "true" ] || FATAL "failed! $LINENO"
   args_or_ask -F "RES" "--clean" --build --clean || FATAL "failed! $LINENO"
@@ -150,27 +150,6 @@ test_args_or_ask() {
   # Space separated argument
   args_or_ask -n -s "RES" "-n" -n entando || FATAL "failed! $LINENO"
   [ "$RES" = "entando" ] || FATAL "failed! $LINENO"
-}
-
-test_remotes() {
-    print_current_function_name "> " ".."
-    remotes-clear
-    remotes-save
-    remotes-count N
-    [ "$N" = 0 ] || FATAL "failed! $LINENO"
-    remotes-set "test" "a-test"
-    remotes-set "test2" "another test"
-    remotes-count N
-    [ "$N" = 2 ] || FATAL "failed! $LINENO"
-    remotes-save
-    remotes-clear
-    reload_cfg
-    remotes-count N
-    [ "$N" = 2 ] || FATAL "failed! $LINENO"
-    remotes-get V "test"
-    [ "$V" = "a-test" ] || FATAL "failed! $LINENO"
-    remotes-get V "test2"
-    [ "$V" = "another test" ] || FATAL "failed! $LINENO"
 }
 
 true

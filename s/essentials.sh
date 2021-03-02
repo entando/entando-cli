@@ -12,18 +12,23 @@
   SYS_OS_UNKNOWN=false
   ENT_KUBECTL_CMD=""
   ENTANDO_KUBECTL_MODE=""
+  ENTANDO_KUBECTL_AUTO_DETECTED=""
   DESIGNATED_KUBECONFIG=""
   KUBECTL_ONCE_OPTIONS=""
+  # shellcheck disable=SC2034
+  DEFAULT_APP_SCHEME=""
 
   if [ "$1" = "--with-state" ]; then
-    DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
-    ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENTANDO_ENT_HOME/w/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
+    DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENT_WORK_DIR/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
+    ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
   perl -e 'print -t 1 ? exit 0 : exit 1;'
   if [ $? -eq 0 ]; then
     if [[ -z "$ENTANDO_DEV_TTY" ]]; then
       ENTANDO_DEV_TTY="$(tty)"
+      # shellcheck disable=SC2034
+      ENTANDO_TTY_QUALIFIER="${ENTANDO_DEV_TTY//\//_}"
     fi
   fi
 
@@ -70,6 +75,15 @@
       ;;
   esac
 
+  # shellcheck disable=SC2155
+  [ -z "$ENTANDO_DEBUG_TTY" ] && {
+    if command -v "tty" >/dev/null; then
+      export ENTANDO_DEBUG_TTY="$(tty)"
+    else
+      export ENTANDO_DEBUG_TTY=""
+    fi
+  }
+
   # SUDO
   IS_SUDO_PRESENT=false; command -v "sudo" > /dev/null && IS_SUDO_PRESENT=true
 
@@ -98,19 +112,25 @@
 
   # Overwritten by utils.sh
   kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
+  kubectl_mode() { :; }
 
   # KUBECTL
+  # shellcheck disable=SC2034
   setup_kubectl() {
     [ -n "$ENT_KUBECTL_CMD" ] && {
       ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
     }
-
+    
     if [ -n "$ENTANDO_KUBECTL" ]; then
       ENTANDO_KUBECTL_MODE="COMMAND"
       _kubectl() {
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
-        "$ENTANDO_KUBECTL" $KUBECTL_ONCE_OPTIONS "$@"
+        if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
+          $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
+        else
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
+        fi
       }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
@@ -127,39 +147,28 @@
       _kubectl-pre-sudo() { :; }
     else
       # shellcheck disable=SC2034
-      ENTANDO_KUBECTL_MODE="AUODETECT"
-      if command -v "k3s" > /dev/null; then
-        if $OS_WIN; then
-          _kubectl() {
-            kubectl_update_once_options "$@"
-            # shellcheck disable=SC2086
-            k3s kubectl $KUBECTL_ONCE_OPTIONS "$@"
-          }
-          _kubectl-pre-sudo() { :; }
-        else
-          _kubectl() {
-            kubectl_update_once_options "$@"
-            # shellcheck disable=SC2086
-            sudo k3s kubectl $KUBECTL_ONCE_OPTIONS "$@"
-          }
-          _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
-        fi
+      ENTANDO_KUBECTL_MODE="AUTODETECT"
+      
+      if $OS_WIN || [[ -n "$DESIGNATED_KUBECTX" || -n "$DESIGNATED_KUBECONFIG" ]]; then
+        ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL"
+        _kubectl() {
+          kubectl_update_once_options "$@"
+          # shellcheck disable=SC2086
+          kubectl $KUBECTL_ONCE_OPTIONS "$@"
+        }
+        _kubectl-pre-sudo() { :; }
       else
-        if $OS_WIN; then
-          _kubectl() {
-            kubectl_update_once_options "$@"
-            # shellcheck disable=SC2086
+        ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL-PRIVILEGED"
+        _kubectl() {
+          kubectl_update_once_options "$@"
+          # shellcheck disable=SC2086
+          if $ENT_KUBECTL_NO_AUTO_SUDO; then
             kubectl $KUBECTL_ONCE_OPTIONS "$@"
-          }
-          _kubectl-pre-sudo() { :; }
-        else
-          _kubectl() {
-            kubectl_update_once_options "$@"
-            # shellcheck disable=SC2086
+          else
             sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
-          }
-          _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
-        fi
+          fi
+        }
+        _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       fi
     fi
   }

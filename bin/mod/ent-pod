@@ -12,6 +12,12 @@
   echo -e "Displays information related to a set of pods" && exit 0
 }
 
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
+}
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
@@ -23,10 +29,6 @@ cd "$DIR/../.." || {
 RUN() {
   HH="$(parse_help_option "$@")"
 
-  [[ -n "$HH" && -z "$CMD" ]] && {
-    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-  }
-
   show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
 
@@ -37,12 +39,15 @@ RUN() {
     GREP_PATT_POS="2"
   }
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
-
-  [[ -n "$HH" && -z "$CMD" ]] && exit
+  
+  [[ -n "$HH" || -z "$CMD" ]] && {
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+    exit 0
+  }
 
   show_help_option "$HH" "\"$CMD\""
 
-  process_pod_pattern "$CMD" "$@"
+  [ -z "$HH" ] && process_pod_pattern
 
   case "$CMD" in
     "grep") #H: greps the pods logs
@@ -56,7 +61,7 @@ RUN() {
       ;;
     "shell") #H: run a shell into the pod
       ENT_SHELL_CMD="/bin/sh"
-      args_or_ask ${HH:+"$HH"} -n -p -- ENT_SHELL_CMD "--shell-cmd/any?/the shell command" "$@"
+      args_or_ask ${HH:+"$HH"} -n -p -- ENT_SHELL_CMD "--shell-cmd/any?//the shell command" "$@"
       pod_action shell "$@"
       ;;
     "exec") #H: run a command into the pod container
@@ -68,15 +73,15 @@ RUN() {
       pod_action xx logs "$@"
       ;;
     "x") #H: executes the given k8s command against the a given pod
-      shift 2
-      pod_action "$CMD" "$@"
+      shift;CMD="$1";shift 2
+      pod_action x "$CMD" "$@"
       ;;
     "xx") #H: executes the given k8s command against a given  pod container
-      shift 2
-      pod_action "$CMD" "$@"
+      shift;CMD="$1";shift 2
+      pod_action xx "$CMD" "$@"
       ;;
     "")
-      "${BASH_SOURCE[0]}" --help
+      [ -z "$HH" ] && "${BASH_SOURCE[0]}" --help
       ;;
     *)
       [ -n "$HH" ] && exit 0
@@ -158,23 +163,19 @@ pod_action() {
   local SELECTED_POD SELECTED_CONTAINER
 
   _kubectl-pre-sudo
-  if $MULTIPAR_POT_PATTERN; then
-    SELECTED_POD="$POD_PATT"
-    SELECTED_CONTAINER="$CONTAINER_PATT"
-  else
-    local select_one_res_alt
 
-    local PODS=()
-    stdin_to_arr $'\n\r' PODS < <(read_pod_list)
-    select_one -s "POD" "${PODS[@]}"
-    SELECTED_POD="$select_one_res_alt"
+  local select_one_res_alt
 
-    local CONTAINERS=()
-    stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
-    if [[ "${#CONTAINERS[@]}" -gt 1 && "$ACTION" != "x" ]]; then
-      select_one "CONTAINER" "${CONTAINERS[@]}"
-      SELECTED_CONTAINER="$select_one_res_alt"
-    fi
+  local PODS=()
+  stdin_to_arr $'\n\r' PODS < <(read_pod_list)
+  select_one -s "POD" "${PODS[@]}"
+  SELECTED_POD="$select_one_res_alt"
+
+  local CONTAINERS=()
+  stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
+  if [[ "${#CONTAINERS[@]}" -ge 1 && "$ACTION" != "x" ]]; then
+    select_one -s "CONTAINER" "${CONTAINERS[@]}"
+    SELECTED_CONTAINER="$select_one_res_alt"
   fi
 
   case "$ACTION" in
@@ -190,7 +191,7 @@ pod_action() {
     "x" | "xx")
       ACTION="$1"
       shift
-      echo "Executing user-provided command against $(mk_target_desc)"
+      echo "Executing \"$ACTION\" command against $(mk_target_desc)"
       if [ -n "$SELECTED_CONTAINER" ]; then
         _kubectl "$ACTION" ${NAMESPACE:+-n "$NAMESPACE"} "pod/$SELECTED_POD" -c "$SELECTED_CONTAINER" "$@"
       else
@@ -216,7 +217,7 @@ read_container_list() {
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"}
   else
     _kubectl get pods/"$1" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"} \
-      | grep -- "$CONTAINER_PATT"
+      | tr " " "\n" | grep -- "$CONTAINER_PATT" | tr "\n" " "
   fi
 }
 
@@ -228,10 +229,8 @@ mk_target_desc() {
   fi
 }
 
+# shellcheck disable=SC2034
 process_pod_pattern() {
-  CMD="$1"
-  shift
-
   local POD_P=()
   stdin_to_arr "/" POD_P <<< "$POD_PATT"
 

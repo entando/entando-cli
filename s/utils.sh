@@ -19,6 +19,8 @@ if [ -z "$ENTANDO_IS_TTY" ]; then
   fi
 fi
 
+xu_set_status() { :; }
+
 # runs a sed "in place" given the sed command and the file to change
 # (multiplatform wrapper)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -49,8 +51,11 @@ save_cfg_value() {
   shift
   local value="${1}"
   shift
-  local config_file=${1:-$CFG_FILE}
-  shift
+  local config_file="$CFG_FILE"
+  [ -n "$1" ] && {
+    config_file="$1"
+    shift
+  }
 
   if [[ -f "$config_file" ]]; then
     if $IS_MAP; then
@@ -116,7 +121,7 @@ prompt() {
 # $1: dvar        destination var to set
 # $2: sval        source value
 # $3: prompt      (if required) Supports tags %sp (standard prompt) and %var (dest var name)
-# $4: pdef        (for the prompt)
+# $4: pdef        (default to propose in the user prompt)
 # $5: [asserter]  assert function (with "?" suffix allows nulls)
 #
 set_or_ask() {
@@ -134,7 +139,12 @@ set_or_ask() {
   local res="$sval"
   local def=""
   local NULLABLE=false
-  [[ "$asserter" =~ ^.*\?$ ]] && NULLABLE=true
+  if [[ "$asserter" =~ (.*)\? ]]; then
+    asserter="${BASH_REMATCH[1]}"
+    local NULLABLE=true
+  else
+    local NULLABLE=false
+  fi
 
   while true; do
 
@@ -333,6 +343,10 @@ print_entando_banner() {
   fi
 }
 
+print_hr() {
+  printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
+}
+
 # requires that the system environment was checked for development mode
 #
 require_develop_checked() {
@@ -427,7 +441,8 @@ select_one() {
 # - %var: the var name
 #
 args_or_ask() {
-  local NOASK=false
+  local NEVER_ASK=false
+  local ALWAYS_ASK=false
   local FLAG=false
   local FLAGANDVAR=false
   local ARG=false
@@ -461,47 +476,17 @@ args_or_ask() {
   # pare flags
   while true; do
     case "$1" in
-      -n)
-        NOASK=true
-        shift
-        ;;
-      -f)
-        FLAG=true
-        shift
-        ;;
-      -F)
-        FLAGANDVAR=true
-        shift
-        ;;
-      -a)
-        ARG=true
-        shift
-        ;;
-      -p)
-        PRESERVE=true
-        shift
-        ;;
-      -s)
-        SPACE_SEP=true
-        shift
-        ;;
-      -d)
-        IS_DEFAULT=true
-        shift
-        ;;
-      --help-only)
-        PRINT_HELP=true
-        JUST_PRINT_HELP=true
-        shift
-        ;;
-      --help)
-        PRINT_HELP=true
-        shift
-        ;;
-      --cmplt)
-        PRINT_COMPLETION_CODE=true
-        shift
-        ;;
+      -n) NEVER_ASK=true;shift;;
+      -A) ALWAYS_ASK=true;shift;;
+      -f) FLAG=true;shift;;
+      -F) FLAGANDVAR=true;shift;;
+      -a) ARG=true;shift;;
+      -p) PRESERVE=true;shift;;
+      -s) SPACE_SEP=true;shift;;
+      -d) IS_DEFAULT=true;shift;;
+      --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
+      --help) PRINT_HELP=true;NEVER_ASK=true;shift;;
+      --cmplt) PRINT_COMPLETION_CODE=true;shift;;
       --)
         shift
         break
@@ -537,8 +522,8 @@ args_or_ask() {
   $IS_DEFAULT && [ -z "$1" ] && return 0
 
   # user provided value
-  if $ARG; then
-    assert_num "POSITIONAL_ARGUMENT_INDEX" "$val_name"
+  if $ARG; then                                                                     # POSITIONAL VALUE
+    assert_num "the index of position argument" "$val_name" || FATAL -t "Internal Error"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
     val_name="Argument #$((val_name))"
@@ -548,7 +533,7 @@ args_or_ask() {
     else
       val_from_args=""
     fi
-  elif $FLAG || $FLAGANDVAR; then
+  elif $FLAG || $FLAGANDVAR; then                                                   # FLAGS or FLAG-VARS
     print_sub_help "$val_name" "$val_msg" && $JUST_PRINT_HELP && return 2
 
     index_of_arg "${val_name}" "$@"
@@ -557,7 +542,11 @@ args_or_ask() {
     if [ $found_at -eq 255 ]; then
       index_of_arg -p "${val_name}=" "$@"
       found_at="$?"
-      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+      if [ $found_at -eq 255 ]; then
+        val_from_args=""
+      else
+        val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+      fi
     else
       val_from_args=""
     fi
@@ -575,15 +564,15 @@ args_or_ask() {
         return 1
       fi
     fi
-  else
-    if $SPACE_SEP; then
+  else                                                                            # NOMINAL SWITCHES
+    if $SPACE_SEP; then                                                             # with space
       index_of_arg -- "${val_name}" "$@"
       found_at="$?"
       if [ $found_at -ne 255 ]; then
         found_at=$((found_at + 1))
       fi
     else
-      index_of_arg -p "${val_name}=" "$@"
+      index_of_arg -p "${val_name}=" "$@"                                           # with equal sign
       found_at="$?"
     fi
 
@@ -607,7 +596,7 @@ args_or_ask() {
     [ "$?" -eq 255 ] && return 1 || return 0
   fi
 
-  [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NOASK && return 255
+  [[ "$found_at" -eq 255 && -z "$val_def" ]] && $NEVER_ASK && return 255
 
   # prompt message processing
   if [ -z "$val_msg" ]; then
@@ -627,6 +616,7 @@ args_or_ask() {
 
     if [ "$(LC_ALL=C type -t "$assertion")" != "function" ]; then
       echo "undefined type \"$val_type\", falling back to \"strict_id\"" 1>&2
+      print_calltrace
       val_type="strict_id"
       assertion="assert_$val_type"
     fi
@@ -636,7 +626,7 @@ args_or_ask() {
   fi
 
   # set/ask
-  if $NOASK; then
+  if $NEVER_ASK; then
     if [ -z "$val_from_args" ]; then
       local val="$val_def"
     else
@@ -649,7 +639,19 @@ args_or_ask() {
     _set_var "$var_name" "$val"
     return 0
   else
-    set_or_ask "$var_name" "$val_from_args" "$val_msg" "$val_def" "$assertion"
+    val="$val_from_args"
+    if $NULLABLE; then
+      assertion+="?"
+      [[ "$found_at" -ne 255 && -z "$val" ]] && {
+        _set_var "$var_name" "$val"
+        return 0
+      }
+      ! $ALWAYS_ASK && $NULLABLE && [[ "$found_at" -ne 255 || -n "$val" ]] && {
+        _set_var "$var_name" "$val"
+        return 0
+      }
+    fi
+    set_or_ask "$var_name" "$val" "$val_msg" "$val_def" "$assertion"
     return 0
   fi
 }
@@ -684,7 +686,7 @@ show_help_option() {
         if [ "$2" = ":main" ]; then
           ENT_HELP_SECTION_TITLE="> Main arguments:"
         else
-          ENT_HELP_SECTION_TITLE="> Arguments of $2:"
+          ENT_HELP_SECTION_TITLE="> Arguments of \"$2\":"
         fi
       else
         ENT_HELP_SECTION_TITLE="> Arguments:"
@@ -694,41 +696,72 @@ show_help_option() {
   esac
 }
 
-args_or_ask__a_remote() {
-  [ "$1" = "-a" ] && local PRE="$1" && shift
-  [ "$1" = "--help" ] && local HH="$1" && shift
-  local var_name="$1"
-  shift
-  local switch="$1"
-  shift
-  local msg="$1"
-  shift
+# Takes a value from the arguments or interactively from a provided array or map-reference
+# A map reference the name of a map manipulated using the map-* functions
+#
+# $1: src_list:           the map name
+# [ -m | -e | -a | --helps ]
+# $4: res_var_name:       the var to set with the result
+# $3: arg_code_or_num:    the map key to extract
+# $6: type:               the expect type of the input data (defaults to "exp_id")
+# $2: arg_desc:           the description of the expected input argument
+# $5: msg:                the prompt message
+#
+args_or_ask_from_list() {
+  local src_list="$1";shift
+  local EXACT=false
+  local IS_MAPREF=false
+  local HH=""
+  while true; do
+    case $1 in
+      "-m") IS_MAPREF=true;shift;;
+      "-e") EXACT=true;shift;;
+      "-a") PRE="$1";shift;;
+      "--help") HH="$1";shift;;
+      *) break ;;
+    esac
+  done
+  local res_var_name="$1";shift
+  local arg_code_or_num="$1";shift
+  local type="${1:-"ext_id"}";shift
+  local arg_desc="$1"; shift
+  local msg="$1"; shift
+
   local TMP
 
-  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$switch/ext_id?//$msg" "$@"
+  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_code_or_num/$type//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
       local count
-      remotes-count count
+      if $IS_MAPREF; then
+        map-count "${src_list}" count
+      else
+        count="${#src_list[@]}"
+      fi
       if [ "$count" -eq 0 ]; then
         TMP=""
       else
-        TITLES="$(remotes-list)"
-        TITLES+=("other..")
-        select_one "Select the remote" "${TITLES[@]}"
+        # shellcheck disable=SC2207
+        if $IS_MAPREF; then
+          TITLES=($(map-list "${src_list}" -k))
+        else
+          TITLES=("${src_list[@]}")
+        fi
+        ! $EXACT && TITLES+=("other..")
+        select_one "Select the ${arg_desc}" "${TITLES[@]}"
         local TMP="$select_one_res_alt"
-        [ $TMP = "other.." ] && TMP=""
+        [ "$TMP" = "other.." ] && TMP=""
       fi
     fi
 
     if [ -z "$TMP" ]; then
-      args_or_ask -p "TMP" "$switch/ext_id/$TMP/$msg" "$@"
+      args_or_ask -p "TMP" "$arg_code_or_num/$type/$TMP/$msg" "$@"
     else
-      assert_ext_id "$var_name" "$TMP"
+      "assert_${type}" "$res_var_name" "$TMP"
     fi
 
-    _set_var "$var_name" "$TMP"
+    _set_var "$res_var_name" "$TMP"
   }
 }
 
@@ -742,68 +775,310 @@ stdin_to_arr() {
   done
 }
 
+# shellcheck disable=SC2120
+print_current_profile_info() {
+  VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
+  if $VERBOSE; then
+    _log_i 0 "Current profile info:"
+    echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
+  else
+    if [ -n "$THIS_PROFILE" ]; then
+      _log_i 0 "Currently using profile \"$THIS_PROFILE\"" 1>&2
+    else
+      _log_i 0 "Currently not using any profile" 1>&2
+    fi
+  fi
+  
+  $VERBOSE && {
+    echo " - APPNAME:           ${ENTANDO_APPNAME:-<EMPTY>}"
+    echo " - NAMESPACE:         ${ENTANDO_NAMESPACE:-<EMPTY>}"
+    echo " - K8S CONTEXT:       ${DESIGNATED_KUBECTX:-<NO-CONTEXT>}"
+  }
+}
+
+
 #-----------------------------------------------------------------------------------------------------------------------
 
-remotes-clear() {
-  for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    unset "${name}"
-  done
+http-check() {
+  local RES
+  RES=$(curl -sL -o /dev/null "$1" -w "%{http_code}")
+  case "$RES" in
+    200 | 201) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
-remotes-count() {
-  local i=0
-  for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    i=$((i + 1))
-  done
-  _set_var "$1" "$i"
-  [ "$i" -gt 0 ] && return 0
-  return 255
+http-get-url-scheme() {
+  _set_var "$1" "${2//:\/\/*/}"
 }
 
-remotes-set() {
-  local name="$1"
-  local address="$2"
-  _set_var "__AA_ENTANDO_REMOTES__${name}" "$address"
-}
-
-remotes-get() {
-  if [ "$1" = "--first" ]; then
-    shift
-    local dst_var_name="$1"
-    local name="$(remotes-list | head -n 1)"
+http-get-working-url() {
+  local res_var="$1"
+  shift
+  local res
+  if http-check "$1"; then
+    res="$1"
   else
-    local dst_var_name="$1"
-    local name="$2"
+    if http-check "$2"; then
+      res="$2"
+    else
+      res=""
+    fi
   fi
-  local tmp
-  tmp="__AA_ENTANDO_REMOTES__${name}"
-  value="${!tmp}"
-  _set_var "$dst_var_name" "$value"
-  [ -n "$value" ] && return 0
-  return 255
+
+  _set_var "$res_var" "$res"
 }
 
-remotes-del() {
-  local name="$1"
-  unset "__AA_ENTANDO_REMOTES__${name}"
+#-----------------------------------------------------------------------------------------------------------------------
+app-get-main-ingresses() {
+  local res_var1="$1"
+  local res_var2="$2"
+  shift
+  local tmp
+  JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                      # selector
+  JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}' # host+path
+  tmp="$(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)"
+  _set_var "$res_var1" "$tmp"
+  JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                      # selector
+  JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[1].path}{"\n"}{end}' # host+path
+  tmp="$(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)"
+  _set_var "$res_var2" "$tmp"
 }
 
-# shellcheck disable=SC2120
-remotes-list() {
-  local SEP="$1"
-  local tmp
-  for name in ${!__AA_ENTANDO_REMOTES__*}; do
-    {
-      if [ -z "$SEP" ]; then
-        echo "$name"
-      else
-        tmp="${name}"
-        echo "${name}${SEP}${!tmp}"
-      fi
-    } | sed "s/__AA_ENTANDO_REMOTES__//"
+app-find-ingress() {
+  local filter="$1"
+  local url
+  url="$(_kubectl get ingress | grep "$filter" | awk '{print $2}')"
+}
+
+keycloak-get-token() {
+  local res_var="$1"
+  shift
+  local scheme="$1"
+  local auth_url
+  auth_url="$(
+    _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null \
+      | grep kc-ingress | awk '{print $2}'
+  )/auth"
+
+  [ -z "$auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+
+  local TOKEN_ENDPOINT
+  TOKEN_ENDPOINT="$(curl -s "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
+    | jq -r ".token_endpoint")"
+
+  [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
+
+  local client_secret_name="${ENTANDO_APPNAME}-server-secret"
+  local client_id client_secret tmp
+  tmp="$(
+    _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
+  )"
+  client_id="$(echo "$tmp" | cut -d':' -f1)"
+  client_secret="$(echo "$tmp" | cut -d':' -f2)"
+
+  [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
+
+  client_id=$(base64 -d <<< "$client_id")
+  client_secret=$(base64 -d <<< "$client_secret")
+
+  local TOKEN
+  TOKEN="$(curl -s "$TOKEN_ENDPOINT" \
+    -H "Accept: application/json" \
+    -H "Accept-Language: en_US" \
+    -u "$client_id:$client_secret" \
+    -d "grant_type=client_credentials" \
+    | jq -r '.access_token')"
+
+  [ -z "$TOKEN" ] && FATAL "Unable to extract the access token"
+
+  _set_var "$res_var" "$TOKEN"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Runs general operation to prepare running actions against the ECR
+# $1: the received of the url to use for the action
+# $2: the received of the authentication token to use for the action
+ecr-prepare-action() {
+  local var_url="$1"
+  shift
+  local var_token="$1"
+  shift
+  print_current_profile_info
+  # shellcheck disable=SC2034
+  local main_ingress ecr_ingress scheme
+  app-get-main-ingresses main_ingress ecr_ingress
+  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
+  [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
+  DEFAULT_APP_SCHEME="${DEFAULT_APP_SCHEME:-$LATEST_APP_SCHEME}"
+  case "$DEFAULT_APP_SCHEME" in
+    "https")
+      http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
+      ;;
+    *)
+      http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
+      ;;
+  esac
+  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
+  http-get-url-scheme scheme "$main_ingress"
+  LATEST_APP_SCHEME="${scheme}"
+  save_cfg_value LATEST_APP_SCHEME "$LATEST_APP_SCHEME"
+  local token
+  keycloak-get-token token "$scheme"
+  _set_var "$var_url" "$scheme://$ecr_ingress"
+  _set_var "$var_token" "$token"
+}
+
+# Runs an ECR action for a bundle given:
+# $1: the received of the of the http status
+# $2: the http verb
+# $3: the action
+# $4: the ingress url
+# $5: the authentication token
+# $6: the bundle id
+#
+# returns:
+# - the http status in $1
+# - the http operation output in stdout
+#
+ecr-bundle-action() {
+  local res_var="$1";shift
+  local verb="$1";shift
+  local action="$1";shift
+  local ingress="$1";shift
+  local token="$1";shift
+  local bundle_id="$1";shift
+  local raw_data="$1";shift
+  local url="${ingress}/components"
+  local http_status OUT
+
+  [ -n "$bundle_id" ] && url+="/$bundle_id"
+  [ -n "$action" ] && url+="/$action"
+
+  OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+
+  http_status=$(
+    curl -o "$OUT" -s -w "%{http_code}\n" -X "$verb" -v "$url" \
+      -H 'Accept: */*' \
+      -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $token" \
+      -H "Origin: ${ingress}" \
+      ${raw_data:+--data-raw "$raw_data"} \
+      2> /dev/null
+  )
+
+
+  if [[ "$res_var" = "%" && "$http_status" -ge 300 ]]; then
+    echo "%$http_status"
+    return 1
+  fi
+  
+  if [ -s "$OUT" ]; then
+    cat "$OUT"
+  else
+    if [ "$res_var" = "%" ]; then
+      echo "%$http_status"
+    elif [ -n "$res_var" ]; then
+      _set_var "$res_var" "$http_status"
+    fi
+  fi
+  rm "$OUT"
+}
+
+# Runs an ECR action for a bundle given:
+# $1: the received of the of the http status
+# $2: the http verb
+ecr-watch-installation-result() {
+  local action="$1";shift
+  local ingress="$1";shift
+  local token="$1";shift
+  local bundle_id="$1";shift
+  local http_res
+
+  local start_time end_time elapsed
+  start_time="$(date -u +%s)"
+
+  echo ""
+
+  while true; do
+    http_res=$(
+      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
+    )
+    
+    if [ "${http_res:0:1}" != '%' ]; then
+      http_res=$(
+        echo "$http_res" | jq -r ".payload.status" 2> /dev/null
+      )
+  
+      end_time="$(date -u +%s)"
+      elapsed="$((end_time - start_time))"
+      printf "\r                                  \r"
+      printf "%4d STATUS: %s.." "$elapsed" "$http_res"
+    fi
+
+    case "$http_res" in
+      "INSTALL_IN_PROGRESS" | "INSTALL_CREATED" | "UNINSTALL_IN_PROGRESS" | "UNINSTALL_CREATED") ;;
+      "INSTALL_COMPLETED")
+        echo -e "\nTerminated."
+        return 0
+        ;;
+      "UNINSTALL_COMPLETED")
+        echo -e "\nTerminated."
+        return 0
+        ;;
+      "INSTALL_ROLLBACK") ;;
+      "INSTALL_ERROR")
+        echo -e "\nTerminated."
+        return 1
+        ;;
+      %*)
+        echo -e "\nTerminated \"$http_res\""
+        return 2
+        ;;
+      *)
+        echo ""
+        FATAL "Unknown status \"$http_res\""
+        return 99
+        ;;
+    esac
+    sleep 3
   done
 }
 
-remotes-save() {
-  save_cfg_value -m "ENTANDO_REMOTES"
+# Implements a mechanism restrict and preserve in the current tty the profile to use 
+#
+# How:
+# 1) The profile name to use is saved on environment variables
+# 2) The environment variables are qualified with a string derived from the current tty name
+# 3) The environment variables are set by sourcing the app-use: "source ent use my-app"
+# 
+# Why:
+# 1) In order to avoid interferences between ttys 
+# 2) The qualifiers allows to prevent from reusing the same environment variables on forked ttys
+#
+handle_forced_profile() {
+  local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  if [[ "$1" =~ --profile=.* ]]; then
+    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
+    _set_var "$pv" "$ENTANDO_USE_PROFILE"
+    _set_var "$phv" "$ENTANDO_HOME/profiles/$ENTANDO_USE_PROFILE"
+  fi
+  
+  local pvv phvv
+  if [ -n "$ZSH_VERSION" ]; then
+    pvv=${(P)pv}
+    phvv=${(P)phv}
+  else
+    pvv=${!pv}
+    phvv=${!phv}
+  fi
+  
+  if [[ -n "$pvv" && "$DESIGNATED_PROFILE" != "$pvv" ]]; then
+    kubectl_mode --reset-mem 
+    DESIGNATED_PROFILE="$pvv"
+    # shellcheck disable=SC2034
+    DESIGNATED_PROFILE_HOME="$phvv"
+    activate_designated_workdir --temporary
+  fi
 }

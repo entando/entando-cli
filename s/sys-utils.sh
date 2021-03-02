@@ -9,23 +9,23 @@ else
 fi
 
 netplan_add_custom_ip() {
-  F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
+  F=$(sudo ls /etc/netplan/* 2>/dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
-  sudo grep -v addresses "$F" | sed '/dhcp4/a ___addresses: [ '"$1"' ]' | sed's/_/    /g' > "w/netplan.tmp"
+  sudo grep -v addresses "$F" | sed '/dhcp4/a ___addresses: [ '"$1"' ]' | sed's/_/    /g' >"w/netplan.tmp"
   [ -f "$F.orig" ] && sudo cp -a "$F" "$F.orig"
   sudo cp "w/netplan.tmp" "$F"
 }
 
 netplan_add_custom_nameserver() {
-  F=$(sudo ls /etc/netplan/* 2> /dev/null | head -n 1)
+  F=$(sudo ls /etc/netplan/* 2>/dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
-  sudo grep -v "#ENT-NS" "$F" | sed'/dhcp4/a ___nameservers: #ENT-NS\n____addresses: [ '"$1"' ] #ENT-NS' | sed 's/_/    /g' > "w/netplan.tmp"
+  sudo grep -v "#ENT-NS" "$F" | sed'/dhcp4/a ___nameservers: #ENT-NS\n____addresses: [ '"$1"' ] #ENT-NS' | sed 's/_/    /g' >"w/netplan.tmp"
   [ ! -f "$F.orig" ] && sudo cp -a "$F" "$F.orig"
   sudo cp "w/netplan.tmp" "$F"
 }
 
 net_is_address_present() {
-  [ "$(ip a s 2> /dev/null | grep "$1" -c)" -gt 0 ] && return 0 || return 1
+  [ "$(ip a s 2>/dev/null | grep "$1" -c)" -gt 0 ] && return 0 || return 1
 }
 
 #net_is_hostname_known() {
@@ -38,15 +38,15 @@ hostsfile_clear() {
     cleanup() { rm "$T"; }
     trap cleanup exit
     # shellcheck disable=SC2024
-    sudo sed "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE" > "$T"
-    echo "##ENT-CUSTOM-VALUE##$1" >> "$T"
+    sudo sed "/##ENT-CUSTOM-VALUE##$1/d" "$C_HOSTS_FILE" >"$T"
+    echo "##ENT-CUSTOM-VALUE##$1" >>"$T"
     _sudo cp "$C_HOSTS_FILE" "${C_HOSTS_FILE}.ent.save~"
     _sudo cp "$T" "$C_HOSTS_FILE"
   )
 }
 
 hostsfile_add_dns() {
-  echo "$1 $2    ##ENT-CUSTOM-VALUE##$3" | _sudo tee -a "$C_HOSTS_FILE" > /dev/null
+  echo "$1 $2    ##ENT-CUSTOM-VALUE##$3" | _sudo tee -a "$C_HOSTS_FILE" >/dev/null
 }
 
 # Checks the SemVer of a program
@@ -56,9 +56,9 @@ check_ver() {
   local err_desc="$5"
   [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
 
-  [[ "$mode" =~ "literal" ]] \
-    && VER=$(eval "$1 $3") \
-    || VER=$(eval "$1 $3 2>/dev/null")
+  [[ "$mode" =~ "literal" ]] &&
+    VER=$(eval "$1 $3") ||
+    VER=$(eval "$1 $3 2>/dev/null")
 
   if [ $? -ne 0 ] || [ -z "$VER" ]; then
     if [[ ! "$mode" =~ "quiet" ]]; then
@@ -77,9 +77,9 @@ check_ver() {
   VER="${VER//_/.}"
   REQ="${2//_/.}"
 
-  IFS='.' read -r -a V <<< "$VER"
+  IFS='.' read -r -a V <<<"$VER"
   f_maj="${V[0]}" && f_min="${V[1]}" && f_ptc="${V[2]}" && f_upd="${V[3]}"
-  IFS='.' read -r -a V <<< "$REQ"
+  IFS='.' read -r -a V <<<"$REQ"
   r_maj="${V[0]}" && r_min="${V[1]}" && r_ptc="${V[2]}" && r_upd="${V[3]:-"*"}"
 
   # shellcheck disable=SC2015
@@ -142,12 +142,12 @@ check_ver_num() {
 
 make_safe_resolv_conf() {
   [ ! -f /etc/resolv.conf.orig ] && sudo cp -ap /etc/resolv.conf /etc/resolv.conf.orig
-  
+
   # shellcheck disable=SC2002
-  cat "/etc/resolv.conf" \
-  | _perl_sed 's/nameserver.*/nameserver 8.8.8.8/' \
-  > /tmp/resolv.conf.tmp
-  
+  cat "/etc/resolv.conf" |
+    _perl_sed 's/nameserver.*/nameserver 8.8.8.8/' \
+      >/tmp/resolv.conf.tmp
+
   sudo mv /tmp/resolv.conf.tmp /etc/resolv.conf
 }
 
@@ -169,12 +169,16 @@ if ! $ENTANDO_IS_TTY || $OS_WIN; then
   }
 else
   _watch() {
+    export ENTANDO_TTY_QUALIFIER
+    export ENTANDO_DEV_TTY
+    export -f _kubectl
+    kubectl_mode --export
     watch "$@"
   }
 fi
 
 $OS_WIN && {
-  winpty --version 1> /dev/null 2>&1 && {
+  winpty --version 1>/dev/null 2>&1 && {
     SYS_CLI_PRE() {
       if $ENTANDO_IS_TTY; then
         "winpty" "$@"
@@ -196,27 +200,27 @@ function _ent-npm() {
     (
       echo "Ent node dir not initialized => INITIALIZING.." 1>&2
       cd "$P"
-      _npm init -y 1> /dev/null
+      _npm init -y 1>/dev/null
     ) || return $?
   fi
   (
     case "$1" in
-      bin)
-        npm bin --prefix "$P" -g 2> /dev/null
-        ;;
-      install-from-source)
-        shift
-        [ -d "$P" ] || FATAL -t "Required dir \"$P\" is missing"
-        _npm install --prefix "$P" -g .
-        ;;
-      install-package)
-        shift
-        cd "$P" || FATAL -t "Unable to switch to dir \"$P\""
-        _npm install --prefix "$P" -g "$@"
-        ;;
-      *)
-        _log_i 0 "missing parameter (install-from-source|install-package|bin)"
-        ;;
+    bin)
+      npm bin --prefix "$P" -g 2>/dev/null
+      ;;
+    install-from-source)
+      shift
+      [ -d "$P" ] || FATAL -t "Required dir \"$P\" is missing"
+      _npm install --prefix "$P" -g .
+      ;;
+    install-package)
+      shift
+      cd "$P" || FATAL -t "Unable to switch to dir \"$P\""
+      _npm install --prefix "$P" -g "$@"
+      ;;
+    *)
+      _log_i 0 "missing parameter (install-from-source|install-package|bin)"
+      ;;
     esac
   ) || return $?
 }
@@ -235,9 +239,9 @@ function _ent-jhipster() {
   activate_designated_node
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
-      "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2> /dev/null | grep -v INFO
+      "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2>/dev/null | grep -v INFO
     else
-      "$ENT_NPM_BIN_DIR/jhipster" -V 2> /dev/null | grep -v INFO
+      "$ENT_NPM_BIN_DIR/jhipster" -V 2>/dev/null | grep -v INFO
     fi
   else
     #require_initialized_dir
@@ -261,8 +265,8 @@ function _ent-jhipster() {
 
     _ent-npm--import-module-to-current-dir \
       "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
-      "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
-      | grep -v 'No description\|No repository field.\|No license field.'
+      "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" |
+      grep -v 'No description\|No repository field.\|No license field.'
   fi
 }
 
@@ -280,17 +284,17 @@ _ent-bundler() {
     # RUN
     if $OS_WIN; then
       if "$ENTANDO_IS_TTY"; then
-        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+        "winpty" "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
       else
-        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" \
-          | perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" |
+          perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
       fi
     else
       if "$ENTANDO_IS_TTY"; then
         "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
       else
-        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" \
-          | perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" |
+          perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
       fi
     fi
   fi
@@ -309,15 +313,16 @@ function ent-init-project-dir() {
 
 generate_ent_project_file() {
   ! grep -qs "^$C_ENT_STATE_FILE\$" .gitignore && {
-    echo -e "\n########\n$C_ENT_STATE_FILE\n" >> ".gitignore"
+    echo -e "\n########\n$C_ENT_STATE_FILE\n" >>".gitignore"
   }
 
   if [ ! -f "$C_ENT_PRJ_FILE" ]; then
-    echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > "$C_ENT_PRJ_FILE"
+    echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" >"$C_ENT_PRJ_FILE"
   fi
 
   camel_to_snake -d ENT_PRJ_NAME "$(basename "$PWD")"
   set_or_ask ENT_PRJ_NAME "" "Please provide the project name" "$ENT_PRJ_NAME"
+  mkdir -p "$C_ENT_PRJ_ENT_DIR"
   save_cfg_value ENT_PRJ_NAME "$ENT_PRJ_NAME" "$C_ENT_PRJ_FILE"
 }
 
@@ -326,26 +331,26 @@ rescan-sys-env() {
     if $OS_WIN; then
       [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
         NVM_CMD="$(command -v nvm | head -n 1)"
-        save_cfg_value "NVM_CMD" "$NVM_CMD"
+        save_cfg_value "NVM_CMD" "$NVM_CMD" "$ENT_DEFAULT_CFG_FILE"
       }
       [[ -z "$NPM_CMD" || "$1" == "force" ]] && {
         NPM_CMD="$(command -v npm | head -n 1)"
-        save_cfg_value "NPM_CMD" "$NPM_CMD"
+        save_cfg_value "NPM_CMD" "$NPM_CMD" "$ENT_DEFAULT_CFG_FILE"
       }
       [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
         ENT_NPM_BIN_DIR="$(_ent-npm bin)"
         mkdir -p "$ENT_NPM_BIN_DIR"
         ENT_NPM_BIN_DIR="$(win_convert_existing_path_to_posix_path "$ENT_NPM_BIN_DIR")"
-        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR" "$ENT_DEFAULT_CFG_FILE"
       }
     else
       [[ -z "$NVM_CMD" || "$1" == "force" ]] && NVM_CMD="nvm"
-      save_cfg_value "NVM_CMD" "$NVM_CMD"
+      save_cfg_value "NVM_CMD" "$NVM_CMD" "$ENT_DEFAULT_CFG_FILE"
       [[ -z "$NPM_CMD" || "$1" == "force" ]] && NPM_CMD="npm"
-      save_cfg_value "NPM_CMD" "$NPM_CMD"
+      save_cfg_value "NPM_CMD" "$NPM_CMD" "$ENT_DEFAULT_CFG_FILE"
       [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
         ENT_NPM_BIN_DIR="$(_ent-npm bin)"
-        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR"
+        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR" "$ENT_DEFAULT_CFG_FILE"
       }
     fi
   }
@@ -405,8 +410,8 @@ git_clone_repo() {
   if cd "$FLD"; then
     (
       git fetch --tags --force
-      git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
-      if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
+      git tag | grep "^$TAG\$" >/dev/null || local OP="origin/"
+      if ! git checkout -b "$TAG" "${OP}$TAG" 1>/dev/null; then
         $ERRC "> Unable to checkout the tag or branch of $DSC \"$TAG\""
         exit 92
       fi
@@ -414,11 +419,11 @@ git_clone_repo() {
 
     if [ $? ]; then
       ! $ENTER && {
-        cd - > /dev/null || $ERRC "Unable to return back to the original path"
+        cd - >/dev/null || $ERRC "Unable to return back to the original path"
       }
     else
-      cd - > /dev/null && {
-        rm -rf "./${FLD:?}" 2> /dev/null
+      cd - >/dev/null && {
+        rm -rf "./${FLD:?}" 2>/dev/null
         return "$?"
       }
     fi
@@ -460,17 +465,17 @@ find_nvm_node() {
   if $OS_WIN; then
     versions="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
   else
-    versions="$(nvm ls --no-colors --no-aliasx 2> /dev/null \
-      | _perl_sed 's/->/  /' \
-      | grep -v system \
-      | grep '^\s\+v.*$' \
-      | _perl_sed 's/[^v]*(v\S*).*/\1/')"
+    versions="$(nvm ls --no-colors --no-alias 2>/dev/null |
+      _perl_sed 's/->/  /' |
+      grep -v system |
+      grep '^\s\+v.*$' |
+      _perl_sed 's/[^v]*(v\S*).*/\1/')"
     if [[ $? -ne 0 || -z "$versions" ]]; then
-      versions="$(nvm ls --no-colors \
-        | _perl_sed 's/->/  /' \
-        | grep -v system \
-        | grep '^\s\+v.*$' \
-        | _perl_sed 's/[^v]*(v\S*).*/\1/')"
+      versions="$(nvm ls --no-colors |
+        _perl_sed 's/->/  /' |
+        grep -v system |
+        grep '^\s\+v.*$' |
+        _perl_sed 's/[^v]*(v\S*).*/\1/')"
     fi
   fi
 
@@ -555,7 +560,7 @@ import_ent_library() {
 
 import_ent_installation() {
   local VERS=("$(list_compatible_installations "$ENTANDO_CLI_VERSION")")
-  VERS+=( "<skip this import>" )
+  VERS+=("<skip this import>")
 
   select_one "Select the configuration to import" "${VERS[@]}" && {
     # shellcheck disable=SC2154

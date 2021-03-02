@@ -12,7 +12,7 @@
 #H::
 #H:: SubCommands:
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
@@ -29,106 +29,193 @@ RUN() {
     cmd="$1"
     shift
     case "$cmd" in
+    # ~~~~~~~~~~~~~~~~~~~~
+    #H:> GLOBAL:
+    # ~~~~~~~~~~~~~~~~~~~~
+    "init") #H: initializes a project dir
+      require_develop_checked
+      print_entando_banner
+      init_project
+      ;;
+    "build" | "ba") #H: builds both frontend and backend
+      simple_shell_completion_handler "$1" "--all" && return 0
+      require_develop_checked
+      require_ent_project_dir
+      print_entando_banner
+      _log_i 0 "Building the frontend"
+      fe_build -a
+      _log_i 0 "Building the backend"
+      be_build "$@"
+      _log_i 0 "Collecting the bundle artifacts"
+      bundle_all
+      ;;
+    "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
+      #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
+      require_develop_checked
+      require_ent_project_dir
+      generate_custom_resource "$@"
+      ;;
+    "deploy") #H: generates the CR and deploys it to the current profile
+      require_develop_checked
+      require_ent_project_dir
+      prj_ecr_deploy "$@"
+      ;;
+    "install") #H: generates the CR and deploys it to the current profile
+      HH="$(parse_help_option "$@")"
+      show_help_option "$HH"
+      local VERSION_TO_INSTALL CONFLICT_STRATEGY
+      args_or_ask -n ${HH:+"$HH"} VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
+      args_or_ask -n ${HH:+"$HH"} CONFLICT_STRATEGY \
+        '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+      [ -n "$HH" ] && return 0
+
+      require_develop_checked
+      require_ent_project_dir
+      prj_ecr_install "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
+      ;;
+    "uninstall") #H: generates the CR and deploys it to the current profile
+      HH="$(parse_help_option "$@")"
+      args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+      args_or_ask ${HH:+"$HH"} -n -F "PURGE_VOLUMES" "--volumes///Also deletes the volumes" "$@"
+      args_or_ask -n -F ${HH:+"$HH"} "BE_PURGE" \
+        '--purge-be///also purge the backend' "$@"
+      args_or_ask -n -F ${HH:+"$HH"} "ECR_UNDEPLOY" \
+        '--undeploy///also unregister the bundle from the ECR registry' "$@"
+      [ -n "$HH" ] && return 0
+      args_or_ask -n -p -F ${HH:+"$HH"} "BE_PURGE" \
+        '--be-purge///also purge the backend' "$@"
+      args_or_ask -n -F ${HH:+"$HH"} "DRY_RUN" '--dry///only shows what needs to be deleted' "$@"
+      args_or_ask -n -F ${HH:+"$HH"} "FORCE" '--force///forces the deletion of protected resources' "$@"
+
+      require_develop_checked
+      require_ent_project_dir
+      prj_ecr_uninstall "$@"
+      $BE_PURGE && be_purge_k8s
+      $ECR_UNDEPLOY && prj_ecr_unregister_bundle
+      ;;
       # ~~~~~~~~~~~~~~~~~~~~
-      #H:> GLOBAL:
+      #H:> PUB SYSTEM:
       # ~~~~~~~~~~~~~~~~~~~~
-      "init") #H: initializes a project dir
-        require_develop_checked
-        print_entando_banner
-        init_project
-        ;;
-      "build" | "ba") #H: builds both frontend and backend
-        simple_shell_completion_handler "$1" "--all" && return 0
-        require_develop_checked
-        require_ent_project_dir
-        print_entando_banner
-        _log_i 0 "Building the frontend"
-        fe_build -a
-        _log_i 0 "Building the backend"
-        be_build "$@"
-        _log_i 0 "Collecting the bundle artifacts"
-        bundle_all
-        ;;
-      "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
-        #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
-        require_develop_checked
-        require_ent_project_dir
-        generate_custom_resource "$@"
-        ;;
-        # ~~~~~~~~~~~~~~~~~~~~
-        #H:> PUB SYSTEM:
-        # ~~~~~~~~~~~~~~~~~~~~
-      "pbs-init") #H: (url, username, email) initializes the publication system
-        require_develop_checked
-        #require_initialized_dir
-        print_entando_banner
-        init_pub "$@"
-        ;;
-      "pbs-publish" | "pub") #H: [--force] (VERSION_NUMBER, VERSION_COMMENT) bumps and publishes a new version
-        require_develop_checked
-        #require_ent_project_dir
-        publish_version "$@"
-        ;;
-        # ~~~~~~~~~~~~~~~~~~~~
-        #H:> FRONTEND:
-        # ~~~~~~~~~~~~~~~~~~~~
-      "fe-build" | "fb") #H: [--all|-a] builds and package the frontend
-        require_develop_checked
-        require_ent_project_dir
-        print_entando_banner
-        activate_designated_node
-        fe_build "$@"
-        bundle_all
-        ;;
-      "fe-push" | "fp") #H: [--force] pushes the frontend to the repo
-        require_develop_checked
-        require_ent_project_dir
-        activate_designated_node
-        fe_push "$@"
-        ;;
-      "fe-test-run" | "fr") #H: runs the one of the frontend components
-        require_develop_checked
-        require_ent_project_dir
-        activate_designated_node
-        fe_test_run "$@"
-        ;;
-      "fe-list" | "fls") #H: lists the frontend components
-        require_develop_checked
-        require_ent_project_dir
-        fe_list_widgets
-        ;;
-        # ~~~~~~~~~~~~~~~~~~~~
-        #H:> BACKEND:
-        # ~~~~~~~~~~~~~~~~~~~~
-      "be-build" | "bb") #H: (mvn-params) builds and package the backend
-        require_develop_checked
-        require_ent_project_dir
-        be_build "$@"
-        bundle_all
-        ;;
-      "be-info") #H: prints information about the backend
-        require_ent_project_dir
-        be_info
-        ;;
-      "be-push" | "bp") #H: pushes the backend to the repo
-        require_ent_project_dir
-        be_push
-        ;;
-      "be-test-run" | "br") #H: locally executes the backend
-        require_ent_project_dir
-        be_test_run
-        ;;
-        # ~~~~~~~~~~~~~~~~~~~~
-        #H:> EXTERNALS:
-        # ~~~~~~~~~~~~~~~~~~~~
-      "ext-keycloak" | "xk") #H: manage the tests keycloak instance
-        require_ent_project_dir
-        ext_keycloak "$@"
-        ;;
-      *)
-        print_ent_module_help
-        break
-        ;;
+    "pbs-init") #H: (url, username, email) initializes the publication system
+      require_develop_checked
+      #require_initialized_dir
+      print_entando_banner
+      init_pub "$@"
+      ;;
+    "pbs-publish" | "pub") #H: [--force] (VERSION_NUMBER, VERSION_COMMENT) bumps and publishes a new version
+      require_develop_checked
+      #require_ent_project_dir
+      publish_version "$@"
+      ;;
+      # ~~~~~~~~~~~~~~~~~~~~
+      #H:> FRONTEND:
+      # ~~~~~~~~~~~~~~~~~~~~
+    "fe-build" | "fb") #H: [--all|-a] builds and package the frontend
+      require_develop_checked
+      require_ent_project_dir
+      print_entando_banner
+      activate_designated_node
+      fe_build "$@"
+      bundle_all
+      ;;
+    "fe-push" | "fp") #H: [--force] pushes the frontend to the repo
+      require_develop_checked
+      require_ent_project_dir
+      activate_designated_node
+      fe_push "$@"
+      ;;
+    "fe-test-run" | "fr") #H: runs the one of the frontend components
+      require_develop_checked
+      require_ent_project_dir
+      activate_designated_node
+      fe_test_run "$@"
+      ;;
+    "fe-list" | "fls") #H: lists the frontend components
+      require_develop_checked
+      require_ent_project_dir
+      fe_list_widgets
+      ;;
+      # ~~~~~~~~~~~~~~~~~~~~
+      #H:> BACKEND:
+      # ~~~~~~~~~~~~~~~~~~~~
+    "be-build" | "bb") #H: (mvn-params) builds and package the backend
+      HH="$(parse_help_option "$@")"
+      show_help_option "$HH"
+      OPT_CLEAN="clean"
+      args_or_ask -n -f ${HH:+"$HH"} '--no-clean///avoid cleaning the build artifacts before the build' "$@" && {
+        OPT_CLEAN=""
+      }
+      OPT_TESTS=""
+      args_or_ask -n -f ${HH:+"$HH"} '--no-tests///avoid cleaning the build artifacts before the build' "$@" && {
+        OPT_TESTS="-Dmaven.test.skip=true"
+      }
+      [ -n "$HH" ] && return 0
+
+      require_develop_checked
+      require_ent_project_dir
+      be_build "$@"
+      bundle_all
+      ;;
+    "be-list-pods" | "blp") #H: list the pods related to this bundle project
+      require_develop_checked
+      require_ent_project_dir
+      be_list_pods
+      ;;
+    "be-update-deployment" | "brp") #H: list the pods related to this bundle project
+      require_develop_checked
+      require_ent_project_dir
+      be_restart_pods 0
+      ;;
+    "be-purge") #H: list the pods related to this bundle project
+      HH="$(parse_help_option "$@")"
+      show_help_option "$HH"
+      args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+      args_or_ask ${HH:+"$HH"} -n -F "PURGE_VOLUMES" "--volumes///Also deletes the volumes" "$@"
+      args_or_ask -n -F ${HH:+"$HH"} "DRY_RUN" '--dry///only shows what needs to be deleted' "$@"
+      [ -n "$HH" ] && return 0
+
+      require_develop_checked
+      require_ent_project_dir
+      be_purge_k8s
+      ;;
+    "be-info") #H: prints information about the backend
+      require_ent_project_dir
+      be_info
+      ;;
+    "be-push" | "bp") #H: pushes the backend to the repo
+      HH="$(parse_help_option "$@")"
+      show_help_option "$HH"
+      local restart_pods_after
+      args_or_ask -n -f ${HH:+"$HH"} \
+        '--update-deployment///restarts the pods related to this bundle project' "$@" && {
+        restart_pods_after=3
+      }
+      args_or_ask -n -p ${HH:+"$HH"} "restart_pods_after" \
+        '--update-deployment-after/num//restarts the pods related to this bundle project' "$@"
+      [ -n "$HH" ] && return 0
+
+      require_ent_project_dir
+      be_push
+
+      [ -n "$restart_pods_after" ] && {
+        be_restart_pods "$restart_pods_after"
+      }
+      ;;
+    "be-test-run" | "br") #H: locally executes the backend
+      require_ent_project_dir
+      be_test_run
+      ;;
+      # ~~~~~~~~~~~~~~~~~~~~
+      #H:> EXTERNALS:
+      # ~~~~~~~~~~~~~~~~~~~~
+    "ext-keycloak" | "xk") #H: manage the tests keycloak instance
+      require_ent_project_dir
+      ext_keycloak "$@"
+      ;;
+    *)
+      print_ent_module_help "${BASH_SOURCE[0]}" "$2"
+      break
+      ;;
     esac
     index_of_arg "--AND" "$@"
     if [ $? -eq 255 ]; then shift $#; else shift $?; fi
@@ -141,21 +228,60 @@ ext_keycloak() {
   cmd="$1"
   shift
   case "$cmd" in
-    start | up | u)
-      docker-compose -f src/main/docker/keycloak.yml up -d "$@"
-      ;;
-    stop | down | d)
-      docker-compose -f src/main/docker/keycloak.yml down "$@"
-      ;;
-    logs | l)
-      docker-compose -f src/main/docker/keycloak.yml logs "$@"
-      ;;
-    *)
-      _log_w 0 "Please provide a valid action: start|stop|logs"
-      ;;
+  start | up | u)
+    docker-compose -f src/main/docker/keycloak.yml up -d "$@"
+    ;;
+  stop | down | d)
+    docker-compose -f src/main/docker/keycloak.yml down "$@"
+    ;;
+  logs | l)
+    docker-compose -f src/main/docker/keycloak.yml logs "$@"
+    ;;
+  *)
+    _log_w 0 "Please provide a valid action: start|stop|logs"
+    ;;
   esac
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~
+
+prj_ecr_install() {
+  local VERSION_TO_INSTALL="${1:-latest}"
+  local CONFLICT_STRATEGY="${2}"
+  local INGRESS_URL TOKEN
+  ecr-prepare-action INGRESS_URL TOKEN
+  local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
+
+  if [ -n "$CONFLICT_STRATEGY" ]; then
+    assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
+    DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
+  fi
+  DATA+="}"
+
+  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" "$DATA" &>/dev/null ||
+    return $?
+  _log_i 0 "Installation of bundle \"$ENT_PRJ_NAME\" started"
+
+  ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
+}
+
+prj_ecr_uninstall() {
+  local INGRESS_URL TOKEN
+  ecr-prepare-action INGRESS_URL TOKEN
+  _log_i 0 "Uninstallation of bundle \"$ENT_PRJ_NAME\" started"
+  ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" &>/dev/null || return $?
+  ecr-watch-installation-result "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
+}
+
+prj_ecr_deploy() {
+  print_current_profile_info
+  ent prj cr "$@" | _kubectl apply -f -
+}
+
+prj_ecr_unregister_bundle() {
+  local pn="$ENT_PRJ_NAME"
+  _kubectl delete EntandoDeBundle "$pn"
+}
+
 generate_custom_resource() {
   local NAME="$ENT_PRJ_NAME"
   [ -z "$NAME" ] && camel_to_snake -d NAME "$(basename "$PWD")"
@@ -270,7 +396,7 @@ get_be_info() {
     IMAGE_FQNAME="$(
       ./mvnw -q --non-recursive exec:exec \
         -Dexec.executable="echo" \
-        -Dexec.args="'$IMAGE_FQNAME_expr'" 2> /dev/null
+        -Dexec.args="'$IMAGE_FQNAME_expr'" 2>/dev/null
     )"
     if echo "$IMAGE_FQNAME" | grep -F "[ERROR]"; then
       IMAGE_FQNAME=""
@@ -290,7 +416,7 @@ get_be_info() {
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
   IMAGE_FQNAME_TAG="$(echo "$tmp" | awk '{split($0,a,":"); print a[2]}')"
 
-  if [ -z "$IMAGE_FQNAME" ]; then
+  if [ -n "$IMAGE_FQNAME" ]; then
     save_cfg_value "PARSED_POM_CHECKSUM" "$ver" "$C_ENT_STATE_FILE"
     save_cfg_value "IMAGE_FQNAME" "$IMAGE_FQNAME" "$C_ENT_STATE_FILE"
   else
@@ -312,9 +438,10 @@ be_build() {
   activate_designated_node
 
   get_be_info
+  be_update_plugin_descriptor
 
   # shellcheck disable=SC2015
-  ./mvnw -Pprod clean package jib:dockerBuild "$@" && {
+  ./mvnw -Pprod ${OPT_CLEAN:+"$OPT_CLEAN"} ${OPT_TESTS:+"$OPT_TESTS"} package jib:dockerBuild && {
     echo ""
     _log_i 0 "Built image \"$IMAGE_FQNAME\""
     true
@@ -323,8 +450,174 @@ be_build() {
   }
 }
 
+be_update_plugin_descriptor() {
+  local PLUGIN_BUNDLE_DIR
+  PLUGIN_BUNDLE_DIR="$(grep -- "- plugins/.*" "bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" | perl -pe "s|\s*- (.*)|\1|")"
+  [ -z "$PLUGIN_BUNDLE_DIR" ] && FATAL "Unable to determine the plugin bundle dir"
+  PLUGIN_DESCRIPTOR="bundle/$PLUGIN_BUNDLE_DIR"
+  _sed_in_place "s|^\(.*\)image:.*|\1image: $IMAGE_FQNAME|" "$PLUGIN_DESCRIPTOR"
+}
+
+be_list_pods() {
+  print_current_profile_info
+  get_be_info
+  get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
+}
+
+be_restart_pods() {
+  local restart_pods_after="$1"
+  print_current_profile_info
+  get_be_info
+  local pods
+  pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | grep "server-deployment" | cut -d' ' -f 1)"
+  [ "${#pods}" -eq 0 ] && {
+    _log_i 0 "Restart pods was not able to find any pod in the current profile"
+    return 0
+  }
+  _log_i 0 "Restart pods will start in $restart_pods_after seconds"
+  sleep "$restart_pods_after"
+  for pod in $pods; do
+    _log_i 0 "Restarting pod: \"$pod\""
+    _kubectl delete pod "$pod" >/dev/null
+  done
+}
+
+be_purge_k8s() {
+  print_current_profile_info
+  get_be_info
+  local pn="$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
+  local tpn="${pn:0:31}"
+  _log_i 0 "Warning, this will delete the plugin and it resources"
+  ask "Should I proceed?" || EXIT_UE "User interrupted"
+  del_resource -n "EntandoPlugin" "$tpn"
+  del_resource -l "deployment" "$tpn"
+  del_resource -l "pod" "$tpn"
+  del_resource -L "pod/lnk" "$tpn"
+  del_resource -l "service" "$tpn"
+  del_resource -l "ingress" "$tpn"
+  del_resource -l "secret" "$tpn"
+  del_resource -m "secret" "$tpn" \
+    "^$pn-server-secret$" "^$pn-sidecar-secret$" "^$ENTANDO_APPNAME-$pn-link-controller-ca-cert-secret$"
+  ${PURGE_VOLUMES:-false} && {
+    _log_i 0 "Warning, this will delete the volumes of the plugin"
+    ask "Should I proceed?" || EXIT_UE "User interrupted"
+    del_resource -l "pvc" "$tpn"
+  }
+  _log_i 0 "done."
+}
+
+del_resource() {
+  local MODE="$1"
+  shift
+  local type="$1"
+  shift
+  local pn="$1"
+  shift
+  local res
+
+  del_resource_dd() {
+    local type=$1
+    shift
+    local flt="$1"
+    shift
+    local LST
+    LST="$(_kubectl get "$type" "$flt" --no-headers -o "custom-columns=NAME:.metadata.name" 2>/dev/null)"
+
+    if [ -z "$LST" ]; then
+      _log_d 1 "Deleting $type(s):\n  <none>"
+      return 254
+    else
+      _log_d 1 "Deleting $type(s):\n  - ${LST//$'\n'/$'\n  - '}"
+    fi
+
+    ${DRY_RUN:-true} && return 0
+
+    if $FORCE && [ "$type" = "pvc" ]; then
+      # shellcheck disable=SC2086
+      ent kubectl patch pvc $LST -p '{"metadata":{"finalizers":null}}'
+    fi
+
+    # shellcheck disable=SC2086
+    _kubectl delete "$type" $LST
+  }
+
+  case "$MODE:${type/-*/}" in
+  "-n:"*)
+    del_resource_dd "$type" "$pn"
+    res=$?
+    ;;
+  "-l:"*)
+    del_resource_dd "$type" -lEntandoPlugin="$pn"
+    res=$?
+    ;;
+  "-L:"*)
+    del_resource_dd "$type" -lEntandoAppPluginLink="$ENTANDO_APPNAME-$pn-link"
+    res=$?
+    ;;
+  "-m:"*)
+    local LST DEL
+    LST="$(_kubectl get "$type" --no-headers -o "custom-columns=NAME:.metadata.name")"
+    DEL=""
+    # shellcheck disable=SC2048
+    for elem in $*; do
+      DEL+="$(echo "$LST" | grep "^${elem}") "
+    done
+    DEL="${DEL%"${DEL##*[! ]}"}"
+    if [ -n "$DEL" ]; then
+      # shellcheck disable=SC2086
+      _kubectl delete "$type" $DEL
+      res=$?
+    else
+      res=254
+    fi
+    ;;
+  *)
+    FATAL "Unknown option $MODE"
+    ;;
+  esac
+
+  ${DRY_RUN:-true} && {
+    _log_d 1 "$type deletion skipped (dry run)"
+    return 0
+  }
+
+  if [ "$res" -eq 0 ]; then
+    _log_d 1 "$type deleted"
+  elif [ "$res" -eq 254 ]; then
+    _log_w 0 "No $type found for this plugin"
+  else
+    _log_w 0 "Error deleting the $type"
+  fi
+}
+
+wait_plugin_resources_deletion() {
+  local n
+  for type in "$@"; do
+    while true; do
+      n="$(_kubectl get "$type" -lEntandoPlugin="$pn" 2>/dev/null | wc -l)"
+      if [ "$n" -eq 0 ]; then
+        echo -e "No resource found of type $type for the plugin"
+        break
+      else
+        printf "\r                                                                  \r"
+        printf "Waiting for %s plugin resource(s) of type %s to be deleted" "$n" "$type"
+        sleep 3
+      fi
+    done
+  done
+}
+
+get_pods_list() {
+  local pn="$1"
+  _kubectl get pods \
+    -lEntandoPlugin="$pn" \
+    -o "custom-columns=NAME:.metadata.name,STATUS:.status.phase"
+}
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
+  require_ent_project_dir
+  [ -d "bundle/.git" ] || FATAL "Publication repository is not initialized"
+
   echo "~~~"
   _log_i 0 "Publishing the frontend to git"
   fe_push "$@"
@@ -382,11 +675,11 @@ push_git() {
     git commit -m "$VERSION_COMMENT"
   fi
 
-  git fetch --tags --force 1> /dev/null
+  git fetch --tags --force 1>/dev/null
 
   if git tag | grep -q -F "$VERSION_NUMBER"; then
     if $FORCE; then
-      git tag -d "$VERSION_NUMBER" 2> /dev/null 1>&2
+      git tag -d "$VERSION_NUMBER" 2>/dev/null 1>&2
     else
       FATAL "Version \"$VERSION_NUMBER\" already exists"
     fi
@@ -407,8 +700,8 @@ push_git() {
       _log_w 1 "Unable to push to the remote repository, reason; REMOTE HISTORY NOT COMPATIBLE"
       _log_w 1 "I'll try to fix it"
 
-      git fetch origin master \
-        && git rebase -Xtheirs origin/master
+      git fetch origin master &&
+        git rebase -Xtheirs origin/master
 
       RES="$(git push 2>&1)"
       RV=$?
@@ -428,7 +721,7 @@ push_git() {
     fi
   fi
 
-  git push --tags --force 2> /dev/null
+  git push --tags --force 2>/dev/null
   RV=$?
   if [ $RV -ne 0 ]; then
     _log_e 1 "Error publishing the version tag"
@@ -448,7 +741,7 @@ get_bundle_repo_url() {
   __cd "./bundle"
   git remote get-url origin
   # shellcheck disable=SC2164
-  cd - > /dev/null
+  cd - >/dev/null
 }
 
 # shellcheck disable=SC2155
@@ -467,11 +760,11 @@ init_project__commit_all() {
   if $user_global; then
     git init
   else
-    set_or_ask "FE_PUB_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id_spc"
-    set_or_ask "FE_PUB_USER_EMAIL" "" "Please provide the user email for the $desc" "$prj_user_email" "assert_email"
+    set_or_ask "FE_GIT_USER_NAME" "" "Please provide the user name for the $desc" "$prj_user_name" "assert_ext_ic_id_spc"
+    set_or_ask "FE_GIT_USER_EMAIL" "" "Please provide the user email for the $desc" "$prj_user_email" "assert_email"
     git init
-    git config user.name "$FE_PUB_USER_NAME"
-    git config user.email "$FE_PUB_USER_EMAIL"
+    git config user.name "$FE_GIT_USER_NAME"
+    git config user.email "$FE_GIT_USER_EMAIL"
   fi
 
   _log_i 1 "Committing the generated files.."
@@ -479,32 +772,38 @@ init_project__commit_all() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# shellcheck disable=SC2181
 init_pub() {
+  HH="$(parse_help_option "$@")"
+  show_help_option "$HH"
+  args_or_ask -a ${HH:+"$HH-only"} URL_OF_ORIGIN  "1/url//%sp URL of the publication repository" "$@" 
+  args_or_ask -a ${HH:+"$HH-only"} GIT_USER_NAME  "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
+  args_or_ask -a ${HH:+"$HH-only"} GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
+  args_or_ask -n -F ${HH:+"$HH-only"} -- "FORCE" '--force///forces the initialization' "$@" && {
+    _log_i 0 "pub_init: Force mode active"
+  }
+  [ -n "$HH" ] && return 0
+  
   mkdir -p bundle
   ensure_valid_location_for_git_publication
 
-  PUB_USER_NAME="$(git config user.name 2> /dev/null)"
-  PUB_USER_EMAIL="$(git config user.email 2> /dev/null)"
+  GIT_USER_NAME="$(git config user.name 2>/dev/null)"
+  GIT_USER_EMAIL="$(git config user.email 2>/dev/null)"
 
   read_missing_pub_info_from_project_sources_git
-
-  set_or_ask "URL_OF_ORIGIN" "$1" "Please provide the URL of the publication repository" "" "assert_url"
-  set_or_ask "PUB_USER_NAME" "$2" "%sp Git %var" "$PUB_USER_NAME" "assert_ext_ic_id_spc"
-  set_or_ask "PUB_USER_EMAIL" "$3" "%sp Git %var" "$PUB_USER_EMAIL" "assert_email"
 
   initialize_publication_git_repository "$@"
   ensure_valid_location_for_git_publication :initialized "$@"
 
-  _log_i 1 "bundle publication repository initialized"
+  if [ "$?" -eq 0 ]; then
+    _log_i 1 "bundle publication repository initialized"
+  else
+    _log_i w "bundle publication repository was not properly initialized"
+  fi
 }
 
 initialize_publication_git_repository() {
-  cd bundle > /dev/null || FATAL -t "internal error"
-
-  local FORCE
-  args_or_ask -n -F -- "FORCE" '--force' "$@" && {
-    _log_i 0 "pub_init: Force mode active"
-  }
+  cd bundle >/dev/null || FATAL -t "internal error"
 
   # Base git init, if required
   [ ! -f .git ] && {
@@ -512,7 +811,7 @@ initialize_publication_git_repository() {
   }
 
   # Set origin, if required
-  ORIG="$(git remote get-url origin 2> /dev/null)"
+  ORIG="$(git remote get-url origin 2>/dev/null)"
   [ -n "$ORIG" ] && {
     _log_w 0 "An origin is already present ($ORIG)"
     ! $FORCE && {
@@ -523,21 +822,21 @@ initialize_publication_git_repository() {
   git remote add origin "$URL_OF_ORIGIN"
 
   # User info
-  git config user.name "$PUB_USER_NAME"
-  git config user.email "$PUB_USER_EMAIL"
+  git config user.name "$GIT_USER_NAME"
+  git config user.email "$GIT_USER_EMAIL"
 
   pbs_fe_propose_credentials_cache
 
-  cd - > /dev/null || FATAL -t "internal error"
+  cd - >/dev/null || FATAL -t "internal error"
 
   # Project: gitignore
   local UP=false
   grep -sq "^bundle/\$" .gitignore || {
-    echo -e "\n####\nbundle/" >> .gitignore
+    echo -e "\n####\nbundle/" >>.gitignore
     UP=true
   }
   grep -sq "^$C_ENT_STATE_FILE\$" .gitignore || {
-    echo -e "\n$C_ENT_STATE_FILE" >> .gitignore
+    echo -e "\n$C_ENT_STATE_FILE" >>.gitignore
     UP=true
   }
   $UP && _log_d 1 "bundle project .gitignore updated"
@@ -548,10 +847,10 @@ require_ent_project_dir() {
     COMMENT=". If you are in the project's bundle-publication folder go back to the project's root dir"
   }
 
-  [ ! -f "$C_ENT_PRJ_FILE" ] \
-    && FATAL "The current dir doesn't seem to contain a valid bundle project (no project file)$COMMENT"
-  [ ! -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] \
-    && FATAL "The current dir  doesn't seem to contain a valid bundle project (not bundle dir)$COMMENT"
+  [ ! -f "$C_ENT_PRJ_FILE" ] &&
+    FATAL "The current dir doesn't seem to contain a valid bundle project (no project file)$COMMENT"
+  [ ! -f "./bundle/$C_BUNDLE_DESCRIPTOR_FILE_NAME" ] &&
+    FATAL "The current dir doesn't seem to contain a valid bundle project (not bundle dir)$COMMENT"
 
 }
 
@@ -576,12 +875,12 @@ ensure_valid_location_for_git_publication() {
     # git initialized
     [ -d ".git" ] || FATAL "Publication repository is not initialized"
 
-    ORIG="$(git remote get-url origin 2> /dev/null)"
+    ORIG="$(git remote get-url origin 2>/dev/null)"
     [ -z "$ORIG" ] && FATAL "Repo not initialized (run \"${0##*/} init ...\")"
 
     # git user data set
-    [ -z "$(git config user.name 2> /dev/null)" ] && FATAL 'Publication user name is not set'
-    [ -z "$(git config user.email 2> /dev/null)" ] && FATAL 'Publication user email is not set'
+    [ -z "$(git config user.name 2>/dev/null)" ] && FATAL 'Publication user name is not set'
+    [ -z "$(git config user.email 2>/dev/null)" ] && FATAL 'Publication user email is not set'
 
     local MODE="NORMAL"
 
@@ -590,7 +889,6 @@ ensure_valid_location_for_git_publication() {
       # remote already has a master => import it
       _log_w 1 "A remote master has been detected"
       ask "Should I import it?"
-
 
       if [ $? -ne 0 ]; then
         # USER CHOSE TO NOT IMPORT
@@ -628,37 +926,37 @@ ensure_valid_location_for_git_publication() {
         if [ "$(git status --porcelain)" ]; then
           local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
           _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
-          git reset HEAD 2> /dev/null
-          git checkout -b "$BBN" \
-            && git add -A \
-            && git commit -m "$BBN"
+          git reset HEAD 2>/dev/null
+          git checkout -b "$BBN" &&
+            git add -A &&
+            git commit -m "$BBN"
 
           # IMPORT
           _log_d 1 "Checking out the remote master"
-          git branch -m master master_old 1> /dev/null 2>&1
-          git branch -D master 1> /dev/null 2>&1
+          git branch -m master master_old &>/dev/null
+          git branch -D master &>/dev/null
           git fetch origin master
-          git checkout -b master origin/master
-          git branch -D master_old 1> /dev/null 2>&1
+          git checkout -b master origin/master || FATAL "Error checking out the remote master"
+          git branch -D master_old &>/dev/null
         fi
       fi
     fi
 
-    if [[ "$MODE" = "NORMAL" || "$MODE" = "OVERRIDE" ]]; then
+    if [[ "$MODE" == "NORMAL" || "$MODE" == "OVERRIDE" ]]; then
       # there is no master on remote
-      echo "" > .gitignore
+      echo "" >.gitignore
       git add .gitignore descriptor.yaml
-      ls plugins/*.yaml 1> /dev/null && git add plugins/*.yaml
-      git commit -m "init"
-      git checkout -b master
+      ls plugins/*.yaml 1>/dev/null && git add plugins/*.yaml
+      git commit -m "init" || return $?
+      git checkout -b master &>/dev/null
       if [ "$MODE" = "OVERRIDE" ]; then
-        git push --set-upstream origin master --force
+        git push --set-upstream origin master --force || FATAL "Error pushing the base initialization"
       else
-        git push --set-upstream origin master
+        git push --set-upstream origin master || FATAL "Error pushing the base initialization"
       fi
     fi
 
-    cd - > /dev/null || FATAL -t "internal error"
+    cd - >/dev/null || FATAL -t "internal error"
   fi
 
   return 0
@@ -668,17 +966,17 @@ ensure_valid_location_for_git_publication() {
 read_missing_pub_info_from_project_sources_git() {
   cd .. || FATAL -t "internal error"
 
-  [ -z "$PUB_USER_NAME" ] && {
-    PUB_USER_NAME="$(git config user.name 2> /dev/null)"
-    [ -n "$PUB_USER_NAME" ] && _log_d 1 "Assuming user name \"$PUB_USER_NAME\" from the bundle project dir"
+  [ -z "$GIT_USER_NAME" ] && {
+    GIT_USER_NAME="$(git config user.name 2>/dev/null)"
+    [ -n "$GIT_USER_NAME" ] && _log_d 1 "Assuming user name \"$GIT_USER_NAME\" from the bundle project dir"
   }
 
-  [ -z "$PUB_USER_EMAIL" ] && {
-    PUB_USER_EMAIL="$(git config user.email 2> /dev/null)"
-    [ -n "$PUB_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$PUB_USER_EMAIL\" from the bundle parent project dir"
+  [ -z "$GIT_USER_EMAIL" ] && {
+    GIT_USER_EMAIL="$(git config user.email 2>/dev/null)"
+    [ -n "$GIT_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$GIT_USER_EMAIL\" from the bundle parent project dir"
   }
 
-  cd - > /dev/null || FATAL -t "internal error"
+  cd - >/dev/null || FATAL -t "internal error"
 }
 
 pbs_fe_propose_credentials_cache() {
@@ -709,6 +1007,6 @@ fi
 }
 
 . s/_base.sh
-cd - > /dev/null || FATAL -t "internal error"
+cd - >/dev/null || FATAL -t "internal error"
 
 RUN "$@"

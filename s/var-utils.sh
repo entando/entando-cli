@@ -15,6 +15,14 @@ _set_var() {
   return 0
 }
 
+_print_var() {
+  if [ -n "$ZSH_VERSION" ]; then
+    echo "${(P)1}"
+  else
+    echo "${!1}"
+  fi
+}
+
 # set variable with nonnull value
 # - $1: variable to set
 # - $2: value
@@ -99,6 +107,10 @@ assert_ext_ic_id_spc() {
   _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9 _-]*$" "" "extended-identifier-with-spaces" "$3"
 }
 
+assert_ext_ic_id_op() {
+  _assert_regex_nn "$1" "$2" "^:?[a-zA-Z0-9 _-]*$" "" "extended-identifier-with-spaces" "$3"
+}
+
 assert_ext_ic_id_with_arr() {
   _assert_regex_nn "$1" "$2" "^[a-zA-Z0-9_-]*\[?[a-zA-Z0-9_-]*\]?$" "" "identifier" "$3"
 }
@@ -159,6 +171,7 @@ assert_giga() {
 _assert_regex_nn() {
   [ "$7" != "" ] && FATAL "[_assert_regex_nn] Internal Error: Invalid function call "
   assert_nn "$1" "$2" "$6"
+  local FATAL=false; [ "$6" = "fatal" ] && FATAL=true
   (
     LC_COLLATE=C
     if [[ "$2" =~ $3 ]]; then
@@ -167,13 +180,18 @@ _assert_regex_nn() {
       if [[ -n "$4" && "$2" =~ $4 ]]; then
         return 0
       fi
-      if [ "$6" != "silent" ]; then
+      if $FATAL; then
+        local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
+        FATAL "${pre}Value of $1 ($2) is not a valid $5"
+      elif [ "$6" != "silent" ]; then
         local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
         _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"
       fi
       return 1
     fi
-  )
+  ) || {
+    $FATAL && exit $?
+  }
 }
 
 # FORMAT CHECKERS
@@ -192,4 +210,119 @@ SET_KV() {
   V=$(printf "%q" "$3")
   _sed_in_place -E "s/(^.*$K\:[[:space:]]*).*$/\1$V/" "$FILE"
   return 0
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# MAP MANAGEMENT FUNCTIONS
+
+map-clear() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      unset "${name}"
+    fi
+  done
+}
+
+map-count() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local i=0
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      i=$((i + 1))
+    fi
+  done
+  _set_var "$1" "$i"
+  [ "$i" -gt 0 ] && return 0
+  return 255
+}
+
+map-set() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name="$1"
+  local address="$2"
+  _set_var "${arr_var_name}${name}" "$address"
+}
+
+map-get() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name
+
+  if [ "$1" = "--first" ]; then
+    shift
+    local dst_var_name="$1"
+    name="$(map-list REMOTES | head -n 1)"
+  else
+    local dst_var_name="$1"
+    name="$2"
+  fi
+  local tmp
+  tmp="${arr_var_name}${name}"
+  value="${!tmp}"
+  _set_var "$dst_var_name" "$value"
+  [ -n "$value" ] && return 0
+  return 255
+}
+
+map-del() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local name="$1"
+  unset "${arr_var_name}${name}"
+}
+
+# shellcheck disable=SC2120
+map-list() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  shift
+  local SEP="$1"
+  local tmp
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      if [ "$SEP" == "-k" ]; then
+        tmp="${name}"
+        echo "${!tmp}"
+      elif [ -z "$SEP" ]; then
+        echo "${name/${arr_var_name}/}"
+      else
+        tmp="${name}"
+        echo "${name/${arr_var_name}/}${SEP}${!tmp}"
+      fi
+    fi
+  done
+}
+
+map-get-keys() {
+  local arr_var_name="__AA_ENTANDO_${1}__"
+  local dst_var_name="$2"
+  shift
+  local i=0
+  for name in ${!__AA_ENTANDO_*}; do
+    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+      _set_var "dst_var_name[$i]" "$line"
+    fi
+  done
+}
+
+map-save() {
+  local arrname="$1"
+  shift
+  save_cfg_value -m "ENTANDO_${arrname}"
+}
+
+map-from-stdin() {
+  local arrname="$1"
+  local SEP="$2"
+  local i=0
+  local arr
+  IFS="$SEP" read -d '' -r -a arr
+
+  for line in "${arr[@]}"; do
+    map-set "$arrname" "$i" "$line"
+    ((i++))
+  done
 }

@@ -28,7 +28,7 @@ cd "$DIR/../.." || {
 
 [[ "$1" == "--help" || -z "$1" ]] && {
   print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-  exit
+  exit 0
 }
 
 args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
@@ -56,13 +56,16 @@ case "$ARG1" in
     M_CFG=true
     ;;
   runtime) #H: kubernetes execution environment
+    ! $OS_LINUX && FATAL "not supported on this OS"
     M_KUBE=true ;;
   qs-runtime) #H: kubernetes execution environment for the quickstart
+    ! $OS_LINUX && FATAL "not supported on this OS"
     ask "I need to alter your resolv.conf. Can I proceed?" || FATAL "Quitting"
     M_KUBE=true
     M_QS=true
     ;;
   all) #H: all checks
+    ! $OS_LINUX && FATAL "not supported on this OS"
     M_DEVL=true
     M_KUBE=true
     ;;
@@ -75,7 +78,7 @@ shift
 
 $M_CFG && {
   check_ver_cfg() {
-    if [ ! -f "$ENTANDO_ENT_HOME/w/.cfg" ]; then
+    if [ ! -f "$ENT_WORK_DIR/.cfg" ]; then
       local VERS
       VERS="$(list_compatible_installations "$ENTANDO_CLI_VERSION")"
       if [ -n "$VERS" ]; then
@@ -100,6 +103,7 @@ $M_DEVL && {
 
 # MISC
 
+check_ver "jq" "*.*.*" "--version" || MAYBE_FATAL "Quitting"
 check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
 check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
@@ -108,14 +112,16 @@ check_ver "awk" "*.*.*" "--version | head -n 1" "quiet" || {
 }
 check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
 check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
+
 $M_DEVL && {
-  [ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
-  check_ver "java" "$VER_JDK_REQ" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
+  #[ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
+  check_ver "java" "*.*.*" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
     _log_e 0 "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this command"
     MAYBE_FATAL "Quitting"
   }
-  save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
+  #save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
 }
+
 $M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"; }
 $M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"; }
 check_ver "curl" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
@@ -195,17 +201,19 @@ $M_DEVL && {
   # shellcheck disable=SC2015
   find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
     DESIGNATED_NODE_VERSION="$RES"
-    save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION"
-    activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
     true
   } || {
     if ask "Should I try to install the preferred version ($VER_NODE_DEF)?" "y"; then
       _nvm install "$VER_NODE_DEF"
       _nvm use "$VER_NODE_DEF"
+      DESIGNATED_NODE_VERSION="$VER_NODE_DEF"
     else
       MAYBE_FATAL "Mandatory dependency not available"
     fi
   }
+  
+  save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION" "$ENT_DEFAULT_CFG_FILE"
+  activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
 }
 
 # ENT-LOCAL-JHIPSTER installation
@@ -296,7 +304,7 @@ $M_KUBE && {
 }
 
 $M_DEVL && {
-  save_cfg_value "WAS_DEVELOP_CHECKED" "true"
+  save_cfg_value "WAS_DEVELOP_CHECKED" "true" "$ENT_DEFAULT_CFG_FILE"
 }
 
 _log_i 0 "${0##*/} completed"
