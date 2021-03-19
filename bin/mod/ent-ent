@@ -44,7 +44,9 @@ ent_activate() {
   # shellcheck disable=SC2035
   [ -z "$ENT" ] && {
     $LIST && {
-      ls -d *
+      __cd "$ENTANDO_HOME/ent"
+      # shellcheck disable=SC2012
+      ls -d * | cat  
       exit 0
     }
     map-from-stdin "ENTS" $'\n\r' < <(cd "$ENTANDO_HOME/ent" && ls -d *)
