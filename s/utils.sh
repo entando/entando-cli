@@ -864,7 +864,7 @@ keycloak-get-token() {
   [ -z "$auth_url" ] && FATAL "Unable to determine the IDP auth_url"
 
   local TOKEN_ENDPOINT
-  TOKEN_ENDPOINT="$(curl -s "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
+  TOKEN_ENDPOINT="$(curl -sL "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
     | jq -r ".token_endpoint")"
 
   [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
@@ -883,7 +883,7 @@ keycloak-get-token() {
   client_secret=$(base64 -d <<< "$client_secret")
 
   local TOKEN
-  TOKEN="$(curl -s "$TOKEN_ENDPOINT" \
+  TOKEN="$(curl -sL "$TOKEN_ENDPOINT" \
     -H "Accept: application/json" \
     -H "Accept-Language: en_US" \
     -u "$client_id:$client_secret" \
@@ -958,7 +958,7 @@ ecr-bundle-action() {
   OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
 
   http_status=$(
-    curl -o "$OUT" -s -w "%{http_code}\n" -X "$verb" -v "$url" \
+    curl -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
       -H 'Accept: */*' \
       -H 'Content-Type: application/json' \
       -H "Authorization: Bearer $token" \
