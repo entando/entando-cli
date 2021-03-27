@@ -149,6 +149,8 @@ RUN() {
       args_or_ask -n -f ${HH:+"$HH"} '--no-tests///avoid cleaning the build artifacts before the build' "$@" && {
         OPT_TESTS="-Dmaven.test.skip=true"
       }
+      OPT_MVN_PROFILE="prod"
+      args_or_ask ${HH:+"$HH"} -n -s -p "OPT_MVN_PROFILE" "-P///the maven profile" "$@"
       [ -n "$HH" ] && return 0
 
       require_develop_checked
@@ -441,7 +443,13 @@ be_build() {
   be_update_plugin_descriptor
 
   # shellcheck disable=SC2015
-  ./mvnw -Pprod ${OPT_CLEAN:+"$OPT_CLEAN"} ${OPT_TESTS:+"$OPT_TESTS"} package jib:dockerBuild && {
+  ./mvnw \
+      ${OPT_MVN_PROFILE:+-P"$OPT_MVN_PROFILE"} \
+      ${OPT_CLEAN:+"$OPT_CLEAN"} \
+      ${OPT_TESTS:+"$OPT_TESTS"} \
+      
+  # shellcheck disable=SC2015
+  package jib:dockerBuild && {
     echo ""
     _log_i 0 "Built image \"$IMAGE_FQNAME\""
     true
