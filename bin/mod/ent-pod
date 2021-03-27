@@ -31,8 +31,13 @@ RUN() {
 
   show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-
-  args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '2/any?/.*/%sp pod pattern (or --all)' "$@"
+  
+  if [ "$CMD" = "x" ]; then
+    args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '3/any?/.*/%sp pod pattern (or --all)' "$@"
+  else
+    args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '2/any?/.*/%sp pod pattern (or --all)' "$@"
+  fi
+  
   GREP_PATT_POS="3"
   args_or_ask ${HH:+"$HH"} -n -f '--all/any?// for all pods' "$@" && {
     POD_PATT='.*'
@@ -75,10 +80,6 @@ RUN() {
     "x") #H: executes the given k8s command against the a given pod
       shift;CMD="$1";shift 2
       pod_action x "$CMD" "$@"
-      ;;
-    "xx") #H: executes the given k8s command against a given  pod container
-      shift;CMD="$1";shift 2
-      pod_action xx "$CMD" "$@"
       ;;
     "")
       [ -z "$HH" ] && "${BASH_SOURCE[0]}" --help
@@ -173,7 +174,7 @@ pod_action() {
 
   local CONTAINERS=()
   stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
-  if [[ "${#CONTAINERS[@]}" -ge 1 && "$ACTION" != "x" ]]; then
+  if [[ "${#CONTAINERS[@]}" -ge 1 ]]; then
     select_one -s "CONTAINER" "${CONTAINERS[@]}"
     SELECTED_CONTAINER="$select_one_res_alt"
   fi
@@ -188,7 +189,7 @@ pod_action() {
       echo "Executing \"exec\" command against $(mk_target_desc)"
       _kubectl exec --stdin --tty ${NAMESPACE:+-n "$NAMESPACE"} "$SELECTED_POD" -c "$SELECTED_CONTAINER" -- "$@"
       ;;
-    "x" | "xx")
+    "x")
       ACTION="$1"
       shift
       echo "Executing \"$ACTION\" command against $(mk_target_desc)"
@@ -232,6 +233,7 @@ mk_target_desc() {
 # shellcheck disable=SC2034
 process_pod_pattern() {
   local POD_P=()
+  
   stdin_to_arr "/" POD_P <<< "$POD_PATT"
 
   if [ "${#POD_P[@]}" -eq 2 ]; then
