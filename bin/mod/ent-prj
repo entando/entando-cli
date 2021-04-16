@@ -447,9 +447,7 @@ be_build() {
       ${OPT_MVN_PROFILE:+-P"$OPT_MVN_PROFILE"} \
       ${OPT_CLEAN:+"$OPT_CLEAN"} \
       ${OPT_TESTS:+"$OPT_TESTS"} \
-      
-  # shellcheck disable=SC2015
-  package jib:dockerBuild && {
+      package jib:dockerBuild && {
     echo ""
     _log_i 0 "Built image \"$IMAGE_FQNAME\""
     true
