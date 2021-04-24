@@ -103,6 +103,8 @@ test_asserters() {
   assert_semver "SEMVER" "0.0.1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
   assert_semver "SEMVER" "v0.0.1" "$OPT" || FATAL "failed! $LINENO"
   assert_semver "SEMVER" "v0.0.1-SNAPSHOT" "$OPT" || FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v0.0.10" "$OPT" || FATAL "failed! $LINENO"
+  assert_semver "SEMVER" "v10.10.10" "$OPT" || FATAL "failed! $LINENO"
   # .. ver but not bundle semver
   assert_semver "SEMVER" "1" "$OPT" && FATAL "failed! $LINENO"
   assert_semver "SEMVER" "0.1" "$OPT" && FATAL "failed! $LINENO"
