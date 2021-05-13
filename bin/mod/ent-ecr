@@ -61,7 +61,7 @@ RUN() {
       ;;
     "install-status") #H: shows the uninstall status of the bundle
       ecr-prepare-action INGRESS_URL TOKEN
-      mybundlemybundleecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
+      ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
       ;;
     "uninstall-status") #H: shows the uninstall status of the bundle
       ecr-prepare-action INGRESS_URL TOKEN
