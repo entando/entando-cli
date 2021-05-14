@@ -99,13 +99,13 @@ reload_cfg() {
     [[ "$var" =~ ^# ]] && continue
     if assert_ext_ic_id_with_arr "CFGVAR" "$var" "silent"; then
       printf -v sanitized "%q" "$value"
-      sanitized="${sanitized/\\\\r/}"
-      sanitized="${sanitized/\\\\n/}"
+      sanitized="${sanitized/\\r/}"
+      sanitized="${sanitized/\\n/}"
       eval "$var"="$sanitized"
     else
       _log_e 0 "Skipped illegal var name $var"
     fi
-  done < "$config_file"
+  done <<<"$(cat "$config_file")"
   return 0
 }
 
