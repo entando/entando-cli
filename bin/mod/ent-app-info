@@ -22,11 +22,11 @@ if [ -n "$ENTANDO_ENT_KUBECTL_CMD" ]; then
   ENT_KUBECTL_CMD="$ENTANDO_ENT_KUBECTL_CMD"
 fi
 
-if [ -z "$ENT_KUBECTL_CMD" ]; then
-  ENTANDO_STANDARD_QUICKSTART=true
-else
-  ENTANDO_STANDARD_QUICKSTART=false
-fi
+#if [ -z "$ENT_KUBECTL_CMD" ]; then
+#  ENTANDO_STANDARD_QUICKSTART=true
+#else
+#  ENTANDO_STANDARD_QUICKSTART=false
+#fi
 
 if [ -n "$DESIGNATED_VM" ]; then
   multipass exec "$DESIGNATED_VM" -- bash -c "source .entando/activate && ent app-info $*"
@@ -49,7 +49,7 @@ export ENTANDO_STANDARD_QUICKSTART
 
 if $APSS; then
   shift
-  . s/check-app-status.sh "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE" "$@"
+  . s/check-app-status.sh "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE" "$URL_SCHEME" "$ING_SVC" "$ING_ECR" "$ING_APB"
   exit
 fi
 
@@ -69,9 +69,7 @@ _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
 
 _log_i 1 "Application Ingress path:"
 
-JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                          # selector
-JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}'     # host+path
-RES="http://$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$JP" 2> /dev/null)"
-[[ "$?" -ne 0 || -z "$RES" ]] && FATAL "Application Ingress path not found"
-
-echo "$RES"
+app-get-main-ingresses ENTANDO_URL_SCHEME ignored ignored apb_ingress
+# shellcheck disable=SC2154
+[ -z "$apb_ingress" ] && FATAL "Unable to determine the app-builder ingress url"
+echo "$ENTANDO_URL_SCHEME://$apb_ingress"

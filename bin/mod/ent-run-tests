@@ -23,6 +23,7 @@ test_var_to_param
 test_check_ver_num
 test_map_functions
 test_index_of_arg
+test_path_functions
 test_cfg_helper
 test_ask
 test_select_one

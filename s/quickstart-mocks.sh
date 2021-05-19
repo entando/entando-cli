@@ -127,6 +127,10 @@ _kubectl() {
   esac
 }
 
+ent-kubectl() {
+  _kubectl "$@" 
+}
+
 setup_kubectl() {
   new-mock-call-id
   mock-log "## Ent Kubectl set up"

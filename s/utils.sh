@@ -97,6 +97,7 @@ reload_cfg() {
   # shellcheck disable=SC1097
   while IFS== read -r var value; do
     [[ "$var" =~ ^# ]] && continue
+    [[ -z "${var// }" ]] && continue
     if assert_ext_ic_id_with_arr "CFGVAR" "$var" "silent"; then
       printf -v sanitized "%q" "$value"
       sanitized="${sanitized/\\r/}"
@@ -227,7 +228,7 @@ FATAL() {
   }
   if [ "$1" = "-t" ]; then
     shift
-    print_calltrace 1 3 "" LOGGER "$@" 1>&2
+    print_calltrace 1 5 "" LOGGER "$@" 1>&2
   else
     LOGGER "$@"
   fi
@@ -793,6 +794,7 @@ print_current_profile_info() {
   
   $VERBOSE && {
     echo " - APPNAME:           ${ENTANDO_APPNAME:-<EMPTY>}"
+    echo " - APPVER:            ${ENTANDO_APPVER:-<EMPTY>}"
     echo " - NAMESPACE:         ${ENTANDO_NAMESPACE:-<EMPTY>}"
     echo " - K8S CONTEXT:       ${DESIGNATED_KUBECTX:-<NO-CONTEXT>}"
   }
@@ -803,10 +805,16 @@ print_current_profile_info() {
 
 http-check() {
   local RES
-  RES=$(curl -sL -o /dev/null "$1" -w "%{http_code}")
+  RES=$(curl -sL -o /dev/null "$1" -w "%{http_code}" --insecure)
+  
   case "$RES" in
-    200 | 201) return 0 ;;
-    *) return 1 ;;
+    200 | 201)
+      return 0;;
+    401)
+      [[ "$2" == "--accept-401" ]] && return 0
+      return 1;;
+    *)
+      return 1;;
   esac
 }
 
@@ -818,10 +826,10 @@ http-get-working-url() {
   local res_var="$1"
   shift
   local res
-  if http-check "$1"; then
+  if http-check "$1" --accept-401; then
     res="$1"
   else
-    if http-check "$2"; then
+    if http-check "$2" --accept-401; then
       res="$2"
     else
       res=""
@@ -832,25 +840,106 @@ http-get-working-url() {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Retrieve the main application ingresses:
+# $1: var for the scheme
+# $2: var for the portal ingress
+# $3: var for the ecr ingress
+# $4: var for the application builder ingress
+#
 app-get-main-ingresses() {
-  local res_var1="$1"
-  local res_var2="$2"
-  shift
-  local tmp
-  JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                      # selector
-  JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}' # host+path
-  tmp="$(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)"
-  _set_var "$res_var1" "$tmp"
-  JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                      # selector
-  JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[1].path}{"\n"}{end}' # host+path
-  tmp="$(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)"
-  _set_var "$res_var2" "$tmp"
+  if check_ver "$ENTANDO_APPVER" "6.3.0" "" "string"; then
+    app-get-main-ingresses-by-version "6.3.0" "$@"
+  elif check_ver "$ENTANDO_APPVER" "6.3.>=2"  "" "string"; then
+    app-get-main-ingresses-by-version "6.3.2" "$@"
+  else
+    local TMP1 TMP2 TMP3 TMP4
+    app-get-main-ingresses-by-version "6.3.2" TMP1 TMP2 TMP3 TMP4
+    if [ "$(echo "$TMP1" | wc -l)" -gt 1 ]; then
+      # Before 6.3.2 TMP1 contains all the values because the related ingresses have the same serviceName
+      app-get-main-ingresses-by-version "6.3.0" "$@"
+    else
+      # From 6.3.2 instead they are properly named
+      _set_var "$1" "$TMP1"
+      _set_var "$2" "$TMP2"
+      _set_var "$3" "$TMP3"
+      _set_var "$4" "$TMP4"
+    fi
+  fi
 }
 
-app-find-ingress() {
-  local filter="$1"
-  local url
-  url="$(_kubectl get ingress | grep "$filter" | awk '{print $2}')"
+app-get-main-ingresses-by-version() {
+  local version="$1"
+  local res_var_scheme="$2"
+  local res_var_svc="$3"
+  local res_var_ecr="$4"
+  local res_var_apb="$5"
+  shift
+  local JP=""
+  
+  if [ "$version" = "6.3.0" ]; then
+    JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
+    JP+='{"-"}{"\n"}'
+    JP+='{.spec.rules[0].host}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[1].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[2].path}{"\n"}'
+  elif [ "$version" = "6.3.2" ]; then
+    JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
+    JP+='{"-"}{.spec.tls}{"\n"}'
+    JP+='{.spec.rules[0].host}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-server-service")].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-cm-service")].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-ab-service")].path}{"\n"}'
+  else
+    FATAL -t "Unsupported version \"$version\""
+  fi
+  
+  local OUT
+  stdin_to_arr $'\n\r' OUT < <(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)
+  
+  if [ "${OUT[0]}" = "-" ]; then
+    _set_var "$res_var_scheme" "http"
+  else
+    _set_var "$res_var_scheme" "https"
+  fi
+  local base_url TMP
+  path-concat base_url "${base_url}" "${OUT[1]}"
+  path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]}"
+  path-concat -t "$res_var_ecr" "${base_url}" "${OUT[3]}"
+  path-concat -t "$res_var_apb" "${base_url}" "${OUT[4]}"
+}
+
+# Concatenates two path parts
+#
+# Note that the function tries to preserve local paths, so:
+# - path-concat "" "b"
+# generates:
+# - "b"
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: destination var name 
+# $2: the source value #1 
+# $3: the source value #2
+#
+path-concat() {
+  local terminated=false
+  [[ "$1" = "-t" ]] && terminated=true && shift
+  local out="$1"
+  local val1="$2"
+  local val2="$3"
+  
+  if [[ -n "$val1" ]]; then
+    [[ "$val1" =~ ^.*/$ ]] && val1="${val1::-1}"
+    [[ -n "$val2" ]] && [[ "$val2" =~ ^/.*$ ]] && val2="${val2:1}"
+    TMP="${val1}/${val2}"
+  else
+    TMP="${val2}"
+  fi
+  
+  if $terminated; then
+    [[ ! "$TMP" =~ ^.*/$ ]] && TMP+="/"
+  fi
+  
+  _set_var "$out" "$TMP"
 }
 
 keycloak-get-token() {
@@ -862,16 +951,17 @@ keycloak-get-token() {
     _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null \
       | grep kc-ingress | awk '{print $2}'
   )/auth"
-
+  
   [ -z "$auth_url" ] && FATAL "Unable to determine the IDP auth_url"
 
   local TOKEN_ENDPOINT
-  TOKEN_ENDPOINT="$(curl -sL "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
+  TOKEN_ENDPOINT="$(curl --insecure -sL "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
     | jq -r ".token_endpoint")"
-
+  
   [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
 
-  local client_secret_name="${ENTANDO_APPNAME}-server-secret"
+  #local client_secret_name="${ENTANDO_APPNAME}-server-secret"
+  local client_secret_name="${ENTANDO_APPNAME}-de-secret"
   local client_id client_secret tmp
   tmp="$(
     _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
@@ -883,16 +973,16 @@ keycloak-get-token() {
 
   client_id=$(base64 -d <<< "$client_id")
   client_secret=$(base64 -d <<< "$client_secret")
-
+  
   local TOKEN
-  TOKEN="$(curl -sL "$TOKEN_ENDPOINT" \
+  TOKEN="$(curl --insecure -sL "$TOKEN_ENDPOINT" \
     -H "Accept: application/json" \
     -H "Accept-Language: en_US" \
     -u "$client_id:$client_secret" \
     -d "grant_type=client_credentials" \
     | jq -r '.access_token')"
 
-  [ -z "$TOKEN" ] && FATAL "Unable to extract the access token"
+  [[ -z "$TOKEN" || "$TOKEN" == "null" ]] && FATAL "Unable to extract the access token"
 
   _set_var "$res_var" "$TOKEN"
 }
@@ -908,26 +998,28 @@ ecr-prepare-action() {
   shift
   print_current_profile_info
   # shellcheck disable=SC2034
-  local main_ingress ecr_ingress scheme
-  app-get-main-ingresses main_ingress ecr_ingress
+  local main_ingress ecr_ingress ignored url_scheme
+  app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
   [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
   [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
-  DEFAULT_APP_SCHEME="${DEFAULT_APP_SCHEME:-$LATEST_APP_SCHEME}"
-  case "$DEFAULT_APP_SCHEME" in
-    "https")
-      http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
-      ;;
-    *)
-      http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
-      ;;
-  esac
+  if [ -n "$url_scheme" ]; then
+    main_ingress="$url_scheme://$main_ingress"
+  else
+    case "$FORCE_URL_SCHEME" in
+      "http")
+        http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
+        ;;
+      *)
+        http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
+        ;;
+    esac
+  fi
   [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
-  http-get-url-scheme scheme "$main_ingress"
-  LATEST_APP_SCHEME="${scheme}"
-  save_cfg_value LATEST_APP_SCHEME "$LATEST_APP_SCHEME"
+  http-get-url-scheme url_scheme "$main_ingress"
+  save_cfg_value LATEST_URL_SCHEME "$url_scheme"
   local token
-  keycloak-get-token token "$scheme"
-  _set_var "$var_url" "$scheme://$ecr_ingress"
+  keycloak-get-token token "$url_scheme"
+  _set_var "$var_url" "$url_scheme://$ecr_ingress"
   _set_var "$var_token" "$token"
 }
 
@@ -951,7 +1043,11 @@ ecr-bundle-action() {
   local token="$1";shift
   local bundle_id="$1";shift
   local raw_data="$1";shift
-  local url="${ingress}/components"
+  
+  local url
+  path-concat url "${ingress}" ""
+  url+="components"
+  
   local http_status OUT
 
   [ -n "$bundle_id" ] && url+="/$bundle_id"
@@ -960,7 +1056,7 @@ ecr-bundle-action() {
   OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
 
   http_status=$(
-    curl -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
+    curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
       -H 'Accept: */*' \
       -H 'Content-Type: application/json' \
       -H "Authorization: Bearer $token" \
@@ -968,11 +1064,14 @@ ecr-bundle-action() {
       ${raw_data:+--data-raw "$raw_data"} \
       2> /dev/null
   )
-
-
-  if [[ "$res_var" = "%" && "$http_status" -ge 300 ]]; then
-    echo "%$http_status"
-    return 1
+  
+  if [ "$res_var" != "%" ]; then
+    _set_var "$res_var" "$http_status"
+  else
+    if [ "$http_status" -ge 300 ]; then
+      echo "%$http_status"
+      return 1
+    fi
   fi
   
   if [ -s "$OUT" ]; then
@@ -980,8 +1079,6 @@ ecr-bundle-action() {
   else
     if [ "$res_var" = "%" ]; then
       echo "%$http_status"
-    elif [ -n "$res_var" ]; then
-      _set_var "$res_var" "$http_status"
     fi
   fi
   rm "$OUT"

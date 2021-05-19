@@ -48,6 +48,7 @@ RUN() {
   case "$CMD" in
     "list") #H: shows the list of bundles
       ecr-prepare-action INGRESS_URL TOKEN
+
       ecr-bundle-action "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 2>/dev/null \
       | jq -r ".payload[] | [ \
           .code, \

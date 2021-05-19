@@ -19,15 +19,17 @@ ent_cli_register_rc_DC7C420E09B4492D() {
   F="$1"
   CA="$2"
   local SIGN="#ENTANDO-CLI-SIGN-d567d439#"
-  if [ -f "$F" ] && ! grep -F "${SIGN}" "$F" > /dev/null; then
-    {
-      echo ""
-      echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-      echo "# ${SIGN}"
-      echo "${CA}"
-      echo ""
-    } >> "${F}"
-    echo "> Entando CLI added to \"${F}\""
+  if [ -f "$F" ]; then 
+    if ! grep -q -F "${SIGN}" "$F"; then
+      {
+        echo ""
+        echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        echo "# ${SIGN}"
+        echo "${CA}"
+        echo ""
+      } >> "${F}"
+      echo "> Entando CLI added to \"${F}\""
+    fi
   fi
 }
 
@@ -242,7 +244,6 @@ ENT_RUNNER_DC7C420E09B4492D() {
     } > "$script_file"
     chmod u=rx "$script_file"
   done
-  return 0
 
   # Banner
   (

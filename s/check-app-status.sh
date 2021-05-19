@@ -42,32 +42,28 @@ RUN() {
   local PODS
   PODS="$(_kubectl get pods -n "$ENTANDO_NAMESPACE" 2>&1)"
 
+  app-get-main-ingresses ENTANDO_URL_SCHEME SVC_INGR ECR_INGR APB_INGR
+  
   if $ENTANDO_STANDARD_QUICKSTART; then
-    INGR=$(
-      _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null
-    )
-
-    ingr_check "KC " "kc-ingress" "auth/"
-    ingr_check "ECI" "eci-ingress" "k8s/"
+    local n=0
+    ingr_check "ECR" "$ECR_INGR" && ((n++))
+    ingr_check "APB" "$APB_INGR" && ((n++))
     # shellcheck disable=SC2015
-    ingr_check "APP" "$ENTANDO_APPNAME-ingress" "app-builder/" && {
+    ingr_check "APP" "$SVC_INGR" && ((n++))
+    if [ "$n" -ge 3 ]; then
       READY=true
-    }
+    fi
   else
     local e c
     IFS='/' read -r e c < <(
-      echo "$PODS" | grep 'quickstart-server-deployment' | awk '{print $2}'
+      echo "$PODS" | grep -- '-server-deployment' | awk '{print $2}'
     )
     [[ -n "$e" && "$e" -eq "$c" ]] && {
-      READY=true
-      JP='{range .items[?(@.metadata.labels.EntandoApp)]}'                          # selector
-      JP+='{.spec.rules[0].host}{.spec.rules[0].http.paths[2].path}{"\n"}{end}'     # host+path
-      ENTANDO_APP_ADDR="http://$(_kubectl get ingress -n "$ENTANDO_NAMESPACE" -o jsonpath="$JP" 2> /dev/null)"
+      READY=true  
     }
   fi
 
   if $READY; then
-    [ -z "$ENTANDO_APP_ADDR" ] && ENTANDO_APP_ADDR="$LAST_INGR_ADDR_CHECKED"
     echo ''
     echo '| '
     echo '|   █████████████████'
@@ -78,7 +74,7 @@ RUN() {
     echo '| '
     echo '|  The Entando app is ready at the address:'
     echo '| '
-    echo -e "|\t$ENTANDO_APP_ADDR"
+    echo -e "|\t${ENTANDO_URL_SCHEME}://${APB_INGR:-???}"
     echo '|'
     true
   else
@@ -106,15 +102,15 @@ RUN() {
 ingr_check() {
   local DRY=false
   [ "$1" = "--dry" ] && shift && DRY=true
-  ADDR="$(echo "$INGR" | grep "$2" | awk '{print $2}')"
+  ADDR="$2"
 
   [ -z "$ADDR" ] && {
-    echo "> $1 endpoint not registered.."
+    echo "> $1 endpoint not registered.. ($2)"
     return 1
   }
 
   echo -n "> $1 endpoint is registered.."
-  LAST_INGR_ADDR_CHECKED="http://$ADDR/$3"
+  LAST_INGR_ADDR_CHECKED="$ENTANDO_URL_SCHEME://$ADDR"
 
   $DRY && return 0
 
@@ -123,7 +119,7 @@ ingr_check() {
   if [ -n "$ADDR" ] && [ "$http_check_res" != "000" ]; then
     echo -n " open.."
 
-    T="\t(http://$ADDR/$3)"
+    T="\t($ENTANDO_URL_SCHEME://$ADDR)"
 
     case "$http_check_res" in
       2* | 401) echo -e " AND READY $T" && return 0 ;;
