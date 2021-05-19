@@ -128,17 +128,22 @@ RUN() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 which_ent() {
   echo "$ENTANDO_ENT_HOME"
-
+  echo "${DEFAULT_ENTANDO_RELEASE:--}"
+  
   (
     echo ""
     echo "> More Info:"
-    cd "$ENTANDO_ENT_HOME"
+    cd "$ENTANDO_ENT_HOME" || FATAL "Unable to enter the cli directory"
     echo "- CLI:"
     TAG="$(git describe --exact-match --tags)"
     echo "$ENTANDO_CLI_VERSION ($TAG)"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
     echo "- REL:"
-    cd "dist"
+    [ -z "$DEFAULT_ENTANDO_RELEASE" ] && {
+      _log_i 0 "Default DEFAULT_ENTANDO_RELEASE is undefined"
+      exit
+    }
+    cd "$ENTANDO_ENT_HOME/../../rel/$DEFAULT_ENTANDO_RELEASE" || FATAL "Unable to enter the release directory"
     TAG="$(git describe --exact-match --tags)"
     echo "$ENTANDO_VERSION ($TAG)"
     git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"

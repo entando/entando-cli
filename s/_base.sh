@@ -228,11 +228,26 @@ else
   activate_ent_default_workdir
 fi
 
+if [ -f "$ENT_FIRST_RUN_CFG_FILE" ]; then
+  reload_cfg "$ENT_FIRST_RUN_CFG_FILE"
+  save_cfg_value DEFAULT_ENTANDO_RELEASE "$DEFAULT_ENTANDO_RELEASE"
+  rm "$ENT_FIRST_RUN_CFG_FILE"
+fi
 reload_cfg "$ENT_DEFAULT_CFG_FILE"
 reload_cfg
 rescan-sys-env
 reload_cfg
 mkdir -p "$ENT_WORK_DIR"
+
+ENTANDO_RELEASE_DIR="$(
+  # shellcheck disable=SC1091
+  cd "$ENTANDO_ENT_HOME/../../rel/$DEFAULT_ENTANDO_RELEASE" &>/dev/null || {
+    echo "" 
+    exit
+  }
+  pwd
+)"
+[ -f "$ENTANDO_RELEASE_DIR/manifest" ] && . "$ENTANDO_RELEASE_DIR/manifest" 
 
 # shellcheck disable=SC2034
 [ -n "$LOG_LEVEL" ] && XU_LOG_LEVEL="$LOG_LEVEL"

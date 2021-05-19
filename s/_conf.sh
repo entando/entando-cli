@@ -13,6 +13,7 @@ ENTANDO_HOME=$(
 ENTANDO_GLOBAL_CFG="$ENTANDO_HOME/.global-cfg"
 
 ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
+ENT_FIRST_RUN_CFG_FILE="$ENTANDO_ENT_HOME/w/.first-run-cfg"
 ENT_DEFAULT_CFG_FILE="$ENT_WORK_DIR/.cfg"
 CFG_FILE="$ENT_DEFAULT_CFG_FILE"
 ENT_KUBECONF_FILE_PATH="$ENT_WORK_DIR/.kubeconf"
@@ -37,15 +38,9 @@ C_ENTANDO_LOGO_FILE="res/entando.png"
 C_WIN_VM_HOSTNAME_SUFFIX="mshome.net"
 C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 
-# More dynamic configurations
+ENTANDO_RELEASES_REPO_URL="https://github.com/entando/entando-releases.git"
 
-# shellcheck disable=SC1091
-{
-  [ -f dist/manifest ] && . dist/manifest
-  [ -f d/_env ] && . d/_env
-  [ -f w/_env ] && . w/_env
-  [ -f _env ] && . _env
-}
+# More dynamic configurations
 
 ENTANDO_STANDARD_IMAGES=(
   "entando-component-manager" "entando-de-app-wildfly" "entando-k8s-app-controller"

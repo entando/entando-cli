@@ -45,7 +45,7 @@ ent_clone_repo_DC7C420E09B4492D() {
     return 0
   fi
 
-  if [[ ! -d "$FLD" || "$UPDATE" -ne 0 ]]; then
+  if [[ ! -f "$FLD/.git" || "$UPDATE" -ne 0 ]]; then
     (
       if [ "$TAG" = "master" ]; then
         echo "Please specify a release tag or a release branch" 1>&2
@@ -74,6 +74,10 @@ ent_clone_repo_DC7C420E09B4492D() {
           echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
           exit 92
         fi
+        
+        echo "> Checked out tag/branch \"$TAG\" of repository $DSC: " 1>&2
+        echo "> Status: "
+        git log --pretty=format:'%H|%ci' | head -n 1 | sed -E 's/\|/\n/g'
       fi
       if [ $? ]; then
         cd - > /dev/null
@@ -117,6 +121,8 @@ ENT_RUNNER_DC7C420E09B4492D() {
 
   # ----------------------------------------------------------------------------------------------------
   # OPTIONS
+  # ----------------------------------------------------------------------------------------------------
+
   for opt in "$@"; do
     case "$opt" in
       --sourced)
@@ -180,48 +186,65 @@ ENT_RUNNER_DC7C420E09B4492D() {
 
   # ----------------------------------------------------------------------------------------------------
   # DOWNLOAD
+  # ----------------------------------------------------------------------------------------------------
+
   $CURR_DIR || cd "$HOME"
 
   local TGT_DIR="$PWD"
   local ENTANDO_DIR='.entando'
   local ENT_DIR="ent"
 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # RELEASE INSTALLATION
+  
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  echo "> Downloading the ENTANDO RELEASE $ENTANDO_RELEASE"
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  
   (
     git --version
     [ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
 
     set -e
 
-    # RELEASE
-    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    echo "> Downloading the ENTANDO RELEASE $ENTANDO_RELEASE"
-    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-
-    mkdir -p "$ENTANDO_DIR/$ENT_DIR"
-    cd "$ENTANDO_DIR/$ENT_DIR"
+    mkdir -p "$ENTANDO_DIR/$ENT_DIR/rel"
+    cd "$ENTANDO_DIR/$ENT_DIR/rel"
 
     ent_clone_repo_DC7C420E09B4492D "$ENTANDO_RELEASES_REPO_URL" \
-      "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" $UPDATE_REL || exit "$?"
+      "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" "$UPDATE_REL" || exit "$?"
+
   ) || return "$?"
 
-  cd "$ENTANDO_DIR/$ENT_DIR"
-  # shellcheck disable=SC1090
-  [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "./$ENTANDO_RELEASE/dist/manifest"
-  [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # ASSUMING THE RELEASE PARAMETERS
+  
+  # Automatic selection of the CLI version, is not explicitly provided
+  if [ -z "${ENTANDO_CLI_VERSION:-}" ]; then
+      ENTANDO_CLI_VERSION="$(
+      # shellcheck disable=SC1090
+      source "$ENTANDO_DIR/$ENT_DIR/rel/$ENTANDO_RELEASE/manifest" &>/dev/null
+      echo "$ENTANDO_CLI_VERSION"
+    )"
+  fi
 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # CLI
+  
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  echo "> Downloading the ENTANDO CLI ${ENTANDO_CLI_VERSION:-???}"
+  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    
   (
-    # CLI
-    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    echo "> Downloading the ENTANDO CLI $ENTANDO_CLI_VERSION"
-    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    cd "$ENTANDO_RELEASE"
-    mkdir -p "./cli"
-    ent_clone_repo_DC7C420E09B4492D "https://github.com/entando/entando-cli" \
-      "$ENTANDO_CLI_VERSION" "cli/$ENTANDO_CLI_VERSION" "version" $UPDATE_CLI || exit "$?"
+    # shellcheck disable=SC2030
+    [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
+    
+    mkdir -p "$ENTANDO_DIR/$ENT_DIR/cli/w"
+    cd "$ENTANDO_DIR/$ENT_DIR/cli"
 
-    cd "cli/$ENTANDO_CLI_VERSION"
-    rm -rf ./dist
-    ln -sf "../../dist" ./
+    ent_clone_repo_DC7C420E09B4492D "https://github.com/entando/entando-cli" \
+      "$ENTANDO_CLI_VERSION" "$ENTANDO_CLI_VERSION" "version" $UPDATE_CLI || exit "$?"
+
+    echo "DEFAULT_ENTANDO_RELEASE=$ENTANDO_RELEASE" > "$ENTANDO_CLI_VERSION/w/.first-run-cfg"
   ) || return "$?"
 
   # ----------------------------------------------------------------------------------------------------
@@ -233,7 +256,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   # Shortcuts generation
   local ENTANDO_HOME="$TGT_DIR/$ENTANDO_DIR"
   local ENTS_ROOT="$ENTANDO_HOME/$ENT_DIR"
-  local ENT_HOME="$ENTS_ROOT/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION"
+  local ENT_HOME="$ENTS_ROOT/cli/$ENTANDO_CLI_VERSION"
   for script_name in "activate" "activate-PLACEHOLDER_RELEASE" "deactivate"; do
     local script_file="$ENTANDO_HOME/${script_name/PLACEHOLDER_RELEASE/$ENTANDO_RELEASE}"
     chmod u=rwx "$script_file" 2>/dev/null || true
