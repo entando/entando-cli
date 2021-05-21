@@ -51,5 +51,37 @@ test_check_ver_num() {
     check_ver "openjdk-test" "1.8.>=0.265" "-version | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || FATAL "FAILED $LINENO"
     check_ver "openjdk-test" "1.8.>=0.264" "-version | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" && FATAL "FAILED $LINENO"
     check_ver "openjdk-test" "1.8.>=1.0" "-version | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" && FATAL "FAILED $LINENO"
+    
+    check_ver "1.8.1" "1.8.*" "" "string" || FATAL "FAILED $LINENO"
+    check_ver "1.8.1" "1.8.>1" "" "string" && FATAL "FAILED $LINENO"
+    check_ver "1.8.2" "1.8.>1" "" "string" || FATAL "FAILED $LINENO"
+    
+    check_ver "6.3.2" "6.3.>=2" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "6.4.0" "6.>3.*" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "7.0.0" ">6.*.*" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "6.3.2-pre" "6.3.>=2" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "6.4.0-pre" "6.>3.*" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "7.0.0-pre" ">6.*.*" "" "string" || FATAL "FAILED $LINENO $?"
+    
+    check_ver "5.3.2" "4.3.>=2" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "5.4.0" "6.>4.*" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "5.0.0" ">6.*.*" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "5.3.2-pre" "4.3.>=2" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "5.4.0-pre" "6.>4.*" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "5.0.0-pre" ">6.*.*" "" "string" && FATAL "FAILED $LINENO $?"
+
+    check_ver "v6.3.2" "6.3.>=2" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "v6.4.0" "6.>3.*" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "v7.0.0" ">6.*.*" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "v6.3.2-pre" "6.3.>=2" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "v6.4.0-pre" "6.>3.*" "" "string" || FATAL "FAILED $LINENO $?"
+    check_ver "v7.0.0-pre" ">6.*.*" "" "string" || FATAL "FAILED $LINENO $?"
+    
+    check_ver "v5.3.2" "4.3.>=2" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "v5.4.0" "6.>4.*" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "v5.0.0" ">6.*.*" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "v5.3.2-pre" "4.3.>=2" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "v5.4.0-pre" "6.>4.*" "" "string" && FATAL "FAILED $LINENO $?"
+    check_ver "v5.0.0-pre" ">6.*.*" "" "string" && FATAL "FAILED $LINENO $?"
   } > /dev/null
 }

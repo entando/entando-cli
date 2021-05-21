@@ -75,7 +75,7 @@ RUN() {
       ;;
     "logs") #H: show the logs of a pod
       shift 2
-      pod_action xx logs "$@"
+      pod_action x logs "$@"
       ;;
     "x") #H: executes the given k8s command against the a given pod
       shift;CMD="$1";shift 2

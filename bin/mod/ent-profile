@@ -338,7 +338,7 @@ delete_profile() {
   map-from-stdin "profile" $'\n\r' < <(ls -d * 2>/dev/null)
   args_or_ask_from_list "profile" -m -a ${HH:+"$HH"} PROFILE 1 "any" \
     "profile" "Select the profile" "$@"
-  [ ! -d "$PROFILE" ] && FATAL "Application profile not found"
+  [ ! -d "$PROFILE" ] && FATAL "Unable to select given profile: not found"
   [ ! -d "$PROFILE/w" ] && FATAL "Invalid profile dir"
 
   (

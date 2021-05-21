@@ -19,15 +19,17 @@ ent_cli_register_rc_DC7C420E09B4492D() {
   F="$1"
   CA="$2"
   local SIGN="#ENTANDO-CLI-SIGN-d567d439#"
-  if [ -f "$F" ] && ! grep -F "${SIGN}" "$F" > /dev/null; then
-    {
-      echo ""
-      echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-      echo "# ${SIGN}"
-      echo "${CA}"
-      echo ""
-    } >> "${F}"
-    echo "> Entando CLI added to \"${F}\""
+  if [ -f "$F" ]; then 
+    if ! grep -q -F "${SIGN}" "$F"; then
+      {
+        echo ""
+        echo "# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        echo "# ${SIGN}"
+        echo "${CA}"
+        echo ""
+      } >> "${F}"
+      echo "> Entando CLI added to \"${F}\""
+    fi
   fi
 }
 
@@ -242,7 +244,6 @@ ENT_RUNNER_DC7C420E09B4492D() {
     } > "$script_file"
     chmod u=rx "$script_file"
   done
-  return 0
 
   # Banner
   (
@@ -263,20 +264,32 @@ ENT_RUNNER_DC7C420E09B4492D() {
     }
   }
   echo ""
-  if "$CURR_DIR"; then
-    echo -e "FOR MANUAL ACTIVATION USE: \n"
-    echo -e "    source \"$TGT_DIR/$ENTANDO_DIR/activate\""
-  else
-    echo -e "FOR MANUAL ACTIVATION USE:\n"
-    echo -e "    source \"\$HOME/$ENTANDO_DIR/activate\""
-  fi
-  echo ""
-  echo "get help using: ent help"
-  echo ""
-  echo "═════════════════════════════════════════════════════════════════════════════"
-  echo ".."
-  echo "."
-  echo ""
+  (
+    perl -e 'print -t 1 ? exit 0 : exit 1;'
+  
+    if [ $? -eq 0 ]; then
+      H() { echo -e '\033[44m\033[1;37m' ; }
+      E() { echo -e '\033[0;39m'; }
+    else
+      H() { true; }
+      E() { true; }
+    fi
+    
+    echo -e "▒$(H) P L E A S E   R E A D : $(E)▒"
+    echo -e "You now need to activate this version of ent by opening another shell or manually with this command:\n"
+    if "$CURR_DIR"; then
+      echo -e "    source \"$TGT_DIR/$ENTANDO_DIR/activate\""
+    else
+      echo -e "    source \"\$HOME/$ENTANDO_DIR/activate\""
+    fi
+    echo ""
+    echo "after which you can get help via \"ent help\""
+    echo ""
+    echo "═════════════════════════════════════════════════════════════════════════════"
+    echo ".."
+    echo "."
+    echo ""
+  )
 
   if ! "$CURR_DIR"; then
     local CMD

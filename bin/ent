@@ -36,10 +36,13 @@ RUN() {
       "config") #H: [--edit] -- helps dealing with ent configurations
         handle_config_command "$@"
         ;;
-      "namespace") #H: [--edit] -- helps dealing with ent configurations
+      "namespace") #H: sets the namespace 
         handle_status_config ENTANDO_NAMESPACE "$@"
         ;;
-      "appname") #H: [--edit] -- helps dealing with ent configurations
+      "appver") #H: sets the version assumed for the application
+        handle_status_config ENTANDO_APPVER "$@"
+        ;;
+      "appname") #H: sets the default application names
         handle_status_config ENTANDO_APPNAME "$@"
         ;;
       "profile"|"P"|"pro") #H: helps creating and managing profiles
@@ -266,10 +269,16 @@ upgrade_project_file() {
 }
 
 handle_status_config() {
-  if [ "$2"  = "" ]; then
-    ent config --get "$1"
+  if [ "$V"  = "--del" ]; then
+    ent config --set ""
   else
-    ent config --set "$1" "$2"
+    V="$2"
+    [ "$V" == "--" ] && V="$3"
+    if [ "$V"  = "" ]; then
+      ent config --get "$1"
+    else
+      ent config --set "$1" "$V"
+    fi
   fi
 }
 
