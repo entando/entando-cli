@@ -30,7 +30,7 @@ debug_trace_vars() {
 HH="$(parse_help_option "$@")"
 show_help_option "$HH"
 
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
+args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" "$@" \
   "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create CRDs and namespace" "$@"
 
 ENT_KUBECTL_CMD=""
@@ -92,6 +92,10 @@ args_or_ask ${HH:+"$HH"} -n "OVERRIDE_DB_TYPE" \
 [ -z "$ENTANDO_NAMESPACE" ] && FATAL "Please provide the namespace"
 [ -z "$ENTANDO_APPNAME" ] && FATAL "Please provide the appname"
 
+[ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
+[ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
+[ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
+
 args_or_ask -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
 args_or_ask -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
 args_or_ask -n -F "JUST_SET_CFG" "--config" "$@"
@@ -125,6 +129,10 @@ ent-set-kubectl-cmd() {
   ent kubectl ent-set-cmd "sudo k3s kubectl"
 }
 
+ent-kubectl() {
+  ent kubectl "$@"
+}
+
 $ENTANDO_MOCK_TEST_RUN && {
   . s/quickstart-mocks.sh
 }
@@ -139,7 +147,7 @@ args_or_ask -f -- "--destroy" "$@" && {
   reload_cfg
   prepare_for_privileged_commands
   ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {
-    _kubectl delete namespace "$ENTANDO_NAMESPACE"
+    ent-kubectl delete namespace "$ENTANDO_NAMESPACE"
   }
   exit
 }
@@ -148,11 +156,22 @@ args_or_ask -f -- "--destroy" "$@" && {
 
 [ -n "$PROFILE" ] && {
   # shellcheck disable=SC1091
-  sourced-ent-profile-use "$PROFILE"
+  sourced-ent-profile-use "$PROFILE" 2> /dev/null && {
+    _log_i 0 "Ent profile \"$PROFILE\" already exists, I will reuse it"
+  }
 }
 
 if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
   assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
+fi
+
+# determines the structure and conventions of the entando-releases repository 
+if check_ver "$ENTANDO_RELEASE" "6.3.>=2" "" "string" ||
+   check_ver "$ENTANDO_RELEASE" "6.>3.*" "" "string" ||
+   check_ver "$ENTANDO_RELEASE" ">6.*.*" "" "string"; then
+   ENTANDO_RELEASES_STRUCTURE_V_6_3_2=true
+else
+   ENTANDO_RELEASES_STRUCTURE_V_6_3_2=false
 fi
 
 if "$ENTANDO_PRE_EXISTING"; then
@@ -166,7 +185,8 @@ FOUND=false
 
 ! $JUST_SET_CFG && {
   # HOSTNAME MODE ----
-  args_or_ask -n -p "ADDR" "--hostname/dn?" "$@" && {
+  if args_or_ask -n -p "ADDR" "--hostname/fdn?" "$@" ||
+     args_or_ask -n -p "ADDR" "--hostname/dn?" "$@"; then
     if [ -n "$ADDR" ]; then
       FOUND=true
     else
@@ -186,7 +206,7 @@ FOUND=false
     if $WITH_VM; then
       VM_OPT="--hostname=\"$ADDR\""
     fi
-  }
+  fi
 
   # AUTO HOSTNAME MODE ----
   if $ENTANDO_AUTO_HOSTNAME; then
@@ -285,10 +305,6 @@ $JUST_SET_CFG && echo "Config has been written" && exit 0
 # WITH-VM
 
 RUN_WITH_VM() {
-  [ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
-  [ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
-  [ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
-
   _log_i 2 "> Preflight checks"
   if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
     local err_msg="A VM named \"$ENTANDO_VM_NAME\" already exists"
@@ -391,6 +407,7 @@ RUN_WITH_VM() {
     multipass exec "$ENTANDO_VM_NAME" -- bash -c "
       cd \
       && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
+      && ent which \
       && $VM_VAR ent check-env runtime \
         ${YES_OPT:+"$YES_OPT"} \
         ${OPT_DNS:+"$OPT_DNS"}"
@@ -462,8 +479,9 @@ RUN_DIRECT() {
   [ -z "$ENT_KUBECTL_CMD" ] && {
     DESIGNATED_KUBECONFIG=""
   }
+  
   setup_kubectl
-
+  
   # -- NETWORKING CHECKS
 
   if ! $WITH_HOSTNAME; then
@@ -496,18 +514,23 @@ RUN_DIRECT() {
   fi
 
   # -- GENERATES THE YAML TGT_FILE FILE
-  determine_template_filename "MANIFEST_TEMPLATE_FILENAME" "$DEPL_SPEC_YAML_FILE" "$K8S_TEMPLATE"
-
-  if [ -f "dist/$MANIFEST_TEMPLATE_FILENAME" ]; then
-    _log_i 1 "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILENAME\""
+  local MANIFEST_TEMPLATE_FILE
+  if $ENTANDO_RELEASES_STRUCTURE_V_6_3_2; then
+    determine_versioned_filename_6_3_2 MANIFEST_TEMPLATE_FILE "${DEPL_SPEC_YAML_FILE}.tpl" "$K8S_TEMPLATE"
   else
-    FATAL "Unable to find manifest template file \"dist/$MANIFEST_TEMPLATE_FILENAME\""
+    determine_versioned_filename_6_3_0 MANIFEST_TEMPLATE_FILE "${DEPL_SPEC_YAML_FILE}.tpl" "$K8S_TEMPLATE"
+  fi
+pwd
+  if [ -f "dist/$MANIFEST_TEMPLATE_FILE" ]; then
+    _log_i 1 "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
+  else
+    FATAL "Unable to find manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
   fi
 
   _log_i 2 "> Generating the kubernetes specification file \"w/$DEPL_SPEC_YAML_FILE\" for the deployment"
 
   # shellcheck disable=SC2002
-  cat "dist/$MANIFEST_TEMPLATE_FILENAME" |
+  cat "dist/$MANIFEST_TEMPLATE_FILE" |
     _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" |
     _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" |
     _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOSTNAME/$SINGLE_HOSTNAME/" |
@@ -521,8 +544,15 @@ RUN_DIRECT() {
   _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
 
   $ENTANDO_STANDARD_QUICKSTART && {
-    ask "Should I register the CRDs?" && {
-      _kubectl apply -f "dist/crd"
+    ask "Should I register the Cluster Level Resources?" && {
+      local CLUSTER_RESOURCES
+      if $ENTANDO_RELEASES_STRUCTURE_V_6_3_2; then
+        determine_versioned_filename_6_3_2 CLUSTER_RESOURCES "cluster-resources.yaml" "$K8S_TEMPLATE"
+      else
+        determine_versioned_filename_6_3_0 CLUSTER_RESOURCES "crd" "$K8S_TEMPLATE"
+      fi
+      
+      ent-kubectl apply -f "dist/$CLUSTER_RESOURCES"
     }
   }
 
@@ -557,9 +587,10 @@ RUN_DIRECT() {
   # -- DEPLOYMENT
   ask "Should I start the deployment?" && {
     $ENTANDO_STANDARD_QUICKSTART && {
-      _kubectl create namespace "$ENTANDO_NAMESPACE"
+      ent-kubectl create namespace "$ENTANDO_NAMESPACE"
     }
-    _kubectl create -f "w/$DEPL_SPEC_YAML_FILE" -n "$ENTANDO_NAMESPACE"
+    _sed_in_place "s/ingressHostName: ~//g" "w/$DEPL_SPEC_YAML_FILE"
+    ent-kubectl create -f "w/$DEPL_SPEC_YAML_FILE" -n "$ENTANDO_NAMESPACE"
   }
 
   # -- POST-DEPLOYMENT
@@ -573,11 +604,24 @@ RUN_DIRECT() {
   }
 }
 
-determine_template_filename() {
+determine_versioned_filename_6_3_0() {
   local dst_var="$1"
   local base_template_name="$2"
   local template_variant="$3"
-  _set_var "$dst_var" "${base_template_name}${template_variant:+".$template_variant"}.tpl"
+  _set_var "$dst_var" "${base_template_name}${template_variant:+".$template_variant"}"
+}
+
+determine_versioned_filename_6_3_2() {
+  local dst_var="$1"
+  local base_template_name="$2"
+  local template_variant="$3"
+
+  if [ -n "$template_variant" ]; then
+    local k8s_version_tag="${template_variant:+".$template_variant"}"
+  else
+    local k8s_version_tag="ge-1-1-6"
+  fi
+  _set_var "$dst_var" "${k8s_version_tag}/namespace-scoped-deployment/${base_template_name}"
 }
 #-----------------------------------------------------------------------------------------------------------------------
 debug_trace_vars

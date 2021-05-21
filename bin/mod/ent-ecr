@@ -47,13 +47,21 @@ RUN() {
   shift
   case "$CMD" in
     "list") #H: shows the list of bundles
-      ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 2>/dev/null \
-      | jq -r ".payload[] | [ \
-          .code, \
-          .lastJob.status // \"(not-installed)\", \
-          .lastJob.componentVersion \
-        ] | @tsv"
+      if args_or_ask ${HH:+"$HH"} -n -f "--debug///" "$@"; then
+        app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
+        trace_vars ENTANDO_LATEST_DETECTED_APPVER url_scheme main_ingress ecr_ingress ignored
+        ecr-prepare-action INGRESS_URL TOKEN
+        trace_vars INGRESS_URL TOKEN 
+        ecr-bundle-action --debug "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 
+      else
+        ecr-prepare-action INGRESS_URL TOKEN
+        ecr-bundle-action "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 2>/dev/null \
+        | jq -r ".payload[] | [ \
+            .code, \
+            .lastJob.status // \"(not-installed)\", \
+            .lastJob.componentVersion \
+          ] | @tsv"
+      fi
       ;;
     "uninstall") #H: uninstalls a bundle
       ecr-prepare-action INGRESS_URL TOKEN

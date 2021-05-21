@@ -16,7 +16,7 @@
   DESIGNATED_KUBECONFIG=""
   KUBECTL_ONCE_OPTIONS=""
   # shellcheck disable=SC2034
-  DEFAULT_APP_SCHEME=""
+  FORCE_URL_SCHEME=""
 
   if [ "$1" = "--with-state" ]; then
     DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENT_WORK_DIR/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
@@ -276,7 +276,13 @@
   }
 
   _edit() {
-    editor "$@"
+    if [ -n "$EDITOR" ]; then
+      "$EDITOR" "$@"
+    elif type editor &>/dev/null; then
+      editor "$@"
+    else
+      vim "$@"
+    fi
   }
 
   #~ END OF FILE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -152,4 +152,34 @@ test_args_or_ask() {
   [ "$RES" = "entando" ] || FATAL "failed! $LINENO"
 }
 
+test_path_functions() {
+  print_current_function_name "> " ".."
+  local RES
+  
+  path-concat RES "a" "b"
+  [ "$RES" = "a/b" ] || FATAL "failed! $LINENO"
+  path-concat RES "a/" "b"
+  [ "$RES" = "a/b" ] || FATAL "failed! $LINENO"
+  path-concat RES "a" "/b"
+  [ "$RES" = "a/b" ] || FATAL "failed! $LINENO"
+  path-concat RES "a/" "/b"
+  [ "$RES" = "a/b" ] || FATAL "failed! $LINENO"
+  
+  path-concat RES "a" ""
+  [ "$RES" = "a/" ] || FATAL "failed! $LINENO"
+  path-concat RES "a/" ""
+  [ "$RES" = "a/" ] || FATAL "failed! $LINENO"
+  path-concat RES "" "b"
+  [ "$RES" = "b" ] || FATAL "failed! $LINENO"
+  path-concat RES "" "/b"
+  [ "$RES" = "/b" ] || FATAL "failed! $LINENO"
+  
+  path-concat RES "" ""
+  [ "$RES" = "" ] || FATAL "failed! $LINENO"
+  
+  path-concat -t RES "a" "b"
+  [ "$RES" = "a/b/" ] || FATAL "failed! $LINENO"
+
+}
+
 true

@@ -54,21 +54,27 @@ hostsfile_add_dns() {
 check_ver() {
   local mode="$4"
   local err_desc="$5"
-  [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
 
-  [[ "$mode" =~ "literal" ]] &&
-    VER=$(eval "$1 $3") ||
-    VER=$(eval "$1 $3 2>/dev/null")
-
-  if [ $? -ne 0 ] || [ -z "$VER" ]; then
-    if [[ ! "$mode" =~ "quiet" ]]; then
-      if [ -z "$err_desc" ]; then
-        _log_i 2 "Program \"$1\" is not available"
-      else
-        _log_i 2 "$err_desc"
+  if [[ "$mode" =~ "string" ]]; then
+    VER="$1"
+    mode+=",quiet"
+  else
+    [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
+    
+    [[ "$mode" =~ "literal" ]] &&
+      VER=$(eval "$1 $3") ||
+      VER=$(eval "$1 $3 2>/dev/null")
+  
+    if [ $? -ne 0 ] || [ -z "$VER" ]; then
+      if [[ ! "$mode" =~ "quiet" ]]; then
+        if [ -z "$err_desc" ]; then
+          _log_i 2 "Program \"$1\" is not available"
+        else
+          _log_i 2 "$err_desc"
+        fi
       fi
+      return 1
     fi
-    return 1
   fi
 
   P="${VER:0:1}"
@@ -137,7 +143,8 @@ check_ver_num() {
     check_ver_num_op="<"
     [[ "$L" -lt "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   }
-  return 1
+
+  [[ "$L" = "$R" ]] && return 0 || return 1
 }
 
 make_safe_resolv_conf() {
@@ -498,6 +505,7 @@ find_nvm_node() {
   done
 
   if [ "$found" != "" ]; then
+    _log_d 2 "\t- version \"$ver\" looks good"
     _log_i 0 "\tfound suitable node version $found"
     _set_var "$outvar" "$found"
     return 0
