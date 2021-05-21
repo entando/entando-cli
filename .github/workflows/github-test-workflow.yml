@@ -9,20 +9,28 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-jobs:  
-  test:
+jobs:
+  static-code-analysis:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 
       - name: prepare
         run: bash -c "sudo apt update && sudo apt install shellcheck"
-      - name: "unit tests"
-        run: bash -c "source ./activate && ent run-tests"
       - name: "shellcheck main"
         run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" $(find bin -maxdepth 3 -type f) $(find s -maxdepth 2 -type f -not -name "*.zsh") hr/auto activate deactivate'
       - name: "shellcheck standalones"
         run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" activate && shellcheck --exclude "SC2181,SC2155,SC2119" deactivate'
-
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 3
+      matrix:
+        target: [ 'linux', 'windows', 'darwin' ]    
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 
+      - name: "unit tests"
+        run: bash -c "source ./activate && ent run-tests"
