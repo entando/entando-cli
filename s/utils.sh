@@ -895,6 +895,9 @@ app-get-main-ingresses-by-version() {
     JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-server-service")].path}{"\n"}'
     JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-cm-service")].path}{"\n"}'
     JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-ab-service")].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[?(@.backend.service.name=="quickstart-server-service")].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[?(@.backend.service.name=="quickstart-cm-service")].path}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[?(@.backend.service.name=="quickstart-ab-service")].path}{"\n"}'
   else
     FATAL -t "Unsupported version \"$version\""
   fi
