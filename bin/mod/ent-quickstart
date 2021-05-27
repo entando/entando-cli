@@ -30,8 +30,8 @@ debug_trace_vars() {
 HH="$(parse_help_option "$@")"
 show_help_option "$HH"
 
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" "$@" \
-  "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create CRDs and namespace" "$@"
+args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
+  "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create cluster resources and namespace" "$@"
 
 ENT_KUBECTL_CMD=""
 

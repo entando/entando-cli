@@ -1047,7 +1047,7 @@ ecr-prepare-action() {
 # - the http operation output in stdout
 #
 ecr-bundle-action() {
-  local DEBUG=false; [ "$1" == "--debug" ] && DEBUG=true; shift
+  local DEBUG=false; [ "$1" == "--debug" ] && DEBUG=true && shift
   local res_var="$1";shift
   local verb="$1";shift
   local action="$1";shift
@@ -1055,6 +1055,8 @@ ecr-bundle-action() {
   local token="$1";shift
   local bundle_id="$1";shift
   local raw_data="$1";shift
+  
+  trace_vars verb action ingress bundle_id raw_data > /dev/tty
   
   local url
   path-concat url "${ingress}" ""
