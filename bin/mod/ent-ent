@@ -104,7 +104,7 @@ RUN() {
 
 if [ "$1" = "--for-sourced-execution" ];  then
   FOR_SOURCED_EXECUTION=true;shift
-  COMMAND_FILE="$1";shift
+  COMMAND_FILE="$2";shift
 else
   FOR_SOURCED_EXECUTION=false
   COMMAND_FILE=""
