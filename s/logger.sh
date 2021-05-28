@@ -25,7 +25,22 @@ __log() { #NOTRACE
   }
   [[ ! $XU_ENABLED_LOG_TYPES =~ $TP ]] && return 0
   [[ $XU_LOG_LEVEL -lt $LL ]] && return 0
-  echo -e "➤ $SY | $(date +'%Y-%m-%d %H-%M-%S') | $*"
+  
+  local HCOL=''
+  local NCOL='\033[0;39m';
+  
+  if "${ENTANDO_IS_TTY:-false}"; then
+    case $TP in
+      I) HCOL='\033[41m\033[1m';;
+      W) HCOL='\033[40m\033[1;33m';;
+    esac
+  fi
+  
+  if [ -n "$HCOL" ]; then
+    echo -e "➤ $(echo -e "$HCOL")$SY | $(date +'%Y-%m-%d %H-%M-%S') | $*$(echo -e "$NCOL")"
+  else
+    echo -e "➤ $SY | $(date +'%Y-%m-%d %H-%M-%S') | $*"
+  fi
 }
 
 _log_e() {
