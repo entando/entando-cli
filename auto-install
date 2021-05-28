@@ -59,7 +59,8 @@ ent_clone_repo_DC7C420E09B4492D() {
           exit 99
         }
         git fetch --tags --force
-        git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
+        local NOT_A_TAG=false
+        git tag | grep "^$TAG\$" > /dev/null || NOT_A_TAG=true
 
         if [ "$UPDATE" -eq 1 ]; then
           echo "> Updating branch of $DSC \"$TAG\"" 1>&2
@@ -69,8 +70,13 @@ ent_clone_repo_DC7C420E09B4492D() {
           }
           git branch -D "$TAG" 1> /dev/null 2>&1 || true
         fi
-
-        if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
+        
+        if $NOT_A_TAG; then
+          git checkout -b "$TAG" 1> /dev/null;
+        else
+          git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null;
+        fi
+        if [ $? -ne 0 ]; then
           echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
           exit 92
         fi
