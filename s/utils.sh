@@ -1059,6 +1059,8 @@ ecr-bundle-action() {
   local bundle_id="$1";shift
   local raw_data="$1";shift
   
+  trace_vars verb action ingress bundle_id raw_data > /dev/tty
+  
   local url
   path-concat url "${ingress}" ""
   url+="components"
