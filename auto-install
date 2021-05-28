@@ -47,34 +47,39 @@ ent_clone_repo_DC7C420E09B4492D() {
 
   if [[ ! -d "$FLD" || "$UPDATE" -ne 0 ]]; then
     (
-      if [ "$TAG" = "master" ]; then
-        echo "Please specify a release tag or a release branch" 1>&2
-        git pull
-      else
-        if [[ ! -d "$FLD" || "$UPDATE" -eq 0 ]]; then
-          git clone "$URL" "$FLD"
-        fi
-        cd "$FLD" || {
-          echo "Unable to enter folder \"$FLD\"" 1>&2
-          exit 99
-        }
-        git fetch --tags --force
-        git tag | grep "^$TAG\$" > /dev/null || local OP="origin/"
-
-        if [ "$UPDATE" -eq 1 ]; then
-          echo "> Updating branch of $DSC \"$TAG\"" 1>&2
-          git checkout -f master 1> /dev/null || {
-            echo "> Unable to checkout the master branch of $DSC \"$TAG\"" 1>&2
-            exit 92
-          }
-          git branch -D "$TAG" 1> /dev/null 2>&1 || true
-        fi
-
-        if ! git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null; then
-          echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
-          exit 92
-        fi
+      if [[ ! -d "$FLD" || "$UPDATE" -eq 0 ]]; then
+        git clone "$URL" "$FLD"
       fi
+      cd "$FLD" || {
+        echo "Unable to enter folder \"$FLD\"" 1>&2
+        exit 99
+      }
+      git fetch --tags --force
+      local NOT_A_TAG=false
+      git tag | grep "^$TAG\$" > /dev/null || NOT_A_TAG=true
+
+      if [ "$UPDATE" -eq 1 ]; then
+        echo "> Updating branch of $DSC \"$TAG\"" 1>&2
+        git checkout -f ent-local-tmp &> /dev/null || git checkout -b ent-local-tmp &> /dev/null || {
+          echo "> Unable to checkout to a TMP branch" 1>&2
+          exit 92
+        }
+        git branch -D "$TAG" 1> /dev/null 2>&1 || true
+      fi
+      
+      if $NOT_A_TAG; then
+        git checkout -b "$TAG" 1> /dev/null;
+      else
+        git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null;
+      fi
+      
+      git branch -D ent-local-tmp
+      
+      if [ $? -ne 0 ]; then
+        echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
+        exit 92
+      fi
+
       if [ $? ]; then
         cd - > /dev/null
       else
