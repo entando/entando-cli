@@ -73,14 +73,13 @@ ent_clone_repo_DC7C420E09B4492D() {
         git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null;
       fi
       
-      git branch -D ent-local-tmp
-      
       if [ $? -ne 0 ]; then
         echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
         exit 92
       fi
 
       if [ $? ]; then
+        git branch -D ent-local-tmp &> /dev/null
         cd - > /dev/null
       else
         cd - > /dev/null
