@@ -269,7 +269,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   }
   echo ""
   (
-    perl -e 'print -t 1 ? exit 0 : exit 1;'
+    perl -e 'print -t STDIN ? exit 0 : exit 1;'
   
     if [ $? -eq 0 ]; then
       H() { echo -e '\033[44m\033[1;37m' ; }

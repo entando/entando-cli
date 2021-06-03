@@ -74,8 +74,9 @@ ent_activate() {
 
 ent_set_default_ent() {
   ENT="$1"
+  chmod u=rwx "$ENTANDO_HOME/activate" 2>/dev/null
   cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
-  cp -P "$ENTANDO_HOME/activate-$ENT.ln" "$ENTANDO_HOME/activate.ln"
+  chmod u=rx "$ENTANDO_HOME/activate" 2>/dev/null
   _log_i 0 "Ent \"$ENT\" is now the global default ent"
 }
 
@@ -93,7 +94,7 @@ RUN() {
   case "$1" in
     "activate") #H: selects the profile that ent should use
       shift
-      ! $FOR_SOURCED_EXECUTION && FATAL "You need to source-execute me"
+      #! $FOR_SOURCED_EXECUTION && FATAL "You need to source-execute me"
       ent_activate "$@"
       ;;
     *)

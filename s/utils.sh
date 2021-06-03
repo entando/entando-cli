@@ -11,7 +11,7 @@ if [ "$?" != 1 ]; then
 fi
 
 if [ -z "$ENTANDO_IS_TTY" ]; then
-  perl -e 'print -t 1 ? exit 0 : exit 1;'
+  perl -e 'print -t STDIN ? exit 0 : exit 1;'
   if [ $? -eq 0 ]; then
     ENTANDO_IS_TTY=true
   else
@@ -347,7 +347,11 @@ print_entando_banner() {
 }
 
 print_hr() {
-  printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
+  if "$ENTANDO_IS_TTY"; then
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
+  else
+    printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
+  fi
 }
 
 # requires that the system environment was checked for development mode

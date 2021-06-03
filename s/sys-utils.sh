@@ -1,7 +1,7 @@
 #!/bin/bash
 # SYS-UTILS
 
-perl -e 'print -t 1 ? exit 0 : exit 1;'
+perl -e 'print -t STDIN ? exit 0 : exit 1;'
 if [ $? -eq 0 ]; then
   ENTANDO_IS_TTY=true
 else

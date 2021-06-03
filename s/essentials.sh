@@ -23,7 +23,7 @@
     ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
-  perl -e 'print -t 1 ? exit 0 : exit 1;'
+  perl -e 'print -t STDIN ? exit 0 : exit 1;'
   if [ $? -eq 0 ]; then
     if [[ -z "$ENTANDO_DEV_TTY" ]]; then
       ENTANDO_DEV_TTY="$(tty)"
@@ -77,10 +77,11 @@
 
   # shellcheck disable=SC2155
   [ -z "$ENTANDO_DEBUG_TTY" ] && {
-    if command -v "tty" >/dev/null; then
-      export ENTANDO_DEBUG_TTY="$(tty)"
-    else
-      export ENTANDO_DEBUG_TTY=""
+    perl -e 'print -t STDIN ? exit 0 : exit 1;'
+    if [ $? -eq 0 ]; then
+      if command -v "tty" >/dev/null; then
+        export ENTANDO_DEBUG_TTY="$(tty)"
+      fi
     fi
   }
 
