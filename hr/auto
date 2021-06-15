@@ -13,6 +13,13 @@ if [ "$1" = "--local-test" ]; then
   . s/essentials.sh
   . activate --force
 else
+  if [[ "$ENTANDO_RELEASE" = "quickstart" ]]; then
+    ENTANDO_RELEASE="$(
+      # shellcheck disable=SC1091
+      source /dev/stdin <<<"$(curl "https://raw.githubusercontent.com/entando/entando-releases/quickstart/manifest" 2> /dev/null)";
+      echo "$QUICKSTART_VERSION";
+    )"
+  fi
 
   if [ -z "$ENTANDO_CLI_VERSION" ]; then
     echo "$ENTANDO_CLI_VERSION";
@@ -25,7 +32,7 @@ else
 
     [ -z "$ENTANDO_CLI_VERSION" ] && echo "Unable to determine the CLI version of release \"$ENTANDO_RELEASE\"" 1>&2 && exit 99
   fi
-
+  
   # shellcheck disable=SC1091
   if [[ "$ENTANDO_RELEASE" = "quickstart" \
      || "$ENTANDO_CLI_VERSION" = "quickstart" \

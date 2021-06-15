@@ -218,7 +218,7 @@ if (
       "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
       ENTANDO_ENT_TMPVAR_0002bb75="$?"
       ;;
-    "profile")
+    "profile"|"P"|"pro")
       if [ "$2" = "use" ]; then
         shift 2
         "$ENTANDO_ENT_HOME/bin/mod/ent-profile" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
