@@ -29,23 +29,21 @@ cd "$DIR/../.." || {
 RUN() {
   HH="$(parse_help_option "$@")"
 
+  
   show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
   args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
 
-  [[ -n "$HH" || -z "$CMD" ]] && {
-    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-    exit 0
-  }
-
   show_help_option "$HH" "$CMD"
-
   case "$CMD" in
   "images") #H: print the images running in the current EntandoApp
     print_images "$@"
     ;;
-  "configmap") #H: prints the configmap used to deploy the current EntandoApp
+  "configmap") #H: prints the images configmap used to deploy the current EntandoApp
     print_configmap "$@"
+    ;;
+  "operator-configmap") #H: prints the configmap used configure the operator deployment parameters
+    print_operator_configmap "$@"
     ;;
   "status") #H: prints status information about the current EntandoApp
     local WATCH
@@ -62,10 +60,12 @@ RUN() {
     fi
     ;;
   "")
-    [ -z "$HH" ] && "${BASH_SOURCE[0]}" --help
+    [ -n "$HH" ] && exit 0
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
     ;;
   *)
     [ -n "$HH" ] && exit 0
+    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
     FATAL "Unknown command \"$CMD\""
     ;;
   esac
@@ -75,6 +75,27 @@ print_configmap() {
   [ -n "$HH" ] && exit 0
   _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get configmap "entando-docker-image-info" -o yaml |
     perl -p0e 's/.*\n(data:.*)/\1/msg' | perl -p0e 's/\n[^ ].*//msg'
+}
+
+print_operator_configmap() {
+  CHECK=true
+  args_or_ask ${HH:+"$HH"} -f -- "--no-check///suppress the check of the application version" "$@" && {
+    CHECK=false;
+  }
+  [ -n "$HH" ] && exit 0
+  if $CHECK; then
+    # shellcheck disable=SC2034
+    local ignore
+    app-get-main-ingresses ignore ignore ignore ignore
+    if ! check_ver_ge "6.3.0" "$ENTANDO_LATEST_DETECTED_APPVER"; then
+      {
+        _log_w 0 "This EntandoApp version doesn't seem to support the configmap \"entando-operator-config\""
+        ask "Should I proceed anyway?" "Y" || FATAL "Quitting"
+      } 1>&2
+    fi
+  fi
+  _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get configmap "entando-operator-config" -o yaml |
+  perl -p0e 's/.*\n(data:.*)/\1/msg' | perl -p0e 's/\n[^ ].*//msg'
 }
 
 print_images() {

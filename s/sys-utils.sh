@@ -147,6 +147,36 @@ check_ver_num() {
   [[ "$L" = "$R" ]] && return 0 || return 1
 }
 
+# checks if a version is equal or after another version
+#
+# $1: reference version
+# $2: compare version
+#
+# please note that:
+# - version suffixes (1.2.3-suffix) are ignored
+# - "v" prefixes (v1.2.3) are ignored
+#
+# the function returns:
+# - "0" (success) if reference version >= compare version
+# - "1" (failure) if reference version < compare version
+#
+check_ver_ge() {
+  VER=$1
+  IFS='.' read -r -a ARR <<< "$2"
+  MAJ="${ARR[0]}"
+  [ "${MAJ:0:1}" = "v" ] && MAJ="${MAJ:1}"
+  MIN="${ARR[1]}"
+  PTC="${ARR[2]}"
+  
+  if check_ver "$VER" "$MAJ.$MIN.>=$PTC" "" "string" ||
+     check_ver "$VER" "$MAJ.>$MIN.*" "" "string" ||
+     check_ver "$VER" ">$MAJ.*.*" "" "string"; then
+     return 0
+  else
+     return 1
+  fi
+}
+
 make_safe_resolv_conf() {
   [ ! -f /etc/resolv.conf.orig ] && sudo cp -ap /etc/resolv.conf /etc/resolv.conf.orig
 

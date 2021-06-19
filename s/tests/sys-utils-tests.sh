@@ -85,3 +85,41 @@ test_check_ver_num() {
     check_ver "v5.0.0-pre" ">6.*.*" "" "string" && FATAL "FAILED $LINENO $?"
   } > /dev/null
 }
+
+test_is_ver_ge_ver() {
+  print_current_function_name "> " ".."
+
+  # GE
+  check_ver_ge "22.44.88" "22.44.88" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.44.88-pre1" "22.44.88" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.44.88" "22.44.88-pre2" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.44.88-pre1" "22.44.88-pre2" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.44.89" "22.44.88" || FATAL "FAILED $LINENO $?"
+  # GE with v
+  check_ver_ge "v22.44.88" "22.44.88" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.88-pre1" "22.44.88" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.88" "22.44.88-pre2" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.88-pre1" "22.44.88-pre2" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.89" "22.44.88" || FATAL "FAILED $LINENO $?"
+  # GE with v v
+  check_ver_ge "v22.44.88" "v22.44.88" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.88-pre1" "v22.44.88" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.88" "v22.44.88-pre2" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.88-pre1" "v22.44.88-pre2" || FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.89" "v22.44.88" || FATAL "FAILED $LINENO $?"
+  # NGE
+  check_ver_ge "22.44.87" "22.44.88" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.44.87-pre1" "22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.43.99" "22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "22.4.99" "22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  # NGE with v
+  check_ver_ge "v22.44.87" "22.44.88" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.87-pre1" "22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.43.99" "22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.4.99" "22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  # NGE with v v
+  check_ver_ge "v22.44.87" "v22.44.88" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.44.87-pre1" "v22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.43.99" "v22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+  check_ver_ge "v22.4.99" "v22.44.88-pre2" && FATAL "FAILED $LINENO $?"
+}
