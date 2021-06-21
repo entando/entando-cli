@@ -166,10 +166,9 @@ if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
   assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
 fi
 
-# determines the structure and conventions of the entando-releases repository 
-if check_ver "$ENTANDO_RELEASE" "6.3.>=2" "" "string" ||
-   check_ver "$ENTANDO_RELEASE" "6.>3.*" "" "string" ||
-   check_ver "$ENTANDO_RELEASE" ">6.*.*" "" "string"; then
+# determines the structure and conventions of the entando-releases repository
+
+if check_ver_ge "$ENTANDO_RELEASE" "6.3.2"; then
    ENTANDO_RELEASES_STRUCTURE_V_6_3_2=true
 else
    ENTANDO_RELEASES_STRUCTURE_V_6_3_2=false

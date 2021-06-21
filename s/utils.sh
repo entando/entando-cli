@@ -479,7 +479,8 @@ args_or_ask() {
     }
     return 1
   }
-
+  
+  JUST_PRINT_HELP=false
   # pare flags
   while true; do
     case "$1" in
@@ -519,7 +520,9 @@ args_or_ask() {
     else
       echo "${val_name}="
     fi
-    return 1
+    
+    $JUST_PRINT_HELP && return 1
+    ! $ARG && return 1
   }
 
   ! $FLAG && ! $PRESERVE && {
