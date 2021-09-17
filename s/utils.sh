@@ -328,22 +328,24 @@ index_of_arg() {
 #
 # shellcheck disable=SC2059
 print_entando_banner() {
-  if $ENTANDO_IS_TTY; then
-    B() { echo '\033[0;34m'; }
-    W() { echo '\033[0;39m'; }
-    N=''
-    printf "\n"
-    printf " $(B)████████╗$(W)\n"
-    printf " $(B)██╔═════╝$(W)\n"
-    printf " $(B)██║$(W) $(B)███████╗$(W)  ██    █  ███████    ███    ██    █  ██████    █████ \n"
-    printf " $(B)╚═╝${N} $(B)█╔═════╝$(W)  █ █   █     █      █   █   █ █   █  █     █  █     █\n"
-    printf " ${N}${N}    $(B)█████╗  $(W)  █  █  █     █     █     █  █  █  █  █     █  █     █\n"
-    printf " ${N}${N}    $(B)█╔═══╝  $(W)  █   █ █     █     ███████  █   █ █  █     █  █     █\n"
-    printf " ${N}${N}    $(B)███████╗$(W)  █    ██     █     █     █  █    ██  ██████    █████    $(B)██╗$(W)\n"
-    printf " ${N}${N}    $(B)╚══════╝$(W)                                                         $(B)██║$(W)\n"
-    printf " ${N}${N}${N}${N}                                                               $(B)████████║$(W)\n"
-    printf " ${N}${N}${N}${N}                                                               $(B)╚═══════╝$(W)\n"
-  fi
+  {
+    if $ENTANDO_IS_TTY; then
+      B() { echo '\033[0;34m'; }
+      W() { echo '\033[0;39m'; }
+      N=''
+      printf "\n"
+      printf " $(B)████████╗$(W)\n"
+      printf " $(B)██╔═════╝$(W)\n"
+      printf " $(B)██║$(W) $(B)███████╗$(W)  ██    █  ███████    ███    ██    █  ██████    █████ \n"
+      printf " $(B)╚═╝${N} $(B)█╔═════╝$(W)  █ █   █     █      █   █   █ █   █  █     █  █     █\n"
+      printf " ${N}${N}    $(B)█████╗  $(W)  █  █  █     █     █     █  █  █  █  █     █  █     █\n"
+      printf " ${N}${N}    $(B)█╔═══╝  $(W)  █   █ █     █     ███████  █   █ █  █     █  █     █\n"
+      printf " ${N}${N}    $(B)███████╗$(W)  █    ██     █     █     █  █    ██  ██████    █████    $(B)██╗$(W)\n"
+      printf " ${N}${N}    $(B)╚══════╝$(W)                                                         $(B)██║$(W)\n"
+      printf " ${N}${N}${N}${N}                                                               $(B)████████║$(W)\n"
+      printf " ${N}${N}${N}${N}                                                               $(B)╚═══════╝$(W)\n"
+    fi
+  } > /dev/stderr
 }
 
 print_hr() {
