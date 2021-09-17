@@ -320,12 +320,8 @@ _ent-bundler() {
     activate_designated_node
     # RUN
     if $OS_WIN; then
-      if "$ENTANDO_IS_TTY"; then
-        "winpty" "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
-      else
-        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" |
-          perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
-      fi
+      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" |
+        perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
     else
       if "$ENTANDO_IS_TTY"; then
         "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
