@@ -892,8 +892,9 @@ app-get-main-ingresses-by-version() {
   
   if [ "$version" = "6.3.0" ]; then
     JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
-    JP+='{"-"}{"\n"}'
+    JP+='{"?"}{"\n"}'
     JP+='{.spec.rules[0].host}{"\n"}'
+    JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
     JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
     JP+='{.spec.rules[0].http.paths[1].path}{"\n"}'
     JP+='{.spec.rules[0].http.paths[2].path}{"\n"}'
@@ -901,12 +902,17 @@ app-get-main-ingresses-by-version() {
     JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
     JP+='{"-"}{.spec.tls}{"\n"}'
     JP+='{.spec.rules[0].host}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-server-service")].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-cm-service")].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[?(@.backend.serviceName=="quickstart-ab-service")].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[?(@.backend.service.name=="quickstart-server-service")].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[?(@.backend.service.name=="quickstart-cm-service")].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[?(@.backend.service.name=="quickstart-ab-service")].path}{"\n"}'
+    # property detection: serviceName
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-server-service")].path}{"\n"}'
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
+    # property detection: service.name
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-server-service")].path}{"\n"}'
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
+    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
+
   else
     FATAL -t "Unsupported version \"$version\""
   fi
@@ -916,6 +922,8 @@ app-get-main-ingresses-by-version() {
   
   if [ "${OUT[0]}" = "-" ]; then
     _set_var "$res_var_scheme" "http"
+  elif [ "${OUT[0]}" = "?" ]; then
+    _set_var "$res_var_scheme" ""
   else
     _set_var "$res_var_scheme" "https"
   fi
@@ -924,9 +932,17 @@ app-get-main-ingresses-by-version() {
   _set_var "$res_var_svc" ""
   _set_var "$res_var_ecr" ""
   _set_var "$res_var_apb" ""
-  [ -n "${OUT[2]}" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]}"
-  [ -n "${OUT[3]}" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[3]}"
-  [ -n "${OUT[4]}" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[4]}"
+  
+  [ "${OUT[2]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]:1}"
+  [ "${OUT[3]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[3]:1}"
+  [ "${OUT[6]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[6]:1}"
+  [ "${OUT[7]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[7]:1}"
+  
+  [ "${OUT[4]}" != "-" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[4]:1}"
+  [ "${OUT[8]}" != "-" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[8]:1}"
+  
+  [ "${OUT[5]}" != "-" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[5]:1}"
+  [ "${OUT[9]}" != "-" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[9]:1}"
 }
 
 # Concatenates two path parts
@@ -965,37 +981,70 @@ path-concat() {
   _set_var "$out" "$TMP"
 }
 
-keycloak-get-token() {
-  local res_var="$1"
-  shift
-  local scheme="$1"
-  local auth_url
-  auth_url="$(
-    _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null \
-      | grep kc-ingress | awk '{print $2}'
-  )/auth"
+keycloak-query-connection-data() {
+  local tmp
+  local scheme="$5"
+  local _tmp_client_id
+  local _tmp_client_secret
+  local _tmp_auth_url
+  local _tmp_realm="entando"
   
-  [ -z "$auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+  tmp="$(
+    _kubectl get secret "external-sso-secret" -o jsonpath="{.data.clientId}:{.data.clientSecret}:{.data.authUrl}:{.data.realm}" 2> /dev/null
+  )"
+  
+  if [[ "$?" = "0" && -n "$tmp" ]]; then
+    # EXTERNAL KEYCLOAK CONFIGURATION
+    _log_d 3 "external-sso-secret found"
+    _tmp_auth_url="$(echo "$tmp" | cut -d':' -f3)"
+    _tmp_auth_url=$(base64 -d <<< "$_tmp_auth_url")
+    _tmp_realm="$(echo "$tmp" | cut -d':' -f4)"
+    _tmp_realm=$(base64 -d <<< "$_tmp_realm")
+    [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+  else
+    # INTERNAL KEYCLOAK CONFIGURATION
+    local client_secret_name="${ENTANDO_APPNAME}-de-secret"
+    tmp="$(
+      _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
+    )"
+    
+    _tmp_auth_url="$(
+      _kubectl get ingress -o "custom-columns=NAME:.metadata.name,HOST:.spec.rules[0].host" 2>/dev/null \
+        | grep -E -- 'kc-ingress|-sso-' | head -n 1 | awk '{print $2}'
+    )"
+    
+    [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+    _tmp_auth_url+="/auth"
+    _tmp_auth_url="$scheme://$_tmp_auth_url"
+  fi
+  
+  client_id="$(echo "$tmp" | cut -d':' -f1)"
+  client_secret="$(echo "$tmp" | cut -d':' -f2)"
+  
+  [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
 
-  local TOKEN_ENDPOINT
-  TOKEN_ENDPOINT="$(curl --insecure -sL "${scheme}://${auth_url}/realms/entando/.well-known/openid-configuration" \
-    | jq -r ".token_endpoint")"
+  _tmp_client_id=$(base64 -d <<< "$client_id")
+  _tmp_client_secret=$(base64 -d <<< "$client_secret")
+ 
+  _set_var "$1" "$_tmp_auth_url"
+  _set_var "$2" "$_tmp_client_id"
+  _set_var "$3" "$_tmp_client_secret"
+  _set_var "$4" "$_tmp_realm"
+}
+
+keycloak-get-token() {
+  local res_var="$1"; shift
+  local scheme="$1"
+  local auth_url client_id client_secret realm
   
   [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
 
-  #local client_secret_name="${ENTANDO_APPNAME}-server-secret"
-  local client_secret_name="${ENTANDO_APPNAME}-de-secret"
-  local client_id client_secret tmp
-  tmp="$(
-    _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
-  )"
-  client_id="$(echo "$tmp" | cut -d':' -f1)"
-  client_secret="$(echo "$tmp" | cut -d':' -f2)"
-
-  [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
-
-  client_id=$(base64 -d <<< "$client_id")
-  client_secret=$(base64 -d <<< "$client_secret")
+  keycloak-query-connection-data auth_url client_id client_secret realm "$scheme"
+  
+  # Finds the KEYCLOAK ENDPOINT
+  local TOKEN_ENDPOINT
+  TOKEN_ENDPOINT="$(curl --insecure -sL "${auth_url}/realms/${realm}/.well-known/openid-configuration" \
+    | jq -r ".token_endpoint")"
   
   local TOKEN
   TOKEN="$(curl --insecure -sL "$TOKEN_ENDPOINT" \
