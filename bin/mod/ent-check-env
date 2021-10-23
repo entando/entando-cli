@@ -44,6 +44,8 @@ fi
 args_or_ask -n -a -- "ARG1" '1///%sp command' "$@"
 args_or_ask -n -a -- "ARG2" '2///context dependent parameter' "$@"
 
+FAIL_MSG="I can't automatically fix this dependency. Manual intervention required."
+
 M_DEVL=false
 M_KUBE=false
 M_QS=false
@@ -103,33 +105,33 @@ $M_DEVL && {
 
 # MISC
 
-check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
-check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
-check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
+check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "$FAIL_MSG"
+check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "$FAIL_MSG"
+check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "$FAIL_MSG"
 check_ver "awk" "*.*.*" "--version | head -n 1" "quiet" || {
-  check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || MAYBE_FATAL "Quitting"
+  check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || MAYBE_FATAL "$FAIL_MSG"
 }
-check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
-check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
+check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "$FAIL_MSG"
+check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "$FAIL_MSG"
 
 $M_DEVL && {
   #[ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
   check_ver "java" "*.*.*" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
     _log_e 0 "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this command"
-    MAYBE_FATAL "Quitting"
+    MAYBE_FATAL "$FAIL_MSG"
   }
   #save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
 }
 
-$M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"; }
-$M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"; }
-check_ver "curl" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+$M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "$FAIL_MSG"; }
+$M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "$FAIL_MSG"; }
+check_ver "curl" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "$FAIL_MSG"
 $M_DEVL && {
   check_ver "watch" "*.*.*" "-v" || {
     prompt "Recommended dependency not found, workaround will be applied.\nPress enter to continue.."
   }
   
-  check_ver "jq" "*.*.*" "--version" || MAYBE_FATAL "Quitting"
+  check_ver "jq" "*.*.*" "--version" || MAYBE_FATAL "$FAIL_MSG"
 }
 
 # DNS
@@ -194,7 +196,9 @@ $M_DEVL && {
 
 $M_DEVL && {
   rescan-sys-env force
+  nvm_activate
 }
+
 
 # NODE
 $M_DEVL && {

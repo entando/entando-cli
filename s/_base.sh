@@ -393,7 +393,7 @@ print_ent_general_status() {
     | sed "s/ENTANDO_FORCE_//" \
     | sed "s/_/ /g" \
     | sed "s/=/: /" \
-    |  xargs -L 1 -I {} echo " - TTY SESSION {}"
+    | xargs -I {} echo " - TTY SESSION {}"
   )
   if [ -n "$TTY_ENV" ]; then
     _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
