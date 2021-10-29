@@ -3,6 +3,16 @@
 
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
+
+  # TTY DETECT
+  SYS_IS_STDIN_A_TTY=true;SYS_IS_STDOUT_A_TTY=true
+  perl -e 'print -t STDIN ? exit 0 : exit 1' || {
+    SYS_IS_STDIN_A_TTY=false
+  }
+  perl -e 'print -t STDOUT ? exit 0 : exit 1' || {
+    SYS_IS_STDOUT_A_TTY=false
+  }
+
   # OS DETECT
   OS_LINUX=false
   OS_MAC=false
@@ -23,8 +33,7 @@
     ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
-  perl -e 'print -t STDIN ? exit 0 : exit 1;'
-  if [ $? -eq 0 ]; then
+  if [ $SYS_IS_STDOUT_A_TTY ]; then
     if [[ -z "$ENTANDO_DEV_TTY" ]]; then
       ENTANDO_DEV_TTY="$(tty)"
       # shellcheck disable=SC2034

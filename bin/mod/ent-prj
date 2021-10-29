@@ -60,7 +60,7 @@ RUN() {
       require_ent_project_dir
       prj_ecr_deploy "$@"
       ;;
-    "install") #H: generates the CR and deploys it to the current profile
+    "install") #H: installs the current project bundle
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
       local VERSION_TO_INSTALL CONFLICT_STRATEGY
@@ -73,7 +73,7 @@ RUN() {
       require_ent_project_dir
       prj_ecr_install "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
       ;;
-    "uninstall") #H: generates the CR and deploys it to the current profile
+    "uninstall") #H: uninstalls the current project bundle
       HH="$(parse_help_option "$@")"
       args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
       args_or_ask ${HH:+"$HH"} -n -F "PURGE_VOLUMES" "--volumes///Also deletes the volumes" "$@"
@@ -163,12 +163,12 @@ RUN() {
       require_ent_project_dir
       be_list_pods
       ;;
-    "be-update-deployment" | "brp") #H: list the pods related to this bundle project
+    "be-update-deployment" | "brp") #H: updates the deployment related to this bundle
       require_develop_checked
       require_ent_project_dir
       be_restart_pods 0
       ;;
-    "be-purge") #H: list the pods related to this bundle project
+    "be-purge") #H: purges all the backend kubernetes resoources related to this bundle
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
       args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
@@ -184,7 +184,7 @@ RUN() {
       require_ent_project_dir
       be_info
       ;;
-    "be-push" | "bp") #H: pushes the backend to the repo
+    "be-push" | "bp") #H: pushes the backend to the images registry
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
       local restart_pods_after
@@ -206,6 +206,14 @@ RUN() {
     "be-test-run" | "br") #H: locally executes the backend
       require_ent_project_dir
       be_test_run
+      ;;
+    "be-logs" | "bl") #H: shows the logs of the bundle pod
+      require_ent_project_dir
+      be_pod_action "log"
+      ;;
+    "be-describe" | "bd") #H: shows the logs of the bundle pod
+      require_ent_project_dir
+      be_pod_action "describe"
       ;;
       # ~~~~~~~~~~~~~~~~~~~~
       #H:> EXTERNALS:
@@ -652,6 +660,12 @@ be_push() {
   else
     return 0
   fi
+}
+
+be_pod_action() {
+  get_be_info
+  pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | tail +2 | cut -d' ' -f 1)"
+  ent pod "$1" "$pods"
 }
 
 push_docker() {

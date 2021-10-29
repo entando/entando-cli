@@ -294,11 +294,11 @@ activate_designated_node() {
 
   [[ -z "$ACTIVATED_NODE_VERSION" || "$ACTIVATED_NODE_VERSION" != "$DESIGNATED_NODE_VERSION" ]] && {
     check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
-      local ERRMSG="Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\"): "
-      ERRMSG+="The required node version is not present anymore or it's corrupted,"
-      ERRMSG+="you may try to reinstall it using nvm."
       nvm use "$DESIGNATED_NODE_VERSION" >/dev/null
       if [[ "$(node -v)" != "$DESIGNATED_NODE_VERSION" ]]; then
+        local ERRMSG="Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\"): "
+        ERRMSG+="The required node version is not present anymore or it's corrupted,"
+        ERRMSG+="you may try to reinstall it using nvm."
         _log_e 1 "$ERRMSG"
         return 1
       fi
@@ -393,11 +393,12 @@ print_ent_general_status() {
     | sed "s/ENTANDO_FORCE_//" \
     | sed "s/_/ /g" \
     | sed "s/=/: /" \
-    |  xargs -L 1 -I {} echo " - TTY SESSION {}"
+    | xargs -I {} echo " - TTY SESSION {}"
   )
   if [ -n "$TTY_ENV" ]; then
     _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
     echo -n "$TTY_ENV"
+    echo ""
     print_hr
   fi
 }

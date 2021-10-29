@@ -10,12 +10,12 @@ if [ "$?" != 1 ]; then
   IS_GIT_CREDENTIAL_MANAGER_PRESENT=true
 fi
 
-if [ -z "$ENTANDO_IS_TTY" ]; then
+if [ -z "$SYS_IS_STDIN_A_TTY" ]; then
   perl -e 'print -t STDIN ? exit 0 : exit 1;'
   if [ $? -eq 0 ]; then
-    ENTANDO_IS_TTY=true
+    SYS_IS_STDIN_A_TTY=true
   else
-    ENTANDO_IS_TTY=false
+    SYS_IS_STDIN_A_TTY=false
   fi
 fi
 
@@ -329,7 +329,7 @@ index_of_arg() {
 # shellcheck disable=SC2059
 print_entando_banner() {
   {
-    if $ENTANDO_IS_TTY; then
+    if $SYS_IS_STDIN_A_TTY; then
       B() { echo '\033[0;34m'; }
       W() { echo '\033[0;39m'; }
       N=''
@@ -349,7 +349,7 @@ print_entando_banner() {
 }
 
 print_hr() {
-  if "$ENTANDO_IS_TTY"; then
+  if "$SYS_IS_STDIN_A_TTY"; then
     printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
   else
     printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
@@ -888,10 +888,10 @@ app-get-main-ingresses-by-version() {
   local res_var_ecr="$4"
   local res_var_apb="$5"
   shift
-  local JP=""
-  
+
+  local JP='{range .items[?(@.metadata.name=="'"$ENTANDO_APPNAME-ingress"'")]}'
+
   if [ "$version" = "6.3.0" ]; then
-    JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
     JP+='{"?"}{"\n"}'
     JP+='{.spec.rules[0].host}{"\n"}'
     JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
@@ -912,11 +912,12 @@ app-get-main-ingresses-by-version() {
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
-
   else
     FATAL -t "Unsupported version \"$version\""
   fi
   
+  JP+='{end}'
+
   local OUT
   stdin_to_arr $'\n\r' OUT < <(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)
   
