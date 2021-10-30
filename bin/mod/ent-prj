@@ -114,20 +114,20 @@ RUN() {
       require_develop_checked
       require_ent_project_dir
       print_entando_banner
-      activate_designated_node
+      node.activate_environment
       fe_build "$@"
       bundle_all
       ;;
     "fe-push" | "fp") #H: [--force] pushes the frontend to the repo
       require_develop_checked
       require_ent_project_dir
-      activate_designated_node
+      node.activate_environment
       fe_push "$@"
       ;;
     "fe-test-run" | "fr") #H: runs the one of the frontend components
       require_develop_checked
       require_ent_project_dir
-      activate_designated_node
+      node.activate_environment
       fe_test_run "$@"
       ;;
     "fe-list" | "fls") #H: lists the frontend components
@@ -340,13 +340,13 @@ fe_build() {
   if [[ "$1" == "--all" || "$1" == "-a" ]]; then
     shift
     require_ent_project_dir
-    activate_designated_node
+    node.activate_environment
     bash ./prepareMicrofrontends.sh
   else
     fe_select_widget "build" && (
       __cd "$SELECTED_WIDGET"
-      _npm install
-      _npm run build --production
+      _ent-npm install
+      _ent-npm run build --production
     )
   fi
 }
@@ -385,7 +385,7 @@ fe_widget_do() {
 fe_test_run() {
   fe_select_widget "run" && (
     __cd "$SELECTED_WIDGET"
-    _npm install && _npm start
+    _ent-npm install && _ent-npm start
   )
 }
 
@@ -445,7 +445,7 @@ be_info() {
 
 be_build() {
   require_ent_project_dir
-  activate_designated_node
+  node.activate_environment
 
   get_be_info
   be_update_plugin_descriptor

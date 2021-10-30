@@ -49,9 +49,9 @@ RUN() {
     "list") #H: shows the list of bundles
       if args_or_ask ${HH:+"$HH"} -n -f "--debug///" "$@"; then
         app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
-        trace_vars ENTANDO_LATEST_DETECTED_APPVER url_scheme main_ingress ecr_ingress ignored
+        _pp ENTANDO_LATEST_DETECTED_APPVER url_scheme main_ingress ecr_ingress ignored
         ecr-prepare-action INGRESS_URL TOKEN
-        trace_vars INGRESS_URL TOKEN 
+        _pp INGRESS_URL TOKEN 
         ecr-bundle-action --debug "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 
       else
         ecr-prepare-action INGRESS_URL TOKEN

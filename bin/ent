@@ -103,6 +103,12 @@ RUN() {
       "auto-align-kubectl") #H: automaticall align the kubectl version to the server version
         ent kubectl "ent-auto-align" "$@"
         ;;
+      "node"|"npm")
+        ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+        ;;
+      "jhipster"|"bundler")
+        ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+        ;;
       "")
         # shellcheck disable=SC1091
         source ent help

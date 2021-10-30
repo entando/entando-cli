@@ -120,7 +120,7 @@ use_profile() {
   if $USE_CURRENT_DIR; then
     apps_base_dir="$ENTANDO_CALLER_PWD/.ent/profiles"
   else
-    apps_base_dir="$ENTANDO_HOME/profiles"
+    apps_base_dir="$ENTANDO_PROFILES"
   fi
 
   $USE_NO_PROFILE && profile="--none"
@@ -266,7 +266,7 @@ new_profile() {
   if $USE_CURRENT_DIR; then
     app_dir="$ENTANDO_CALLER_PWD/.ent/profiles/$PROFILE"
   else
-    app_dir="$ENTANDO_HOME/profiles/$PROFILE"
+    app_dir="$ENTANDO_PROFILES/$PROFILE"
   fi
 
   [ -d "${app_dir}" ] && FATAL "Application profile \"$PROFILE\" already exists under dir: \"$app_dir\""
@@ -329,7 +329,7 @@ delete_profile() {
   if $USE_CURRENT_DIR; then
     apps_base_dir="$ENTANDO_CALLER_PWD/.ent/profiles"
   else
-    apps_base_dir="$ENTANDO_HOME/profiles"
+    apps_base_dir="$ENTANDO_PROFILES"
   fi
 
   local PROFILE
@@ -368,7 +368,7 @@ list_profiles() {
   if $USE_CURRENT_DIR; then
     apps_base_dir="$ENTANDO_CALLER_PWD/.ent/profiles"
   else
-    apps_base_dir="$ENTANDO_HOME/profiles"
+    apps_base_dir="$ENTANDO_PROFILES"
   fi
 
   (

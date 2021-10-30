@@ -32,6 +32,4 @@ test_args_or_ask
 test_asserters
 test_multipass_mocks
 
-test_mod_check-env_find_nvm_node
-
 true

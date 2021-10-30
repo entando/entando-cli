@@ -99,43 +99,48 @@ $M_CFG && {
   }
 }
 
-
+# checks the installation status of a npm package installed from source
+#
 check_npm_git_package() {
   local ADDR="$1"
   local VER_REQ="$2"
   local VER_DEF="$3"
-  local FLD="$4"
-  local DESC="$5"
+  local PACKAGE_NAME="$4"
+  local PACKAGE_DESC="$5"
 
-  _log_i 3 "Checking ENT private installation of $DESC.."
+  _log_i 3 "Checking ENT private installation of $PACKAGE_DESC.."
 
   (
-    __cd "$ENTANDO_ENT_HOME"
-    if [ -d "lib/$FLD/$VER_REQ/" ]; then
+    [ ! -d "$ENT_NODE_ENTANDO" ] && __mk_disdir "$ENT_NODE_ENTANDO"
+    __cd "$ENT_NODE_ENTANDO"
+    
+    if [ -f "$PACKAGE_NAME/$VER_REQ/.entando-finalized" ]; then
       _log_i 3 "\tfound: $VER_REQ => OK"
     else
-      _log_i 2 "Version \"$VER_REQ\" of \"$DESC\" was not found"
+      _log_i 2 "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found"
 
       if ask "Should I try to install it?" "y"; then
-        __mk-cd "lib/$FLD/"
-
-        local OD="$PWD"
+        [ ! -d "$PACKAGE_NAME" ] && __mk_disdir "$PACKAGE_NAME"
+        __cd "$PACKAGE_NAME"
+        local BASE_PACKAGE_DIR="$PWD"
+        [[ -d "$BASE_PACKAGE_DIR/$VER_DEF" ]] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
+        __mk_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
 
         (
-          git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
-          if [ -f "./package-lock.json" ]; then
-            _npm ci
-          else
-            _npm install
-          fi
-          _ent-npm install-from-source
+          git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$PACKAGE_DESC" "ENTER,FATAL"
+          
+          [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL "Inconsistent directory structure"
+          __mk_disdir --mark "$BASE_PACKAGE_DIR/$VER_DEF"
+
+          _ent-npm install --global && {
+            date > .entando-finalized
+            echo '~~~'$'\n'
+          }
         ) || {
-          _log_e 0 "An error occurred while installing $DESC.. rolling back"
           local EC="$?"
-          __cd "$OD"
-          if [ -n "${VER_DEF}" ]; then
-            rm -rf "$VER_DEF" 2> /dev/null
-          fi
+          _log_e 0 "An error has occurred while installing $PACKAGE_DESC.. rolling back"
+          __cd "$BASE_PACKAGE_DIR"
+          [ ! -d "$PACKAGE_NAME/$VER_DEF" ] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
           exit $EC
         }
       else
@@ -229,56 +234,37 @@ $M_KUBE && {
   esac
 }
 
-# NVM
+# ENT-LOCAL NODE.JS installation
 $M_DEVL && {
-  nvm_activate
-  check_ver "nvm" "${VER_NVM_REQ:-*.*.*}" "--version | grep -v '^$' | head -1" verbose || {
-    $OS_WIN && FATAL_DEPENDENCY_ERROR "nvm for windows (\"nvm-windows\")"
-    # shellcheck disable=SC2015
-    ask "Should I try to install it?" "y" && {
-      curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$VER_NVM_DEF/install.sh" | bash
-      return 0
-    } || {
-      FATAL_DEPENDENCY_ERROR "Mandatory dependency not available"
-    }
-  }
-  nvm_activate
-}
-
-$M_DEVL && {
-  rescan-sys-env force
-  nvm_activate
-}
-
-# NODE
-$M_DEVL && {
-  _log_i 1 "Checking node.."
-  # shellcheck disable=SC2015
-
-  find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
-    DESIGNATED_NODE_VERSION="$RES"
-    true
-  } || {
-    if ask "Should I try to install the preferred version ($VER_NODE_DEF)?" "y"; then
-      _nvm install "$VER_NODE_DEF"
-      _nvm use "$VER_NODE_DEF"
-      DESIGNATED_NODE_VERSION="$VER_NODE_DEF"
+  _log_i 3 "Checking ENT private installation of node.js.."
+  
+  check_ver "_ent-node" "$VER_NODE_REQ" "--version" "quiet,verbose" \
+    "ENT private node.js installation is not available" || 
+  {
+    if ask "Should I try to install it?" "y"; then
+      node.install "$VER_NODE_DEF"
+      
+      _log_i 1 "Node installed and activated:"
+      echo "  NODE: $(_ent-node --version)"
+      echo "  NPM: $(_ent-npm --version)"
     else
       DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
   }
   
-  save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION" "$ENT_DEFAULT_CFG_FILE"
-  nvm_activate
-  activate_designated_node || DEPENDENCY_ERROR "Unable to activate the found version"
-  rescan-sys-env force
+  reload_cfg
+  node.activate_environment || DEPENDENCY_ERROR "Unable to activate the found version"
 }
 
-# ENT-LOCAL-JHIPSTER installation
+# ENT-LOCAL JHIPSTER installation
 $M_DEVL && {
-  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" verbose "ENT private jhipster installation is not available" || {
+  _log_i 3 "Checking ENT private installation of jhipster.."
+  
+  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" \
+    "ENT private jhipster installation is not available" ||
+  {
     if ask "Should I try to install it?" "y"; then
-      _ent-npm install-package "generator-jhipster@$VER_JHIPSTER_DEF"
+      _ent-npm install --global "generator-jhipster@$VER_JHIPSTER_DEF"
     else
       DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
@@ -293,7 +279,7 @@ $M_DEVL && {
     "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
-
+    
   # ENTANDO-BUNDLER (entando bundle management tool)
   check_npm_git_package \
     "$REPO_ENTANDO_BUNDLER_ADDR" \

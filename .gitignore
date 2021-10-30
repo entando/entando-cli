@@ -1,5 +1,5 @@
 w/
-lib/
+opt/
 prj/
 .xdev
 .kdev4
@@ -7,3 +7,7 @@ prj/
 *.swp
 .idea
 *.iml
+
+########
+.ent/ent-state
+

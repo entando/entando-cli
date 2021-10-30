@@ -27,6 +27,12 @@
   KUBECTL_ONCE_OPTIONS=""
   # shellcheck disable=SC2034
   FORCE_URL_SCHEME=""
+  C_DEF_ARCHIVE_FORMAT=""
+  
+  case "$(perl -MConfig -e 'print $Config{longsize}*8 . "\n";')" in
+    32) SYS_CPU_ARCH="x86";;
+    *) SYS_CPU_ARCH="x86-64";;
+  esac
 
   if [ "$1" = "--with-state" ]; then
     DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENT_WORK_DIR/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
@@ -49,6 +55,7 @@
       OS_LINUX=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
+      C_DEF_ARCHIVE_FORMAT="tar.gz"
       ;;
     darwin*)
       SYS_OS_TYPE="mac"
@@ -56,6 +63,7 @@
       OS_MAC=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="-"
       C_HOSTS_FILE="/private/etc/hosts"
+      C_DEF_ARCHIVE_FORMAT="tar.gz"
       ;;
     "cygwin" | "msys")
       SYS_OS_TYPE="win"
@@ -63,6 +71,7 @@
       OS_WIN=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
+      C_DEF_ARCHIVE_FORMAT="zip"
       ;;
     win*)
       SYS_OS_TYPE="win"
@@ -70,6 +79,7 @@
       OS_WIN=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="%SystemRoot%\System32\drivers\etc\hosts"
+      C_DEF_ARCHIVE_FORMAT="zip"
       ;;
     "freebsd" | "openbsd")
       SYS_OS_TYPE="bsd"
@@ -77,6 +87,7 @@
       OS_BSD=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
+      C_DEF_ARCHIVE_FORMAT="tar.gz"
       ;;
     *)
       SYS_OS_TYPE="UNKNOWN"
