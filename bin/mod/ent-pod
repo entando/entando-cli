@@ -31,6 +31,7 @@ RUN() {
 
   show_help_option "$HH" ":main"
   args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
+  args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
   
   if [ "$CMD" = "x" ]; then
     args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '3/any?/.*/%sp pod pattern (or --all)' "$@"
@@ -73,9 +74,13 @@ RUN() {
       shift 2
       pod_action exec "$@"
       ;;
-    "logs") #H: show the logs of a pod
+    "logs"|"log") #H: show the logs of a pod
       shift 2
       pod_action x logs "$@"
+      ;;
+    "force-reload") #H: forces the reload of a pod related to a given deployment
+      shift 2
+      pod_action force-reload
       ;;
     "x") #H: executes the given k8s command against the a given pod
       shift;CMD="$1";shift 2
@@ -189,6 +194,9 @@ pod_action() {
       echo "Executing \"exec\" command against $(mk_target_desc)"
       _kubectl exec --stdin --tty ${NAMESPACE:+-n "$NAMESPACE"} "$SELECTED_POD" -c "$SELECTED_CONTAINER" -- "$@"
       ;;
+    "force-reload")
+      pod_action.force-reload "$SELECTED_POD"
+      ;;
     "x")
       ACTION="$1"
       shift
@@ -243,6 +251,51 @@ process_pod_pattern() {
   else
     MULTIPAR_POT_PATTERN=false
   fi
+}
+
+pod_action.force-reload() {
+  local POD="$1"
+  
+  _log_d 0 "Selected pod \"$SELECTED_POD\""
+  
+  _log_d 0 "Looking for the pod's k8s deployment.."
+  
+  local pod_depl="$(
+    ent kubectl get pod "$POD" -o json | jq '.metadata.labels."entando.org/deployment"' -r
+  )"
+  if [[ -z "$pod_depl" || "$pod_depl" = "null" ]]; then
+    pod_depl="$(
+      ent kubectl get pod "$POD" -o json | jq '.metadata.labels."deployment"' -r
+    )"
+  fi
+  [[ -z "$pod_depl" || "$pod_depl" = "null" ]] && FATAL "Unable to find the pod's k8s deployment"
+  
+  if [[ ! "$pod_depl" =~ *-deployment ]]; then
+    pod_depl+="-deployment"
+  fi
+  
+  _log_d 3 "Found k8s deployment \"$pod_depl\""
+  
+  # PHASE 1: change the pull strategy
+  _log_i 0 "This operation will change the pull strategy of the k8s deployment: \"$pod_depl\""
+  ask "I trust you know what you are doing. Should I proceed?" "Y" || FATAL "Quitting"
+  
+  ent kubectl patch deployment "$pod_depl" \
+    --type='json' \
+    -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Always"}]' \
+  ;
+  
+  _log_d 3 "The pull strategy of deployment \"$pod_depl\" was changed to \"Always\""
+  
+  # PHASE 2: delete the pod
+  _log_i 0 "I you like I can now delete the old (inactive) POD? \"$POD\""
+  ask "Should I proceed?" "Y" || FATAL "Quitting"
+  
+  ent kubectl delete pod "$POD"
+  
+  _log_d 3 "Pod \"$POD\" deletion requested"
+  
+  _log_i 0 "Force reload completed."
 }
 
 RUN "$@"
