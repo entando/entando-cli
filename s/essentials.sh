@@ -3,6 +3,18 @@
 
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
+
+  # TTY DETECT
+  SYS_IS_STDIN_A_TTY=true;SYS_IS_STDOUT_A_TTY=true
+  perl -e 'print -t STDIN ? exit 0 : exit 1' || {
+    # shellcheck disable=SC2034
+    SYS_IS_STDIN_A_TTY=false
+  }
+  perl -e 'print -t STDOUT ? exit 0 : exit 1' || {
+    # shellcheck disable=SC2034
+    SYS_IS_STDOUT_A_TTY=false
+  }
+
   # OS DETECT
   OS_LINUX=false
   OS_MAC=false
@@ -23,8 +35,7 @@
     ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
-  perl -e 'print -t STDIN ? exit 0 : exit 1;'
-  if [ $? -eq 0 ]; then
+  if [ $SYS_IS_STDOUT_A_TTY ]; then
     if [[ -z "$ENTANDO_DEV_TTY" ]]; then
       ENTANDO_DEV_TTY="$(tty)"
       # shellcheck disable=SC2034
@@ -42,21 +53,21 @@
       C_HOSTS_FILE="/etc/hosts"
       ;;
     darwin*)
-      SYS_OS_TYPE="mac"
+      SYS_OS_TYPE="darwin"
       SYS_GNU_LIKE=true
       OS_MAC=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="-"
       C_HOSTS_FILE="/private/etc/hosts"
       ;;
     "cygwin" | "msys")
-      SYS_OS_TYPE="win"
+      SYS_OS_TYPE="windows"
       SYS_GNU_LIKE=true
       OS_WIN=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     win*)
-      SYS_OS_TYPE="win"
+      SYS_OS_TYPE="windows"
       SYS_GNU_LIKE=false
       OS_WIN=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
