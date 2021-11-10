@@ -5,7 +5,7 @@
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
-  echo "Internal error: unable to find the script source dir" 1>&2
+  echo "Internal error: unable to find the script source dir" | _comment
   exit
 }
 
@@ -17,11 +17,13 @@ args_or_ask ${HH:+"$HH"} -n -F LOCALINFO '--localinfo///%sp the information of t
 args_or_ask ${HH:+"$HH"} -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
 args_or_ask ${HH:+"$HH"} -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
 args_or_ask ${HH:+"$HH"} -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
+args_or_ask ${HH:+"$HH"} -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
 
 if ! "$TOSTDOUT"; then
   SUMMARY_FILE="summary.txt"
 else
   SUMMARY_FILE=""
+  SEQUENTIAL=true
 fi
 
 CRD_JSON_FILE="crds.json"
@@ -29,153 +31,395 @@ EVENTS_JSON_FILE="events.json"
 EVENTS_TXT_FILE="events.txt"
 NAMESPACE_DESC_TXT_FILE="namespace.describe.txt"
 NODES_DESC_TXT_FILE="nodes.describe.txt"
+APP_CERT_FILE="app-cert-inspection.txt"
 
 [ -n "$HH" ] && exit 0
 
-LOG() {
-  if [ -n "$SUMMARY_FILE" ]; then
-    echo -e "\n$1" 1>&2
-    echo -e "\n$1" 1>>"$SUMMARY_FILE"
+_QUEUE() {
+  LAST_JOB="$!"
+  ALL_GENERAL_JOBS+=($LAST_JOB)
+  $SEQUENTIAL && _GENERAL_WAIT
+}
+
+_GENERAL_WAIT() {
+  wait <<<"$ALL_GENERAL_JOBS"
+  ALL_GENERAL_JOBS=()
+}
+
+trap "pkill -TERM -P $$" exit
+
+_log() {
+  echo -e "$@" | _R
+}
+
+_diag_kubectl() {
+  if [ "$1" = "--NOERR" ]; then
+    local redir="--null"
+    shift
   else
-    echo -e "\n$1"
+    local redir="--err"
+  fi
+
+  if [ "$1" = "-A" ]; then
+    shift;cmd="$1";shift;
+    _kubectl "$cmd" --all-namespaces "$@" 2> >(_R "$redir" >&2)
+  else
+    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} "$@" 2> >(_R "$redir" >&2)
   fi
 }
 
-BASICS() {
-  LOG "## Current ENT"
-  ent which 2>&1
-  LOG "## Current ENT status"
-  ent status
+_R.P() {
+  if [ -n "$1" ]; then
+    printf "%s%s\n" "$2" "$3"
+    $4 || printf "%s%s\n" "$2" "$3" 1>>"~$1"
+  else
+    echo "$3"
+  fi
+}
+
+_R() {
+  [ "$1" = "--null" ] && return 0
+  local CH="O"; [ "$1" = "--err" ] && { CH="E";shift; }
+  local NO_SUMMARY=false; [ "$1" = "--no-summary" ] && { NO_SUMMARY=true;shift; }
+  local pfun="${PFUN:-ROOT}"
+  pfun="${pfun/COLLECT./@}"  
+  local pre=""
+  ! $SEQUENTIAL && pre="$(printf "| %02d | %-20s | " "$PSORT" "$pfun")"
+  pre="$(printf "| %02d | $CH | %-20s | " "$PSORT" "$pfun")"
+  while IFS= read -r line; do
+    _R.P "$SUMMARY_FILE" "$pre" "$line" "$NO_SUMMARY"
+  done
+  [[ -n $line ]] && _R.P "$SUMMARY_FILE" "$pre" "$line" "$NO_SUMMARY"
+}
+
+_comment() {
+  cat -
+}
+
+
+LOG_TITLE() {
+  _log "\n## $@\n"
+}
+
+_COLLECT_BASICS() {
+  LOG_TITLE "Current ENT"
+  ent which | _R
+  LOG_TITLE "Current ENT status"
+  ent status | _R
   if [ -n "$NAMESPACE" ]; then
-    LOG "\n## ### NOTE ###"
-    LOG "## NAMESPACE was forced to \"$NAMESPACE\" on ent diag parameters\n"
+    _log "\n## ### NOTE ###"
+    _log "NAMESPACE was forced to \"$NAMESPACE\" on ent diag parameters\n"
   fi
   
   # DNS rebinding protection TEST
-  LOG "## DNS rebinding protection TEST"
+  LOG_TITLE "DNS rebinding protection TEST"
 
   TP1="$(dig +short 192.168.1.1.nip.io)"
   TP2="$(dig +short 192.168.1.1.nip.io @8.8.8.8)"
-  echo "# General Result:"
+  _log "# General Result:"
   if [ "$TP1" != "$TP2" ]; then
-    echo "### WARNING ###"
-    echo "# Your router or provider may be interfering with the DNS queries, try to set you DNS server to 8.8.8.8"
+    _log "### WARNING ###"
+    _log "# Your router or provider may be interfering with the DNS queries, try to set you DNS server to 8.8.8.8"
   else
-    echo "OK"
+    _log "OK"
   fi
-  echo "# Details of Test:"
-  echo "# - $TP1"
-  echo "# - $TP2"
-  echo "" 
+  _log "# Details of Test:"
+  _log "# - $TP1"
+  _log "# - $TP2"
+  _log "" 
 
   if $LOCALINFO; then
     # Local info
-    LOG "## LOCAL INFO"
-    echo "# Hostname"
-    hostname -I 2>&1
-    echo "# OS Info"
-    lsb_release -a 2>/dev/null
-    cat /etc/os-release 2>&1
-    echo "# Routes"
-    ip r s 2>&1
+    LOG_TITLE "LOCAL INFO"
+    _log "# Hostname"
+    hostname -I | _R
+    _log "# OS Info"
+    lsb_release -a 2>/dev/null | _R
+    cat /etc/os-release | _R
   fi
 }
 
-BASICS_K8S() {
-  if "$CLUSTER"; then
-    LOG "## NODES list"
-    _kubectl get nodes
+_COLLECT_K8S() {
+  PFUN="${FUNCNAME[1]}";PSORT=0
+  LOG_TITLE "GENERAL START"
   
-    #  CRDs
-    LOG "## CRDs list"
-    ent kubectl get crd
-   
-    if ! "$TOSTDOUT"; then
-      LOG "## Entando CRDs full dump"
+  local psort=0
+  ((psort++)); COLLECT.K8S_BASICS "$psort" 
+  ((psort++)); COLLECT.NODES_DESCRIBE "$psort" 
+  ((psort++)); COLLECT.CRDs "$psort" 
+  ((psort++)); COLLECT.NAMESPACE_BASICS "$psort" 
+  ((psort++)); COLLECT.NAMESPACE_DESCRIBE "$psort" 
+  ((psort++)); COLLECT.APP_TLS_INFO "$psort" 
+  ((psort++)); COLLECT.INGRESSES "$psort" 
+  ((psort++)); COLLECT.DEPLOYMENTS "$psort" 
+  ((psort++)); COLLECT.CRs "$psort" 
+  ((psort++)); COLLECT.PODS_DETAILS "$psort" 
+  ((psort++)); COLLECT.ALL_EVENTS "$psort" 
+  ((psort++)); COLLECT.EVENT_SEL "$psort" 
+  
+  LOG_TITLE "GENERAL COMPLETION WAIT"
+  _GENERAL_WAIT
+}
+
+COLLECT.APP_TLS_INFO() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    
+    LOG_TITLE "APP SHORT TLS CERT INSPECTION"
+    (ent tls inspect --app --short 2>&1) | _R
+    
+    LOG_TITLE "APP FULL TLS CERT INSPECTION"
+    ent tls inspect --app > "$APP_CERT_FILE"
+   ) &
+  _QUEUE
+}
+
+COLLECT.K8S_BASICS() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    
+    LOG_TITLE "VERSIONS"
+    _diag_kubectl version --short
+    _log "\n-done."
+    
+    if "$CLUSTER"; then
+      LOG_TITLE "NODES list"
+      _diag_kubectl get nodes | _R
+    fi
+   ) &
+  _QUEUE
+}
+
+COLLECT.NAMESPACE_BASICS() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    #  App Images Config Map
+    LOG_TITLE "NAMESPACE_BASICS"
+    
+    LOG_TITLE "~ APP IMAGES CONFIGMAP"
+    ent app configmap | _R
+    _log ""
+
+    #  Operator Config Maps
+    LOG_TITLE "~ OPERATOR CONFIGMAP"
+    ent app operator-configmap --no-check | _R
+    
+    #  POD list
+    LOG_TITLE "~ POD list"
+    _diag_kubectl get pods | _R
+
+    #  Running Images list 
+    LOG_TITLE "~ RUNNING IMAGES"
+    ent app images | _R
+
+    _log "\n-done."
+   ) &
+  _QUEUE
+}
+
+COLLECT.CRDs() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    if "$CLUSTER"; then
+      #  CRDs
+      LOG_TITLE "CRDs list"
+      ent kubectl get crd | _R
+    
+      if ! "$TOSTDOUT"; then
+        LOG_TITLE "Entando CRDs full dump"
+        
+        if command -v "jq" >/dev/null; then
+          ent kubectl get crd -o json \
+              | jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
+        else
+          _log "The CRD json dump was not collected, install \"jq\" for enabling this function" | _comment 
+        fi
+      fi
       
-      if command -v "jq" >/dev/null; then
-        ent kubectl get crd -o json \
-            | jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
+      _log "\n-done."
+    fi
+   ) &
+  _QUEUE
+}
+
+
+COLLECT.CRs() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    LOG_TITLE "Entando Custom Resources"
+    
+    _log "> parallel execution started.." | _comment
+    _dump_resources --crd \
+      < <(echo ClusterServiceVersion; _diag_kubectl api-resources --verbs=list --namespaced -o name | grep -F ".entando.org";)  
+
+    _log "\n-done."
+   ) &
+  _QUEUE
+}
+
+COLLECT.INGRESSES() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    LOG_TITLE "NAMESPACE INGRESSES"
+    
+    _log "> parallel execution started.." | _comment
+    _dump_resources --crd "ingresses" <<<"ingresses"
+      
+    _log "\n-done."
+   ) &
+  _QUEUE
+}
+
+COLLECT.DEPLOYMENTS() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    LOG_TITLE "NAMESPACE DEPLOYMENTS"
+    
+    _log "> parallel execution started.." | _comment
+    _dump_resources --crd "deployments" <<<"deployments"
+      
+    _log "\n-done."
+   ) &
+  _QUEUE
+}
+
+COLLECT.EVENT_SEL() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    # SELECTION OF EVENTS
+    if "$CLUSTER"; then
+      LOG_TITLE "SELECTION OF CLUSTER EVENTS"
+      _diag_kubectl -A get events | grep -i -E "error|fail|warn" | _R
+    else
+      LOG_TITLE "SELECTION OF NAMESPACE EVENTS"
+      _diag_kubectl get events | grep -i -E "error|fail|warn" | _R
+    fi
+
+    _log "\n-done."
+   ) &
+  _QUEUE
+}
+
+COLLECT.ALL_EVENTS() {
+  # ALL NAMESPACE EVENTS
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    if ! "$TOSTDOUT"; then
+      if "$CLUSTER"; then
+        LOG_TITLE "ALL CLUSTER EVENTS"
+        _diag_kubectl -A get events -o json > "$EVENTS_JSON_FILE" | _R
+        _diag_kubectl -A get events > "$EVENTS_TXT_FILE" | _R
       else
-        echo "The CRD json dump was not collected, install \"jq\" for enabling this function" 1>&2 
+        LOG_TITLE "ALL NAMESPACE EVENTS"
+        _diag_kubectl get events -o json > "$EVENTS_JSON_FILE"
+        _diag_kubectl get events  > "$EVENTS_TXT_FILE"
+      fi
+      _log "\n-done."
+    fi
+   ) &
+  _QUEUE
+}
+
+COLLECT.NAMESPACE_DESCRIBE() {
+  # NAMESPACE DESCRIBE
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    if ! "$TOSTDOUT"; then
+      LOG_TITLE "NAMESPACE DESCRIBE"
+      _diag_kubectl describe namespace > "$NAMESPACE_DESC_TXT_FILE"
+      _log "\n-done."
+    fi
+   ) &
+  _QUEUE
+}
+
+COLLECT.NODES_DESCRIBE() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    # NODES DESCRIBE
+    if ! "$TOSTDOUT"; then
+      if "$CLUSTER"; then
+        LOG_TITLE "NODES DESCRIBE"
+        _diag_kubectl describe nodes > "$NODES_DESC_TXT_FILE"
+        _log "\n-done."
       fi
     fi
-  fi
-
-  #  Config maps
-  LOG "## APP IMAGES CONFIGMAP"
-  ent app configmap
-  echo ""
-
-  LOG "## OPERATOR CONFIGMAP"
-  ent app operator-configmap --no-check
-  echo ""
-
-  #  Images
-  LOG "## RUNNING IMAGES"
-  ent app images
-
-  #  PODs
-  LOG "## POD list"
-  _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
-  
-  # SELECTION OF EVENTS
-  if "$CLUSTER"; then
-    LOG "## SELECTION OF CLUSTER EVENTS"
-    _kubectl get events --all-namespaces | grep -i -E "error|fail|warn"
-  else
-    LOG "## SELECTION OF NAMESPACE EVENTS"
-    _kubectl get events ${NAMESPACE:+-n "$NAMESPACE"} | grep -i -E "error|fail|warn"
-  fi
-  
-  # ALL NAMESPACE EVENTS
-  if ! "$TOSTDOUT"; then
-    if "$CLUSTER"; then
-      LOG "## ALL CLUSTER EVENTS"
-      _kubectl get events --all-namespaces -o json > "$EVENTS_JSON_FILE"
-      _kubectl get events --all-namespaces  > "$EVENTS_TXT_FILE"
-    else
-      LOG "## ALL NAMESPACE EVENTS"
-      _kubectl get events ${NAMESPACE:+-n "$NAMESPACE"} -o json > "$EVENTS_JSON_FILE"
-      _kubectl get events ${NAMESPACE:+-n "$NAMESPACE"}  > "$EVENTS_TXT_FILE"
-    fi
-  fi
-  
-  # NAMESPACE DESCRIBE
-  if ! "$TOSTDOUT"; then
-    LOG "## NAMESPACE DESCRIBE"
-    _kubectl describe namespace > "$NAMESPACE_DESC_TXT_FILE"
-  fi
+   ) &
+  _QUEUE
 }
 
-FULL_K8S() {
-  # NODES DESCRIBE
-  if ! "$TOSTDOUT"; then
-    if "$CLUSTER"; then
-      LOG "## NODES DESCRIBE"
-      _kubectl describe nodes > "$NODES_DESC_TXT_FILE"
-    fi
-  fi
+COLLECT.PODS_DETAILS() {
+  (
+    export PFUN="${FUNCNAME[0]}" PSORT="$1"
+    # ALL LOGS
+    if ! "$TOSTDOUT"; then
+      # PODs information collection
+      LOG_TITLE "APP PODS LOGS DETAILS"
+      _log "> parallel execution started.." | _comment
 
-  # ALL LOGS
-  if ! "$TOSTDOUT"; then
-    # PODs information collection
-    LOG "## ALL APP LOGS" 1>&2
-    
-    for pod in $(_kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"} | awk 'NR>1' | awk '{print $1}'); do
-      echo "> POD: $pod" 1>&2
-      _kubectl describe pods/"$pod" ${NAMESPACE:+-n "$NAMESPACE"} 1>"$pod.describe.txt" 2>&1
-      for co in $(_kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}' ${NAMESPACE:+-n "$NAMESPACE"}); do
-        echo -e ">\tCONTAINER: $co" 1>&2
-        _kubectl logs pods/"$pod" -c "$co" ${NAMESPACE:+-n "$NAMESPACE"} 1>"$pod-$co.logs.txt" 2>&1
+      for pod in $(_diag_kubectl get pods | awk 'NR>1' | awk '{print $1}'); do
+        (
+          _log "> POD: $pod"
+          _diag_kubectl describe pods/"$pod" 1>"$pod.describe.txt"
+          for co in $(_diag_kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}'); do
+            _log ">\tCONTAINER: $co"
+            _diag_kubectl logs pods/"$pod" -c "$co" 1>"$pod-$co.logs.txt"
+            F="$pod-$co.previous.logs.txt"
+            _diag_kubectl --NOERR logs --previous pods/"$pod" -c "$co" 1>"$F"
+            [ -f "$F" ] && [ ! -s "$F" ] && rm "$F"
+          done
+        ) &
       done
-    done
+      
+      sleep 0.2; _log "> waiting for completion.." | _comment
+      wait < <(jobs -p)
+      _log "> done." | _comment
+      
+      _log "\n-done."
+    fi
+   ) &
+  _QUEUE
+}
+
+_dump_resources() {
+  local QUIET=false;[ "$1" = "-q" ] && { QUIET=true;shift; } 
+  if ! "$TOSTDOUT"; then
+    local t="$1" i
+    
+    if [ "$t" = "--crd" ]; then
+      (
+        while IFS= read -r i; do
+          _log ">\t$i"
+          _dump_resources -q "$i" \
+            < <(_diag_kubectl get "$i" -o jsonpath='{.items[*].metadata.name} ' | tr ' ' $'\n') &
+        done
+        
+        $QUIET || { sleep 0.2; _log "> waiting for completion.." | _comment; }
+        wait < <(jobs -p)
+        $QUIET || _log "> done." | _comment
+      )
+    else
+      (
+        while IFS= read -r i; do
+          if [ "$i" != "" ]; then
+            _log ">\t$i" | _comment
+            _diag_kubectl get "$t" -o yaml > "$i.$t.yaml" &
+          fi
+        done
+          
+        $QUIET || { sleep 0.2; _log "> waiting for completion.." | _comment; }
+        wait < <(jobs -p)
+        $QUIET || _log "> done." | _comment
+      )
+    fi
   fi
 }
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
-RUN() {
-  # NODES
+_INITIALIZE() {
   if ! "$TOSTDOUT"; then
     NN="entando-diagdata-$(date -u '+%Y-%m-%dT%H-%M-%S%z')"
     TT="$HOME/.entando/reports/$NN"
@@ -186,19 +430,16 @@ RUN() {
     echo ""
   fi
   
-  if [ -n "$SUMMARY_FILE" ]; then
-    {
-      echo "## ENT-DIAG FORMAT 0.2"
-      BASICS
-      BASICS_K8S
-      FULL_K8S
-    } 1>>"$SUMMARY_FILE"
-  else
-    BASICS
-    BASICS_K8S
-    FULL_K8S
-  fi
-  
+  [ -n "$SUMMARY_FILE" ] && _log "## ENT-DIAG FORMAT 0.3"
+}
+
+_FINALIZE() {
+  [ -n "$SUMMARY_FILE" ] && {
+    sort -s -k1.1,1.6 "~$SUMMARY_FILE" | cut -c 35- > "$SUMMARY_FILE"
+  }
+}
+
+_PACKAGE() {
   if ! "$TOSTDOUT"; then
     echo "" 
     if ! $DIRONLY; then
@@ -213,4 +454,13 @@ RUN() {
   fi
 }
 
+RUN() {
+  _INITIALIZE
+  _COLLECT_BASICS
+  _COLLECT_K8S
+  _FINALIZE
+  _PACKAGE
+}
+
 RUN "$@"
+

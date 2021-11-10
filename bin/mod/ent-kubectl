@@ -44,6 +44,10 @@ RUN() {
       shift
       clear_kubectl_command --clear
       ;;
+    "ent-auto-align") #H: prints the command for setting the kubectl environment
+      shift
+      auto_align_with_server
+      ;;
     *) #H: any other command is passed to kubectl
       HH="$(parse_help_option "$@")"; show_help_option "$HH"
       args_or_ask ${HH:+"$HH"} -n "NAMESPACE" "--namespace" "$@"
@@ -109,6 +113,85 @@ print_status_info() {
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   echo "~ ent kubectl is currently attached $mode"
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+auto_align_with_server() {
+  local ver
+  ver=$(
+  _kubectl version --client=false --short \
+    | grep "Server Version: v" | sed "s/Server Version: v/v/" \
+    | sed "s/\+.*//" | grep -E "v[0-9]*\.[0-9]*\.[0-9]*"
+  )
+  
+  [[ -z "$ver" ]] && FATAL "Unable to determine the server version number"
+
+  (
+    mkdir -p "$HOME/.entando/bin"
+    __cd "$HOME/.entando/bin"
+
+    EXT=""
+    [ "$SYS_OS_TYPE" == "windows" ] && EXT=".exe"
+    COMMENT=" and checked"
+    KUBECTL_NAME="kubectl.$ver$EXT"
+
+    if [ ! -f "$KUBECTL_NAME" ]; then
+      _log_i 1 "I don't have the kubectl for this server (\"$ver\"cd ). I'll try to download it"
+      
+      # DOWNLOAD kubectl
+      _log_i 1 "Downloading kubectl \"$ver\""
+      
+      RES=$(
+        curl -Ls --write-out '%{http_code}' -o "kubectl.tmp" \
+        "https://dl.k8s.io/release/$ver/bin/$SYS_OS_TYPE/amd64/kubectl$EXT"
+      ) 
+      
+      [[ "$RES" != "200" ]] && {
+        #~
+        FATAL "Unable to download kubectl"
+      }
+      
+      # DOWNLOAD checksum
+      _log_i 1 "Downloading kubectl \"$ver\" checksum"
+      
+      RES=$(
+        curl -Ls --write-out '%{http_code}' -o "$KUBECTL_NAME.sha256" \
+        "https://dl.k8s.io/$ver/bin/$SYS_OS_TYPE/amd64/kubectl$EXT.sha256"
+      )
+      
+      [[ "$RES" != "200" ]] && {
+        #~
+        rm "$KUBECTL_NAME.sha256"
+        
+        _log_w 1 "Unable to download the kubectl checksum file"
+        ask "Should I proceed anyway?" || {
+          rm "kubectl.tmp"
+          FATAL "Quitting"
+        }
+        _log_w 1 "kubectl checksum verification skipped by the user"
+        COMMENT=" but not checked"
+      }
+      
+      # VERIFY checksum
+      [[ -f "$KUBECTL_NAME.sha256" ]] && {
+        echo "$(<"$KUBECTL_NAME.sha256") kubectl.tmp" | _sha256sum --check || {
+          rm "kubectl.tmp"
+          FATAL "Checksum verification failed, operation interrupted"
+        }
+      }
+      
+      # FINALIZE THE NAME
+      mv "kubectl.tmp" "$KUBECTL_NAME"
+      chmod +x "$KUBECTL_NAME"
+      _log_i 1 "kubectl \"$ver\" downloaded$COMMENT"
+    else
+      _log_i 1 "I already have a good version for this server (\"$ver\")"
+    fi
+    
+    set_kubectl_command "$PWD/$KUBECTL_NAME"
+    
+    _log_i 1 "Ent profile configuration updated (run \"ent status\" for details)"
+  ) || exit "$?"
 }
 
 # ######################################################################################################################

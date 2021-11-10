@@ -10,12 +10,12 @@ if [ "$?" != 1 ]; then
   IS_GIT_CREDENTIAL_MANAGER_PRESENT=true
 fi
 
-if [ -z "$ENTANDO_IS_TTY" ]; then
+if [ -z "$SYS_IS_STDIN_A_TTY" ]; then
   perl -e 'print -t STDIN ? exit 0 : exit 1;'
   if [ $? -eq 0 ]; then
-    ENTANDO_IS_TTY=true
+    SYS_IS_STDIN_A_TTY=true
   else
-    ENTANDO_IS_TTY=false
+    SYS_IS_STDIN_A_TTY=false
   fi
 fi
 
@@ -108,6 +108,20 @@ reload_cfg() {
     fi
   done <<<"$(cat "$config_file")"
   return 0
+}
+
+save_cfg_flag() {
+  ENTANDO_FLAGS=",$ENTANDO_FLAGS,$1,"
+  ENTANDO_FLAGS="$(echo "$ENTANDO_FLAGS" | tr ',' $'\n' | sort -u | tr $'\n' ',')"
+  save_cfg_value ENTANDO_FLAGS "$ENTANDO_FLAGS"
+}
+
+is_cfg_flag() {
+  if [[ "$ENTANDO_FLAGS" = *",$1,"* ]]; then
+    return 0
+  else
+    return 1
+  fi
 }
 
 # INTERACTION
@@ -329,7 +343,7 @@ index_of_arg() {
 # shellcheck disable=SC2059
 print_entando_banner() {
   {
-    if $ENTANDO_IS_TTY; then
+    if $SYS_IS_STDIN_A_TTY; then
       B() { echo '\033[0;34m'; }
       W() { echo '\033[0;39m'; }
       N=''
@@ -349,7 +363,7 @@ print_entando_banner() {
 }
 
 print_hr() {
-  if "$ENTANDO_IS_TTY"; then
+  if "$SYS_IS_STDIN_A_TTY"; then
     printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
   else
     printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
@@ -496,7 +510,7 @@ args_or_ask() {
       -d) IS_DEFAULT=true;shift;;
       --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
       --help) PRINT_HELP=true;NEVER_ASK=true;shift;;
-      --cmplt) PRINT_COMPLETION_CODE=true;shift;;
+      --cmplt) PRINT_COMPLETION_CODE=true;NEVER_ASK=true;shift;;
       --)
         shift
         break
@@ -513,7 +527,6 @@ args_or_ask() {
   local val_name val_type val_def val_msg
   IFS='/' read -r val_name val_type val_def val_msg <<< "${1}/"
   shift
-
   $PRINT_COMPLETION_CODE && {
     if $FLAG; then
       echo "${val_name}"
@@ -888,10 +901,10 @@ app-get-main-ingresses-by-version() {
   local res_var_ecr="$4"
   local res_var_apb="$5"
   shift
-  local JP=""
-  
+
+  local JP='{range .items[?(@.metadata.name=="'"$ENTANDO_APPNAME-ingress"'")]}'
+
   if [ "$version" = "6.3.0" ]; then
-    JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
     JP+='{"?"}{"\n"}'
     JP+='{.spec.rules[0].host}{"\n"}'
     JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
@@ -899,7 +912,6 @@ app-get-main-ingresses-by-version() {
     JP+='{.spec.rules[0].http.paths[1].path}{"\n"}'
     JP+='{.spec.rules[0].http.paths[2].path}{"\n"}'
   elif [ "$version" = "6.3.2" ]; then
-    JP+='{range .items[?(@.metadata.labels.EntandoApp)]}'
     JP+='{"-"}{.spec.tls}{"\n"}'
     JP+='{.spec.rules[0].host}{"\n"}'
     # property detection: serviceName
@@ -912,11 +924,12 @@ app-get-main-ingresses-by-version() {
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
-
   else
     FATAL -t "Unsupported version \"$version\""
   fi
   
+  JP+='{end}'
+
   local OUT
   stdin_to_arr $'\n\r' OUT < <(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)
   
@@ -980,6 +993,23 @@ path-concat() {
   
   _set_var "$out" "$TMP"
 }
+
+# Prints an absolute path from a relative one
+# If the path is absolute it' just returns it
+#
+# Params:
+# $1  the dest var
+# $2  the path to print
+# $3  the relative base path
+#
+path-to-absolute() {
+  local _tmp_res_="$2"
+  if [ "${2:0:1}" != "/" ] && [ "${2:0:2}" != "./" ] && [ "${2:0:2}" != "~/" ]; then
+    path-concat _tmp_res_ "$3" "$_tmp_res_"
+  fi
+  _set_var "$1" "$_tmp_res_"
+}
+
 
 keycloak-query-connection-data() {
   local tmp
@@ -1279,4 +1309,76 @@ handle_forced_profile() {
     DESIGNATED_PROFILE_HOME="$phvv"
     activate_designated_workdir --temporary
   fi
+}
+
+_sha256sum() {
+  if $OS_WIN; then
+    sha256sum
+  else
+    shasum -a 256
+  fi
+}
+
+_sed_get_semver() {
+  sed -ne 's/[^0-9]*\(\([0-9]\.\)\{0,4\}[0-9][^.]\).*/\1/p'
+}
+
+# Compares 2 sem version and return
+# - 1 if the first is > than the second
+# - 0 if they are equals
+# - -1 if the first is < than the second
+#
+# Params:
+# $1 destination var
+# $2 the first version
+# $3 the second version
+#
+_semver_cmp() {
+
+  _semver_parse _maj1_ _min1_ _ptc1_ "" "$2"
+  _semver_parse _maj2_ _min2_ _ptc2_ "" "$3"
+
+  [ "${_maj1_:-0}" -gt "${_maj2_:-0}" ] && { _set_var "$1" 1; return; }
+  [ "${_maj1_:-0}" -lt "${_maj2_:-0}" ] && { _set_var "$1" -1; return; }
+  [ "${_min1_:-0}" -gt "${_min2_:-0}" ] && { _set_var "$1" 1; return; }
+  [ "${_min1_:-0}" -lt "${_min2_:-0}" ] && { _set_var "$1" -1; return; }
+  [ "${_ptc1_:-0}" -gt "${_ptc2_:-0}" ] && { _set_var "$1" 1; return; }
+  [ "${_ptc1_:-0}" -lt "${_ptc2_:-0}" ] && { _set_var "$1" -1; return; }
+  _set_var "$1" 0
+}
+
+# Parses a semver into its complonent digits
+# - "v" prefix is suppored and stripped
+# - all params are optional and accept ""
+#
+# Params:
+# $1  major version receiver var
+# $2  minor version receiver var
+# $3  patch version receiver var
+# $4  tag version receiver var
+# $5  semver to parse
+#
+_semver_parse() {
+  _semver_ex_parse "$1" "$2" "$3" "" "$4" "$5"
+  true
+}
+
+# Extended version of _semver_parse that also supports 4 digit versions
+#
+_semver_ex_parse() {
+  local _tmpV_ _tmpT_ _tmp1_ _tmp2_ _tmp3_ _tmp4_
+
+  IFS='-' read -r _tmpV_ _tmpT_ <<< "$6"
+  IFS='.' read -r _tmp1_ _tmp2_ _tmp3_ _tmp4_ <<< "$_tmpV_"
+
+  [ "${_tmp1_:0:1}" = "v" ] && _tmp1_="${_tmp1_:1}"
+  [ "${_tmp1_:0:1}" = "p" ] && _tmp1_="${_tmp1_:1}"
+  
+  [ -n "$1" ] && _set_var "$1" "$_tmp1_"
+  [ -n "$2" ] && _set_var "$2" "$_tmp2_"
+  [ -n "$3" ] && _set_var "$3" "$_tmp3_"
+  [ -n "$4" ] && _set_var "$4" "$_tmp4_"
+  [ -n "$5" ] && _set_var "$5" "$_tmpT_"
+  
+  true
 }

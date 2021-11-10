@@ -156,6 +156,7 @@ test_path_functions() {
   print_current_function_name "> " ".."
   local RES
   
+  # CONCAT  
   path-concat RES "a" "b"
   [ "$RES" = "a/b" ] || FATAL "failed! $LINENO"
   path-concat RES "a/" "b"
@@ -179,7 +180,18 @@ test_path_functions() {
   
   path-concat -t RES "a" "b"
   [ "$RES" = "a/b/" ] || FATAL "failed! $LINENO"
-
+  
+  # TO ABSOLUTE
+  path-to-absolute RES "b" "/a"
+  [ "$RES" = "/a/b" ] || FATAL "failed! $LINENO"
+  path-to-absolute RES "../b" "/a"
+  [ "$RES" = "/a/../b" ] || FATAL "failed! $LINENO"
+  path-to-absolute RES "./b" "a"
+  [ "$RES" = "./b" ] || FATAL "failed! $LINENO"
+  path-to-absolute RES "/b" "a"
+  [ "$RES" = "/b" ] || FATAL "failed! $LINENO"
+  path-to-absolute RES "~/b" "a"
+  [ "$RES" = "~/b" ] || FATAL "failed! $LINENO"
 }
 
 true

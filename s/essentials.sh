@@ -3,6 +3,16 @@
 
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
+
+  # TTY DETECT
+  SYS_IS_STDIN_A_TTY=true;SYS_IS_STDOUT_A_TTY=true
+  perl -e 'print -t STDIN ? exit 0 : exit 1' || {
+    SYS_IS_STDIN_A_TTY=false
+  }
+  perl -e 'print -t STDOUT ? exit 0 : exit 1' || {
+    SYS_IS_STDOUT_A_TTY=false
+  }
+
   # OS DETECT
   OS_LINUX=false
   OS_MAC=false
@@ -23,12 +33,14 @@
     ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
-  perl -e 'print -t STDIN ? exit 0 : exit 1;'
-  if [ $? -eq 0 ]; then
+  if [ $SYS_IS_STDOUT_A_TTY ]; then
     if [[ -z "$ENTANDO_DEV_TTY" ]]; then
-      ENTANDO_DEV_TTY="$(tty)"
-      # shellcheck disable=SC2034
-      ENTANDO_TTY_QUALIFIER="${ENTANDO_DEV_TTY//\//_}"
+      if ENTANDO_DEV_TTY="$(tty)"; then
+        # shellcheck disable=SC2034
+        ENTANDO_TTY_QUALIFIER="${ENTANDO_DEV_TTY//\//_}"
+      else
+        ENTANDO_DEV_TTY=""
+      fi
     fi
   fi
 
@@ -42,7 +54,7 @@
       C_HOSTS_FILE="/etc/hosts"
       ;;
     darwin*)
-      SYS_OS_TYPE="mac"
+      SYS_OS_TYPE="darwin"
       SYS_GNU_LIKE=true
       OS_MAC=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="-"
@@ -191,8 +203,6 @@
   # sed multiplatform and limited reimplementation
   # - implies "-E"
   # - doesn't support file operations
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  # $@ the sed in place args *without* the "-i
   #
   _perl_sed() {
     perl -pe "$@"

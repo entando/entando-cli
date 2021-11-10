@@ -8,6 +8,8 @@
 #H::
 #H:: Built-in Scripts:
 
+ENT_ORIGIN_WORKDIR="$PWD"
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,13 +60,13 @@ RUN() {
       "attach-kubeconfig")  #H: attaches ent a kube configuration
         kubeconfig-attach "$@"
         ;;
-      "detach-kubeconfig")  #H: attaches ent a kube configuration
+      "detach-kubeconfig")  #H: detaches ent from kube configuration
         kubeconfig-detach "$@"
         ;;
-      "attach-kubectx")  #H: attaches ent a kube configuration
+      "attach-kubectx")  #H: attaches ent to a kube context
         ent profile link "$@"
         ;;
-      "detach-kubectx")  #H: attaches ent a kube configuration
+      "detach-kubectx")  #H: detaches ent from a kube context
         kubectx-detach
         ;;
       "list-kubectx")  #H: prints a list of available contexts from the current kubeconfig
@@ -99,6 +101,9 @@ RUN() {
         ;;
       "status") #H: shows the ent general status
         print_ent_general_status
+        ;;
+      "auto-align-kubectl") #H: automaticall align the kubectl version to the server version
+        ent kubectl "ent-auto-align" "$@"
         ;;
       "")
         # shellcheck disable=SC1091
@@ -191,7 +196,7 @@ cmplt() {
 
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "import" "activate"
-      "set-kubectl-cmd" "reset-kubectl-mode" "status"
+      "kubectl-cmd" "reset-kubectl-mode" "status"
       "attach-kubeconfig" "detach-kubeconfig"
       "attach-kubectx" "detach-kubectx" "list-kubectx"
   )

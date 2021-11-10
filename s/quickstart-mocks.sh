@@ -10,7 +10,7 @@ MOCK_CALL_NUM=0
 MOCK_CALL_ID=""
 
 mock-log() {
-  if $ENTANDO_IS_TTY; then
+  if $SYS_IS_STDIN_A_TTY; then
     B() { echo -e '\033[101;37m'; }
     E() { echo -e '\033[0;39m'; }
   else
