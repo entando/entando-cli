@@ -119,6 +119,14 @@ BASICS_K8S() {
   LOG "## POD list"
   _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
   
+  # Entando CRDs
+  _dump_resources --crd "Entando Custom Resources" \
+    < <(_kubectl api-resources --verbs=list --namespaced -o name | grep -F ".entando.org")
+  
+  # Ingresses
+  _dump_resources "ingress" "Namespace Ingresses" \
+    < <(_kubectl get ingress -o jsonpath="{.items[*].metadata.name}" | tr ' ' $'\n')
+  
   # SELECTION OF EVENTS
   if "$CLUSTER"; then
     LOG "## SELECTION OF CLUSTER EVENTS"
@@ -210,6 +218,24 @@ RUN() {
     else
       echo "## Collected diagdata available under dir \"${TT}\""
     fi
+  fi
+}
+
+_dump_resources() {
+  if ! "$TOSTDOUT"; then
+    local ot="$1" t i f
+    LOG "## $2"
+    while IFS= read -r i; do
+      echo -e ">\t$i" 1>&2
+      if [ "$ot" = "--crd" ]; then
+        t="$i"
+        f="$i.yaml"
+      else
+        t="$ot"
+        f="$t-$i.yaml"
+      fi
+      _kubectl get "$t" -o yaml > "$f"
+    done
   fi
 }
 

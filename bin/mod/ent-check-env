@@ -33,12 +33,19 @@ cd "$DIR/../.." || {
 
 args_or_ask -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
 
+FATAL_DEPENDENCY_ERROR() { 
+  local msg="### Recommended dependency was not found and cannot be automatically installed."$'\n'
+  msg+="### Please install ${1:-it} manually"$'\n'
+  echo $'\n'"$msg"$'\n'
+  exit 99; 
+}
+
 if args_or_ask -n -f -- '--lenient' "$@"; then
-  MAYBE_FATAL() {
+  DEPENDENCY_ERROR() {
     prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
   }
 else
-  MAYBE_FATAL() { FATAL "$@"; }
+  DEPENDENCY_ERROR() { FATAL_DEPENDENCY_ERROR "$@"; }
 fi
 
 args_or_ask -n -a -- "ARG1" '1///%sp command' "$@"
@@ -92,6 +99,52 @@ $M_CFG && {
   }
 }
 
+
+check_npm_git_package() {
+  local ADDR="$1"
+  local VER_REQ="$2"
+  local VER_DEF="$3"
+  local FLD="$4"
+  local DESC="$5"
+
+  _log_i 3 "Checking ENT private installation of $DESC.."
+
+  (
+    __cd "$ENTANDO_ENT_HOME"
+    if [ -d "lib/$FLD/$VER_REQ/" ]; then
+      _log_i 3 "\tfound: $VER_REQ => OK"
+    else
+      _log_i 2 "Version \"$VER_REQ\" of \"$DESC\" was not found"
+
+      if ask "Should I try to install it?" "y"; then
+        __mk-cd "lib/$FLD/"
+
+        local OD="$PWD"
+
+        (
+          git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
+          if [ -f "./package-lock.json" ]; then
+            _npm ci
+          else
+            _npm install
+          fi
+          _ent-npm install-from-source
+        ) || {
+          _log_e 0 "An error occurred while installing $DESC.. rolling back"
+          local EC="$?"
+          __cd "$OD"
+          if [ -n "${VER_DEF}" ]; then
+            rm -rf "$VER_DEF" 2> /dev/null
+          fi
+          exit $EC
+        }
+      else
+        DEPENDENCY_ERROR "Mandatory dependency not available"
+      fi
+    fi
+  ) || exit "$?"
+}
+
 NO_DNS_FIX=false
 [ "$ARG2" == "--no-dns-fix" ] && NO_DNS_FIX=true
 
@@ -103,33 +156,33 @@ $M_DEVL && {
 
 # MISC
 
-check_ver "git" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
-check_ver "command" "*.*.*" "-V sed" || MAYBE_FATAL "Quitting"
-check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || MAYBE_FATAL "Quitting"
+check_ver "git" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"
+check_ver "command" "*.*.*" "-V sed" || DEPENDENCY_ERROR "$FAIL_MSG"
+check_ver "perl" "*.*.*" "--version | grep -v '^[[:space:]]*$' | head -n 1 | sed 's/.*(\([^ ]*\)).*/\1/'" || DEPENDENCY_ERROR "$FAIL_MSG"
 check_ver "awk" "*.*.*" "--version | head -n 1" "quiet" || {
-  check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || MAYBE_FATAL "Quitting"
+  check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || DEPENDENCY_ERROR "$FAIL_MSG"
 }
-check_ver "grep" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
-check_ver "command" "*.*.*" " -V cat" || MAYBE_FATAL "Quitting"
+check_ver "grep" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"
+check_ver "command" "*.*.*" " -V cat" || DEPENDENCY_ERROR "$FAIL_MSG"
 
 $M_DEVL && {
   #[ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
   check_ver "java" "*.*.*" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
     _log_e 0 "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this command"
-    MAYBE_FATAL "Quitting"
+    DEPENDENCY_ERROR "$FAIL_MSG"
   }
   #save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
 }
 
-$M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"; }
-$M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || MAYBE_FATAL "Quitting"; }
-check_ver "curl" "*.*.*" "--version | head -n 1" || MAYBE_FATAL "Quitting"
+$M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"; }
+$M_KUBE && { check_ver "dig" "*.*.*" "-v 2>&1" literal || DEPENDENCY_ERROR "$FAIL_MSG"; }
+check_ver "curl" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"
 $M_DEVL && {
   check_ver "watch" "*.*.*" "-v" || {
     prompt "Recommended dependency not found, workaround will be applied.\nPress enter to continue.."
   }
   
-  check_ver "jq" "*.*.*" "--version" || MAYBE_FATAL "Quitting"
+  check_ver "jq" "*.*.*" "--version" || DEPENDENCY_ERROR "$FAIL_MSG"
 }
 
 # DNS
@@ -179,14 +232,14 @@ $M_KUBE && {
 # NVM
 $M_DEVL && {
   nvm_activate
-  check_ver "nvm" "$VER_NVM_REQ" "--version | grep -v '^$' | head -1" verbose || {
-    $OS_WIN && FATAL "Please install nvm for windows (nvm-windows)"
+  check_ver "nvm" "${VER_NVM_REQ:-*.*.*}" "--version | grep -v '^$' | head -1" verbose || {
+    $OS_WIN && FATAL_DEPENDENCY_ERROR "nvm for windows (\"nvm-windows\")"
     # shellcheck disable=SC2015
     ask "Should I try to install it?" "y" && {
       curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$VER_NVM_DEF/install.sh" | bash
       return 0
     } || {
-      MAYBE_FATAL "Mandatory dependency not available"
+      FATAL_DEPENDENCY_ERROR "Mandatory dependency not available"
     }
   }
   nvm_activate
@@ -194,12 +247,14 @@ $M_DEVL && {
 
 $M_DEVL && {
   rescan-sys-env force
+  nvm_activate
 }
 
 # NODE
 $M_DEVL && {
   _log_i 1 "Checking node.."
   # shellcheck disable=SC2015
+
   find_nvm_node "RES" "$VER_NODE_DEF" "$VER_NODE_REQ" && {
     DESIGNATED_NODE_VERSION="$RES"
     true
@@ -209,12 +264,14 @@ $M_DEVL && {
       _nvm use "$VER_NODE_DEF"
       DESIGNATED_NODE_VERSION="$VER_NODE_DEF"
     else
-      MAYBE_FATAL "Mandatory dependency not available"
+      DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
   }
   
   save_cfg_value "DESIGNATED_NODE_VERSION" "$DESIGNATED_NODE_VERSION" "$ENT_DEFAULT_CFG_FILE"
-  activate_designated_node || MAYBE_FATAL "Unable to activate the found version"
+  nvm_activate
+  activate_designated_node || DEPENDENCY_ERROR "Unable to activate the found version"
+  rescan-sys-env force
 }
 
 # ENT-LOCAL-JHIPSTER installation
@@ -223,54 +280,9 @@ $M_DEVL && {
     if ask "Should I try to install it?" "y"; then
       _ent-npm install-package "generator-jhipster@$VER_JHIPSTER_DEF"
     else
-      MAYBE_FATAL "Mandatory dependency not available"
+      DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
   }
-}
-
-check_npm_git_package() {
-  local ADDR="$1"
-  local VER_REQ="$2"
-  local VER_DEF="$3"
-  local FLD="$4"
-  local DESC="$5"
-
-  _log_i 3 "Checking ENT private installation of $DESC.."
-
-  (
-    __cd "$ENTANDO_ENT_HOME"
-    if [ -d "lib/$FLD/$VER_REQ/" ]; then
-      _log_i 3 "\tfound: $VER_REQ => OK"
-    else
-      _log_i 2 "Version \"$VER_REQ\" of \"$DESC\" was not found"
-
-      if ask "Should I try to install it?" "y"; then
-        __mk-cd "lib/$FLD/"
-
-        local OD="$PWD"
-
-        (
-          git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$DESC" "ENTER,FATAL"
-          if [ -f "./package-lock.json" ]; then
-            _npm ci
-          else
-            _npm install
-          fi
-          _ent-npm install-from-source
-        ) || {
-          _log_e 0 "An error occurred while installing $DESC.. rolling back"
-          local EC="$?"
-          __cd "$OD"
-          if [ -n "${VER_DEF}" ]; then
-            rm -rf "$VER_DEF" 2> /dev/null
-          fi
-          exit $EC
-        }
-      else
-        MAYBE_FATAL "Mandatory dependency not available"
-      fi
-    fi
-  ) || exit "$?"
 }
 
 $M_DEVL && {

@@ -1,13 +1,6 @@
 #!/bin/bash
 # SYS-UTILS
 
-perl -e 'print -t STDIN ? exit 0 : exit 1;'
-if [ $? -eq 0 ]; then
-  ENTANDO_IS_TTY=true
-else
-  ENTANDO_IS_TTY=false
-fi
-
 netplan_add_custom_ip() {
   F=$(sudo ls /etc/netplan/* 2>/dev/null | head -n 1)
   [ ! -f "$F" ] && FATAL "This function only supports netplan based network configurations"
@@ -64,7 +57,7 @@ check_ver() {
     [[ "$mode" =~ "literal" ]] &&
       VER=$(eval "$1 $3") ||
       VER=$(eval "$1 $3 2>/dev/null")
-  
+      
     if [ $? -ne 0 ] || [ -z "$VER" ]; then
       if [[ ! "$mode" =~ "quiet" ]]; then
         if [ -z "$err_desc" ]; then
@@ -83,13 +76,13 @@ check_ver() {
   VER="${VER//_/.}"
   REQ="${2//_/.}"
 
-  IFS='.' read -r -a V <<<"$VER"
-  f_maj="${V[0]}" && f_min="${V[1]}" && f_ptc="${V[2]}" && f_upd="${V[3]}"
-  IFS='.' read -r -a V <<<"$REQ"
-  r_maj="${V[0]}" && r_min="${V[1]}" && r_ptc="${V[2]}" && r_upd="${V[3]:-"*"}"
-
   # shellcheck disable=SC2015
   (
+    IFS='.' read -r -a V <<<"$VER"
+    f_maj="${V[0]}" && f_min="${V[1]}" && f_ptc="${V[2]}" && f_upd="${V[3]}"
+    IFS='.' read -r -a V <<<"$REQ"
+    r_maj="${V[0]}" && r_min="${V[1]}" && r_ptc="${V[2]}" && r_upd="${V[3]:-"*"}"
+
     check_ver_num_start
     check_ver_num "$f_maj" "$r_maj" || return 1
     check_ver_num "$f_min" "$r_min" || return 1
@@ -190,7 +183,7 @@ make_safe_resolv_conf() {
 
 # MISC
 
-if ! $ENTANDO_IS_TTY || $OS_WIN; then
+if ! $SYS_IS_STDIN_A_TTY || $OS_WIN; then
   _watch() {
     if [ "$1" == "-v" ]; then
       echo "ent fake watch UNKNOWN"
@@ -217,7 +210,7 @@ fi
 $OS_WIN && {
   winpty --version 1>/dev/null 2>&1 && {
     SYS_CLI_PRE() {
-      if $ENTANDO_IS_TTY; then
+      if $SYS_IS_STDIN_A_TTY; then
         "winpty" "$@"
       else
         "$@"
@@ -320,10 +313,14 @@ _ent-bundler() {
     activate_designated_node
     # RUN
     if $OS_WIN; then
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@" |
-        perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+      if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
+        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+      else
+        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" |
+          perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+      fi
     else
-      if "$ENTANDO_IS_TTY"; then
+      if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
         "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
       else
         "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" |
@@ -496,7 +493,7 @@ find_nvm_node() {
   current="$(node -v)"
 
   if $OS_WIN; then
-    versions="$(nvm ls | _perl_sed 's/\*/ /' | grep -v system | _perl_sed 's/[^v]*(v\S*).*/\1/')"
+    versions="$(nvm ls | _perl_sed 's/[\s*v]*([^\s]*).*/\1/' | grep -v system)"
   else
     versions="$(nvm ls --no-colors --no-alias 2>/dev/null |
       _perl_sed 's/->/  /' |
