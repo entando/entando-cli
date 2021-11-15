@@ -25,6 +25,7 @@ test_is_ver_ge_ver
 test_map_functions
 test_index_of_arg
 test_path_functions
+test_shell_replacements
 test_cfg_helper
 test_ask
 test_select_one
@@ -32,6 +33,5 @@ test_args_or_ask
 test_asserters
 test_multipass_mocks
 
-test_mod_check-env_find_nvm_node
 
 true

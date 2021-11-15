@@ -127,8 +127,8 @@ auto_align_with_server() {
   [[ -z "$ver" ]] && FATAL "Unable to determine the server version number"
 
   (
-    mkdir -p "$HOME/.entando/bin"
-    __cd "$HOME/.entando/bin"
+    mkdir -p "$ENTANDO_BINS"
+    __cd "$ENTANDO_BINS"
 
     EXT=""
     [ "$SYS_OS_TYPE" == "windows" ] && EXT=".exe"
@@ -213,6 +213,6 @@ fi
 }
 
 . s/_base.sh
-cd - > /dev/null || FATAL -t "internal error"
+cd - > /dev/null || _FATAL "internal error"
 
 RUN "$@"

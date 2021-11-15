@@ -8,6 +8,8 @@
 #H::
 #H:: Built-in Scripts:
 
+# shellcheck disable=SC2034
+ENT_ORIGIN_WORKDIR="$PWD"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,7 +89,8 @@ RUN() {
         elif [ "$1" = "bash" ]; then
           echo "source \"$ENTANDO_ENT_HOME/s/completion.sh\""
         else
-          FATAL "Unsupported shell"
+          # shellcheck disable=SC1090
+          echo "Unsupported shell"
         fi
         return 0
         ;;
@@ -102,6 +105,12 @@ RUN() {
         ;;
       "auto-align-kubectl") #H: automaticall align the kubectl version to the server version
         ent kubectl "ent-auto-align" "$@"
+        ;;
+      "node"|"npm")
+        ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+        ;;
+      "jhipster"|"bundler")
+        ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "")
         # shellcheck disable=SC1091
@@ -311,6 +320,6 @@ fi
 }
 
 . s/_base.sh
-cd - > /dev/null || FATAL -t "internal error"
+cd - > /dev/null || _FATAL "internal error"
 
 RUN "$@"

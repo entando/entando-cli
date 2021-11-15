@@ -11,6 +11,7 @@ C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 if [ "$1" = "--local-test" ]; then
   shift
   . s/essentials.sh
+  # shellcheck disable=SC1091
   . activate --force
 else
   if [[ "$ENTANDO_RELEASE" = "quickstart" ]]; then

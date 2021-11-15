@@ -99,28 +99,19 @@ print_operator_configmap() {
 }
 
 print_images() {
-  local FILTER="${ENTANDO_STANDARD_IMAGES[*]}"
-  FILTER="${FILTER// /\\|}"
-  args_or_ask ${HH:+"$HH"} -n -f '--all/// prints all the images' "$@" && {
-    FILTER=".*"
-  }
 
   [ -n "$HH" ] && exit 0
+  
   # shellcheck disable=SC2021 disable=SC2155
   local RES=$(
     _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get pods -o jsonpath="{..image}" |
-      \tr -s '[[:space:]]' '\n' | \sort -u |
-      \grep "$FILTER"
+      \tr -s '[[:space:]]' $'\n' | \sort -u
   )
   [ -z "$RES" ] && FATAL "Unable fetch the images list"
 
   echo "$RES"
   echo ""
-  if $OS_WIN; then
-    echo "$RES" | sha256sum
-  else
-    echo "$RES" | shasum -a 256
-  fi
+  echo "$RES" | _sha256sum
 }
 
 RUN "$@"

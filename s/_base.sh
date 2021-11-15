@@ -26,16 +26,18 @@ DDD() {
   } >"${ENTANDO_DEBUG_TTY:-/dev/stderr}"
 }
 
-trace_var() {
+_pp_var() {
   local PRE="$1"
   shift
   (echo "$PRE $1: ${!1}")
 }
 
-trace_vars() {
+# Pretty Prints a list of vars given their names
+#
+_pp() {
   if [[ "$1" == "-d" && -n "$ENTANDO_DEBUG_TTY" ]]; then
     shuft
-    trace_vars "$@" >"$ENTANDO_DEBUG_TTY"
+    _pp "$@" >"$ENTANDO_DEBUG_TTY"
   fi
 
   if [ "$1" == "-t" ]; then
@@ -45,7 +47,7 @@ trace_vars() {
   echo "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
   echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒$TITLE"
   for var_name in "$@"; do
-    trace_var "▕-" "$var_name"
+    _pp_var "▕-" "$var_name"
   done
   echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"
   echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
@@ -124,11 +126,10 @@ $SYS_OS_UNKNOWN && {
   chmod 700 "$ENTANDO_ENT_HOME/w"
   find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
 }
-mkdir -p "$ENTANDO_ENT_HOME/d"
-mkdir -p "$ENTANDO_ENT_HOME/lib"
 . s/_conf.sh
-mkdir -p "$ENTANDO_HOME/profiles"
-mkdir -p "$ENTANDO_HOME/ttys"
+mkdir -p "$ENTANDO_PROFILES"
+mkdir -p "$ENTANDO_BINS"
+mkdir -p "$ENT_OPTS"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # UTILS
@@ -137,6 +138,7 @@ mkdir -p "$ENTANDO_HOME/ttys"
 . s/var-utils.sh
 . s/attach-utils.sh
 . s/logger.sh
+. s/node-utils.sh
 
 DESIGNATED_VM=""
 DESIGNATED_VM_NAMESPACE=""
@@ -149,7 +151,7 @@ ENTANDO_NAMESPACE=""
 
 if [ -n "$DESIGNATED_PROFILE" ]; then
   if assert_ext_ic_id "" "$DESIGNATED_PROFILE" "silent"; then
-    DESIGNATED_PROFILE_HOME="$ENTANDO_HOME/profiles/$DESIGNATED_PROFILE"
+    DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
   else
     FATAL "Illegal value provided in environment var DESIGNATED_PROFILE"
   fi
@@ -213,11 +215,11 @@ activate_designated_workdir() {
 }
 
 set_curr_profile() {
-  [ -z "$1" ] && FATAL -t "Illegal profile name detected"
+  [ -z "$1" ] && _FATAL "Illegal profile name detected"
   DESIGNATED_PROFILE="$1"
   DESIGNATED_PROFILE_HOME="$2"
   [ -z "$DESIGNATED_PROFILE_HOME" ] &&
-    DESIGNATED_PROFILE_HOME="$ENTANDO_HOME/profiles/$DESIGNATED_PROFILE"
+    DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
   save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
   save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
 }
@@ -276,37 +278,6 @@ xu_set_status "-"
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-nvm_activate() {
-  NVM_DIR="$HOME/.nvm"
-  # shellcheck disable=SC1090
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || return
-  export NVM_DIR
-}
-
-activate_designated_node() {
-  $OS_WIN && {
-    # npm-windows always shows the UAC privilege escalation screen, so we try to not invoke it when possible
-    # this is sub-optimal as we may end-up using the system node
-    [[ "$(node -v)" == "$DESIGNATED_NODE_VERSION" ]] && return 0
-  }
-  nvm_activate
-  [ -z "$ACTIVATED_NODE_VERSION" ] && ACTIVATED_NODE_VERSION="$(node -v)"
-
-  [[ -z "$ACTIVATED_NODE_VERSION" || "$ACTIVATED_NODE_VERSION" != "$DESIGNATED_NODE_VERSION" ]] && {
-    check_ver "node" "$DESIGNATED_NODE_VERSION" "--version" "quiet" || {
-      nvm use "$DESIGNATED_NODE_VERSION" >/dev/null
-      if [[ "$(node -v)" != "$DESIGNATED_NODE_VERSION" ]]; then
-        local ERRMSG="Unable to select the proper node version (\"$DESIGNATED_NODE_VERSION\"): "
-        ERRMSG+="The required node version is not present anymore or it's corrupted,"
-        ERRMSG+="you may try to reinstall it using nvm."
-        _log_e 1 "$ERRMSG"
-        return 1
-      fi
-    }
-    ACTIVATED_NODE_VERSION="$DESIGNATED_NODE_VERSION"
-  }
-  return 0
-}
 
 # overrides the essential.sh base
 kubectl_update_once_options() {
