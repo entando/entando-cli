@@ -61,14 +61,14 @@
       C_HOSTS_FILE="/private/etc/hosts"
       ;;
     "cygwin" | "msys")
-      SYS_OS_TYPE="win"
+      SYS_OS_TYPE="windows"
       SYS_GNU_LIKE=true
       OS_WIN=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"
       C_HOSTS_FILE="/etc/hosts"
       ;;
     win*)
-      SYS_OS_TYPE="win"
+      SYS_OS_TYPE="windows"
       SYS_GNU_LIKE=false
       OS_WIN=true
       [ -z "$ENTANDO_DEV_TTY" ] && ENTANDO_DEV_TTY="/dev/tty"

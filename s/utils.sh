@@ -1027,9 +1027,9 @@ keycloak-query-connection-data() {
     # EXTERNAL KEYCLOAK CONFIGURATION
     _log_d 3 "external-sso-secret found"
     _tmp_auth_url="$(echo "$tmp" | cut -d':' -f3)"
-    _tmp_auth_url=$(base64 -d <<< "$_tmp_auth_url")
+    _tmp_auth_url=$(_base64_d <<< "$_tmp_auth_url")
     _tmp_realm="$(echo "$tmp" | cut -d':' -f4)"
-    _tmp_realm=$(base64 -d <<< "$_tmp_realm")
+    _tmp_realm=$(_base64_d <<< "$_tmp_realm")
     [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url"
   else
     # INTERNAL KEYCLOAK CONFIGURATION
@@ -1053,8 +1053,8 @@ keycloak-query-connection-data() {
   
   [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
 
-  _tmp_client_id=$(base64 -d <<< "$client_id")
-  _tmp_client_secret=$(base64 -d <<< "$client_secret")
+  _tmp_client_id=$(_base64_d <<< "$client_id")
+  _tmp_client_secret=$(_base64_d <<< "$client_secret")
  
   _set_var "$1" "$_tmp_auth_url"
   _set_var "$2" "$_tmp_client_id"
@@ -1381,4 +1381,12 @@ _semver_ex_parse() {
   [ -n "$5" ] && _set_var "$5" "$_tmpT_"
   
   true
+}
+
+_base64_e() {
+  perl -e "use MIME::Base64; print encode_base64(<>);" 
+}
+
+_base64_d() {
+  perl -e "use MIME::Base64; print decode_base64(<>);" 
 }

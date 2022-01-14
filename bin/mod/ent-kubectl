@@ -136,7 +136,7 @@ auto_align_with_server() {
     KUBECTL_NAME="kubectl.$ver$EXT"
 
     if [ ! -f "$KUBECTL_NAME" ]; then
-      _log_i 1 "I don't have the kubectl for this server (\"$ver\"cd ). I'll try to download it"
+      _log_i 1 "I don't have the kubectl for this server (\"$ver\"). I'll try to download it"
       
       # DOWNLOAD kubectl
       _log_i 1 "Downloading kubectl \"$ver\""

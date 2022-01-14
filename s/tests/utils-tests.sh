@@ -194,4 +194,17 @@ test_path_functions() {
   [ "$RES" = "~/b" ] || FATAL "failed! $LINENO"
 }
 
+test_shell_replacements() {
+  print_current_function_name "> " ".."
+  local plain="ABCDEFGHI"
+  local encoded="QUJDREVGR0hJCg=="
+  local RES
+  
+  # BASE64
+  RES="$(echo "$plain" | _base64_e)"
+  [ "$RES" = "$encoded" ] || FATAL "failed! $LINENO"
+  RES="$(echo "$encoded" | _base64_d)"
+  [ "$RES" = "$plain" ] || FATAL "failed! $LINENO"
+}
+
 true
