@@ -406,7 +406,7 @@ get_be_info() {
     IMAGE_FQNAME="$(
       ./mvnw -q --non-recursive exec:exec \
         -Dexec.executable="echo" \
-        -Dexec.args="'$IMAGE_FQNAME_expr'" 2>/dev/null
+        -Dexec.args="'$IMAGE_FQNAME_expr'" 2>/dev/null | grep -v 'Warning:'
     )"
     if echo "$IMAGE_FQNAME" | grep -F "[ERROR]"; then
       IMAGE_FQNAME=""
@@ -715,10 +715,10 @@ push_git() {
   git tag "$VERSION_NUMBER"
 
   if $FORCE; then
-    RES="$(git push --force 2>&1)"
+    RES="$(git push --set-upstream origin master --force 2>&1)"
     RV=$?
   else
-    RES="$(git push 2>&1)"
+    RES="$(git push --set-upstream origin master 2>&1)"
     RV=$?
   fi
 
@@ -825,7 +825,7 @@ init_pub() {
   if [ "$?" -eq 0 ]; then
     _log_i 1 "bundle publication repository initialized"
   else
-    _log_i w "bundle publication repository was not properly initialized"
+    _log_i 1 "bundle publication repository was not properly initialized"
   fi
 }
 

@@ -182,4 +182,22 @@ test_path_functions() {
 
 }
 
+test_shell_replacements() {
+  print_current_function_name "> " ".."
+  local plain="ABCDEFGHI"
+  local RES
+  
+  # SHA256 - STDIN
+  local encoded="afc78172c81880ae10a1fec994b5b4ee33d196a001a1b66212a15ebe573e00b5"
+  RES="$(echo "$plain" | _sha256sum)"
+  [ "$RES" = "$encoded" ] || FATAL "failed! $LINENO"
+  
+  # BASE64
+  local encoded="QUJDREVGR0hJCg=="
+  RES="$(echo "$plain" | _base64_e)"
+  [ "$RES" = "$encoded" ] || FATAL "failed! $LINENO"
+  RES="$(echo "$encoded" | _base64_d)"
+  [ "$RES" = "$plain" ] || FATAL "failed! $LINENO"
+}
+
 true

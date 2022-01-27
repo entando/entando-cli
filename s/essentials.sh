@@ -125,6 +125,8 @@
       "$@"
     fi
   }
+  
+  check_kubectl() { :; }
 
   prepare_for_privileged_commands() {
     # NB: not using "sudo -v" because misbehaves with password-less sudoers
@@ -195,6 +197,8 @@
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       fi
     fi
+
+    check_kubectl
   }
 
   setup_kubectl

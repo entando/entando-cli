@@ -38,7 +38,7 @@ node.install() {
           # shellcheck disable=SC2064
           trap "rm \"$tmp\"" exit
           curl "$DOWNLOAD_URL" > "$tmp"
-          unzip "$tmp"
+          unzip -q "$tmp"
         ) 
       else
         curl "$DOWNLOAD_URL" | tar xz

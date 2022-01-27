@@ -9,7 +9,7 @@ cd "$DIR/../.." || {
 [[ "$1" == "--help" && "$2" == "--short" ]] && echo "Helps locally installing entando instances" && exit 0
 
 # shellcheck disable=SC2120
-debug__pp() {
+debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     _pp \
       ENTANDO_RELEASE ENTANDO_RELEASES_STRUCTURE_V_6_3_2 ENTANDO_CLI_VERSION \
@@ -624,7 +624,7 @@ determine_versioned_filename_6_3_2() {
   _set_var "$dst_var" "${k8s_version_tag}/namespace-scoped-deployment/${base_template_name}"
 }
 #-----------------------------------------------------------------------------------------------------------------------
-debug__pp
+debug_trace_vars
 
 if $WITH_VM; then
   RUN_WITH_VM
