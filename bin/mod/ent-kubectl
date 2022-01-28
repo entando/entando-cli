@@ -127,8 +127,8 @@ auto_align_with_server() {
   [[ -z "$ver" ]] && FATAL "Unable to determine the server version number"
 
   (
-    mkdir -p "$HOME/.entando/bin"
-    __cd "$HOME/.entando/bin"
+    mkdir -p "$ENTANDO_BINS"
+    __cd "$ENTANDO_BINS"
 
     EXT=""
     [ "$SYS_OS_TYPE" == "windows" ] && EXT=".exe"
@@ -174,7 +174,7 @@ auto_align_with_server() {
       
       # VERIFY checksum
       [[ -f "$KUBECTL_NAME.sha256" ]] && {
-        echo "$(<"$KUBECTL_NAME.sha256") kubectl.tmp" | _sha256sum --check || {
+          [ "$(<"$KUBECTL_NAME.sha256")" = "$(echo kubectl.tmp | _sha256sum)" ] || {
           rm "kubectl.tmp"
           FATAL "Checksum verification failed, operation interrupted"
         }
@@ -213,6 +213,6 @@ fi
 }
 
 . s/_base.sh
-cd - > /dev/null || FATAL -t "internal error"
+cd - > /dev/null || _FATAL "internal error"
 
 RUN "$@"

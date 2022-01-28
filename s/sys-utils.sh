@@ -207,125 +207,16 @@ else
   }
 fi
 
+#  Starts a cli command and applies compatibility workarouns if necessary
+#  (this is the null implementation see below for the full one)
+#
+SYS_CLI_PRE() { "$@"; }
 $OS_WIN && {
-  winpty --version 1>/dev/null 2>&1 && {
-    SYS_CLI_PRE() {
-      if $SYS_IS_STDIN_A_TTY; then
+  if command -v winpty &>/dev/null; then
+    if $SYS_IS_STDIN_A_TTY; then
+      SYS_CLI_PRE() {
         "winpty" "$@"
-      else
-        "$@"
-      fi
-    }
-  }
-}
-
-# Runs npm from the private npm modules
-function _ent-npm() {
-  activate_shell_login_environment
-
-  local P="$ENTANDO_ENT_HOME/lib/node"
-
-  [ ! -d "$ENTANDO_ENT_HOME/lib/node" ] && mkdir -p "$ENTANDO_ENT_HOME/lib/node"
-  if [ ! -f "$P/package.json" ]; then
-    (
-      echo "Ent node dir not initialized => INITIALIZING.." 1>&2
-      cd "$P"
-      _npm init -y 1>/dev/null
-    ) || return $?
-  fi
-  (
-    case "$1" in
-    bin)
-      npm bin --prefix "$P" -g 2>/dev/null
-      ;;
-    install-from-source)
-      shift
-      [ -d "$P" ] || FATAL -t "Required dir \"$P\" is missing"
-      _npm install --prefix "$P" -g .
-      ;;
-    install-package)
-      shift
-      cd "$P" || FATAL -t "Unable to switch to dir \"$P\""
-      _npm install --prefix "$P" -g "$@"
-      ;;
-    *)
-      _log_i 0 "missing parameter (install-from-source|install-package|bin)"
-      ;;
-    esac
-  ) || return $?
-}
-
-# Imports a module from the entando private npm modules
-# the the given mode_modules dir
-function _ent-npm--import-module-to-current-dir() {
-  local BP="$ENTANDO_ENT_HOME/lib/"
-  #[ ! -f package.json ] && echo "{}" > package.json
-  _npm install "$BP/$1/$2"
-}
-
-# Run the ent private installation of jhipster
-function _ent-jhipster() {
-  require_develop_checked
-  activate_designated_node
-  if [ "$1" == "--ent-get-version" ]; then
-    if $OS_WIN; then
-      "$ENT_NPM_BIN_DIR/jhipster.cmd" -V 2>/dev/null | grep -v INFO
-    else
-      "$ENT_NPM_BIN_DIR/jhipster" -V 2>/dev/null | grep -v INFO
-    fi
-  else
-    #require_initialized_dir
-    # protection against yeoman's reverse recursive lookup
-    #[ ! -f ".yo-rc.json" ] && echo "{}" > ".yo-rc.json"
-
-    [[ ! -f package.json ]] && {
-      ask "The project dir doesn't seem to be initialized, should I do it now?" && {
-        ent-init-project-dir
       }
-    }
-
-    # RUN
-    if $OS_WIN; then
-      SYS_CLI_PRE "$ENT_NPM_BIN_DIR/jhipster.cmd" "$@"
-    else
-      "$ENT_NPM_BIN_DIR/jhipster" "$@"
-    fi
-
-    _log_i 0 "Updating the entando generator"
-
-    _ent-npm--import-module-to-current-dir \
-      "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
-      "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" |
-      grep -v 'No description\|No repository field.\|No license field.'
-  fi
-}
-
-# Run the ent private installation of the entando bundle tool
-_ent-bundler() {
-  if [ "$1" == "--ent-get-version" ]; then
-    if $OS_WIN; then
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" --version
-    else
-      "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" --version
-    fi
-  else
-    require_develop_checked
-    activate_designated_node
-    # RUN
-    if $OS_WIN; then
-      if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        SYS_CLI_PRE "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
-      else
-        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" |
-          perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
-      fi
-    else
-      if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
-      else
-        "$ENT_NPM_BIN_DIR/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" |
-          perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
-      fi
     fi
   fi
 }
@@ -345,60 +236,45 @@ generate_ent_project_file() {
   ! grep -qs "^$C_ENT_STATE_FILE\$" .gitignore && {
     echo -e "\n########\n$C_ENT_STATE_FILE\n" >>".gitignore"
   }
+  mkdir -p "$C_ENT_PRJ_ENT_DIR"
 
   if [ ! -f "$C_ENT_PRJ_FILE" ]; then
-    echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" >"$C_ENT_PRJ_FILE"
+    echo "# ENT-PRJ / $(date -u '+%Y-%m-%dT%H:%M:%S%z')" > "$C_ENT_PRJ_FILE"
   fi
 
   camel_to_snake -d ENT_PRJ_NAME "$(basename "$PWD")"
   set_or_ask ENT_PRJ_NAME "" "Please provide the project name" "$ENT_PRJ_NAME"
-  mkdir -p "$C_ENT_PRJ_ENT_DIR"
   save_cfg_value ENT_PRJ_NAME "$ENT_PRJ_NAME" "$C_ENT_PRJ_FILE"
 }
 
 rescan-sys-env() {
-  [[ "$WAS_DEVELOP_CHECKED" == "true" || "$1" == "force" ]] && {
-    if $OS_WIN; then
-      [[ -z "$NVM_CMD" || "$1" == "force" ]] && {
-        NVM_CMD="$(command -v nvm | head -n 1)"
-        save_cfg_value "NVM_CMD" "$NVM_CMD" "$ENT_DEFAULT_CFG_FILE"
-      }
-      [[ -z "$NPM_CMD" || "$1" == "force" ]] && {
-        NPM_CMD="$(command -v npm | head -n 1)"
-        save_cfg_value "NPM_CMD" "$NPM_CMD" "$ENT_DEFAULT_CFG_FILE"
-      }
-      [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
-        ENT_NPM_BIN_DIR="$(_ent-npm bin)"
-        mkdir -p "$ENT_NPM_BIN_DIR"
-        ENT_NPM_BIN_DIR="$(win_convert_existing_path_to_posix_path "$ENT_NPM_BIN_DIR")"
-        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR" "$ENT_DEFAULT_CFG_FILE"
-      }
-    else
-      [[ -z "$NVM_CMD" || "$1" == "force" ]] && NVM_CMD="nvm"
-      save_cfg_value "NVM_CMD" "$NVM_CMD" "$ENT_DEFAULT_CFG_FILE"
-      [[ -z "$NPM_CMD" || "$1" == "force" ]] && NPM_CMD="npm"
-      save_cfg_value "NPM_CMD" "$NPM_CMD" "$ENT_DEFAULT_CFG_FILE"
-      [[ -z "$ENT_NPM_BIN_DIR" || "$1" == "force" ]] && {
-        ENT_NPM_BIN_DIR="$(_ent-npm bin)"
-        save_cfg_value "ENT_NPM_BIN_DIR" "$ENT_NPM_BIN_DIR" "$ENT_DEFAULT_CFG_FILE"
-      }
-    fi
-  }
-}
-
-_nvm() {
-  activate_shell_login_environment
-  "$NVM_CMD" "$@"
-}
-
-_npm() {
-  activate_shell_login_environment
-  "$NPM_CMD" "$@"
+  true
 }
 
 win_convert_existing_path_to_posix_path() {
   powershell "cd \"$1\" > \$null; bash -c 'pwd'"
 }
+
+win_convert_existing_posix_path_to_win_path() {
+  (
+    __cd "$1"
+    RES="$(cmd.exe /C "echo %cd%" | sed 's/\\/\\\\/g')"
+    [[ -z "$RES" ]] && _FATAL "Error converting \"$1\" to windows path"
+    if [[ "$1" =~ ^.*/$ ]]; then
+      echo "$RES\\\\"
+    else
+      echo "$RES"
+    fi
+  ) || exit 1
+}
+
+# Clones a git repository by handing also ent special cases and user communication
+#
+# $1:  URL TO CLONE
+# $2:  TAG TO CHECKOUT
+# $3:  local folder name
+# $4:  human description of the cloned repository
+# $5:  options
 
 git_clone_repo() {
   local URL="$1" # URL TO CLONE
@@ -468,7 +344,7 @@ __mk-cd() {
 __cd() {
   cd "$1" || {
     echo "~~~" 1>&2
-    FATAL -t "Unable to enter dir \"$1\""
+    _FATAL "Unable to enter dir \"$1\""
   }
 }
 
@@ -479,63 +355,6 @@ activate_shell_login_environment() {
   [ -f ~/.bash_profile ] && . ~/.bash_profile && return 0
   [ -f ~/.bash_login ] && . ~/.bash_login && return 0
   [ -f ~/.profile ] && . ~/.profile && return 0
-}
-
-find_nvm_node() {
-  local found current versions ver
-  local outvar="$1"
-  local preferred="$2"
-  local requested="$3"
-
-  found=""
-  _set_var "$outvar" ""
-
-  current="$(node -v)"
-
-  if $OS_WIN; then
-    versions="$(nvm ls | _perl_sed 's/[\s*v]*([^\s]*).*/\1/' | grep -v system)"
-  else
-    versions="$(nvm ls --no-colors --no-alias 2>/dev/null |
-      _perl_sed 's/->/  /' |
-      grep -v system |
-      grep '^\s\+v.*$' |
-      _perl_sed 's/[^v]*(v\S*).*/\1/')"
-    if [[ $? -ne 0 || -z "$versions" ]]; then
-      versions="$(nvm ls --no-colors |
-        _perl_sed 's/->/  /' |
-        grep -v system |
-        grep '^\s\+v.*$' |
-        _perl_sed 's/[^v]*(v\S*).*/\1/')"
-    fi
-  fi
-
-  if echo "$versions" | grep -q "$current"; then
-    versions="$(echo "$versions" | grep -v "$current")"
-    versions+=$'\n'" $current"
-  fi
-
-  if echo "$versions" | grep -q "$preferred"; then
-    versions="$(echo "$versions" | grep -v "$preferred")"
-    versions+=$'\n'" $preferred"
-  fi
-
-  for ver in $versions; do
-    if check_ver "echo" "$requested" "\"$ver\"" "quiet"; then
-      found="$ver"
-    else
-      _log_d 2 "\t- version \"$ver\" doesn't satisfy the requirements ($requested)"
-    fi
-  done
-
-  if [ "$found" != "" ]; then
-    _log_d 2 "\t- version \"$ver\" looks good"
-    _log_i 0 "\tfound suitable node version $found"
-    _set_var "$outvar" "$found"
-    return 0
-  else
-    _log_w 0 "No suitable version of node was found"
-    return 1
-  fi
 }
 
 list_compatible_installations() {
@@ -609,4 +428,7 @@ import_ent_installation() {
   }
 }
 
+_strip_colors() {
+  perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+}
 return 0

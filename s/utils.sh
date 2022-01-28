@@ -10,14 +10,6 @@ if [ "$?" != 1 ]; then
   IS_GIT_CREDENTIAL_MANAGER_PRESENT=true
 fi
 
-if [ -z "$SYS_IS_STDIN_A_TTY" ]; then
-  perl -e 'print -t STDIN ? exit 0 : exit 1;'
-  if [ $? -eq 0 ]; then
-    SYS_IS_STDIN_A_TTY=true
-  else
-    SYS_IS_STDIN_A_TTY=false
-  fi
-fi
 
 xu_set_status() { :; }
 
@@ -65,7 +57,7 @@ save_cfg_value() {
     fi
   fi
   if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
-    FATAL "save_cfg_value: Unsupported multiline value $value"
+    FATAL "save_cfg_value: Unsupported multiline value \"$value\" for var: \"$name\""
   fi
   if $IS_MAP; then
     local key
@@ -220,20 +212,44 @@ ask() {
   done
 }
 
-# QUITS due to a low level fatal error
+# Stops the execution with a fatal error
+# and prints the callstack
 #
-FATAL() {
-  LOGGER() {
-    _log_e 0 "FATAL: $*"
-  }
-  if [ "$1" = "-t" ]; then
-    shift
-    print_calltrace 1 5 "" LOGGER "$@" 1>&2
+# Options
+# [-s]  simple: omits the stacktrace
+# [-S n] skips n levels of the call stack
+# [-99] uses 99 as exit code, which indicates test assertion
+#
+# Params:
+# $1  error message
+#
+_FATAL() {
+  local rv=77
+  if [ "$1" != "-s" ]; then
+    SKIP=1;[ "$1" = "-S" ] && { SKIP="$((SKIP+$2))"; shift 2; }
+    [ "$1" = "-99" ] && shift && rv=99
+    CALL_TRACE_LOGGER() { _log_e 0 "$*" 1>&2; }
+    print_calltrace "$SKIP" 5 "" CALL_TRACE_LOGGER "$@" 1>&2
   else
-    LOGGER "$@"
+    shift
+    [ "$1" = "-99" ] && shift && rv=99
+    _log_e 0 "$@" 1>&2
   fi
-  xu_set_status "FATAL: $*"
-  exit 77
+  exit "$rv"
+}
+
+FATAL() {
+  _FATAL -s "$@"
+}
+
+# Validates for non-null a list of mandatory variables
+# Fatals if a violation is found
+#
+NONNULL() {
+  for var_name in "$@"; do
+    local var_value="${!var_name}"
+    [ -z "$var_value" ] && _FATAL -S 1 "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
+  done
 }
 
 # QUITS due to a user error
@@ -494,7 +510,7 @@ args_or_ask() {
       -d) IS_DEFAULT=true;shift;;
       --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
       --help) PRINT_HELP=true;NEVER_ASK=true;shift;;
-      --cmplt) PRINT_COMPLETION_CODE=true;shift;;
+      --cmplt) PRINT_COMPLETION_CODE=true;NEVER_ASK=true;shift;;
       --)
         shift
         break
@@ -533,7 +549,7 @@ args_or_ask() {
 
   # user provided value
   if $ARG; then                                                                     # POSITIONAL VALUE
-    assert_num "the index of position argument" "$val_name" || FATAL -t "Internal Error"
+    assert_num "the index of position argument" "$val_name" || _FATAL "Internal Error"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
     val_name="Argument #$((val_name))"
@@ -910,7 +926,7 @@ app-get-main-ingresses-by-version() {
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
     JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
   else
-    FATAL -t "Unsupported version \"$version\""
+    _FATAL "Unsupported version \"$version\""
   fi
   
   JP+='{end}'
@@ -995,10 +1011,10 @@ keycloak-query-connection-data() {
     # EXTERNAL KEYCLOAK CONFIGURATION
     _log_d 3 "external-sso-secret found"
     _tmp_auth_url="$(echo "$tmp" | cut -d':' -f3)"
-    _tmp_auth_url=$(base64 -d <<< "$_tmp_auth_url")
+    _tmp_auth_url=$(_base64_d <<< "$_tmp_auth_url")
     _tmp_realm="$(echo "$tmp" | cut -d':' -f4)"
-    _tmp_realm=$(base64 -d <<< "$_tmp_realm")
-    [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+    _tmp_realm=$(_base64_d <<< "$_tmp_realm")
+    [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url [e1]"
   else
     # INTERNAL KEYCLOAK CONFIGURATION
     local client_secret_name="${ENTANDO_APPNAME}-de-secret"
@@ -1011,7 +1027,7 @@ keycloak-query-connection-data() {
         | grep -E -- 'kc-ingress|-sso-' | head -n 1 | awk '{print $2}'
     )"
     
-    [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url"
+    [ -z "$_tmp_auth_url" ] && FATAL "Unable to determine the IDP auth_url [e2]"
     _tmp_auth_url+="/auth"
     _tmp_auth_url="$scheme://$_tmp_auth_url"
   fi
@@ -1021,8 +1037,8 @@ keycloak-query-connection-data() {
   
   [ -z "$client_id" ] && FATAL "Unable to extract the application client secret"
 
-  _tmp_client_id=$(base64 -d <<< "$client_id")
-  _tmp_client_secret=$(base64 -d <<< "$client_secret")
+  _tmp_client_id=$(_base64_d <<< "$client_id")
+  _tmp_client_secret=$(_base64_d <<< "$client_secret")
  
   _set_var "$1" "$_tmp_auth_url"
   _set_var "$2" "$_tmp_client_id"
@@ -1143,7 +1159,7 @@ ecr-bundle-action() {
         local T_STATUS="$(cat "$STATUS")"
         local T_OUT="$(cat "$OUT")"
         local T_ERR="$(cat "$ERR")"
-        trace_vars T_STATUS T_OUT T_ERR
+        _pp T_STATUS T_OUT T_ERR
       } > /dev/tty
       
     rm "$STATUS" "$ERR" "$OUT"
@@ -1209,7 +1225,7 @@ ecr-watch-installation-result() {
       end_time="$(date -u +%s)"
       elapsed="$((end_time - start_time))"
       printf "\r                                  \r"
-      printf "%4d STATUS: %s.." "$elapsed" "$http_res"
+      printf "%4ds STATUS: %s.." "$elapsed" "$http_res"
     fi
 
     case "$http_res" in
@@ -1258,7 +1274,7 @@ handle_forced_profile() {
   if [[ "$1" =~ --profile=.* ]]; then
     args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
-    _set_var "$phv" "$ENTANDO_HOME/profiles/$ENTANDO_USE_PROFILE"
+    _set_var "$phv" "$ENTANDO_PROFILES/$ENTANDO_USE_PROFILE"
   fi
   
   local pvv phvv
@@ -1279,10 +1295,82 @@ handle_forced_profile() {
   fi
 }
 
+# Sets a variable on a template string
+# The variable placeholder should respect one of these form:
+# - Form #1: {var}
+# - Form #2: {/var}
+#
+# Params:
+# $1  the destination var
+# $2  the source value
+# $3  the var name
+# $4  the var value
+# $.. params $3,$4 repeated at will
+#
+_tpl_set_var() {
+  local _var_="$1"; shift
+  local _tmp_="$1"; shift
+
+  while true; do
+    K=$1
+    [ -z "$K" ] && break
+    shift; V=$1; shift
+    _tmp_="${_tmp_//\{${K}\}/${V}}"
+    _tmp_="${_tmp_//\{\/${K}\}/\/${V}}"
+  done
+  _set_var "$_var_" "$_tmp_"
+}
+
+# File/dir existsor fatals
+#
+# Params:
+# $1  mode (-f: file, -d: dir)
+# $2  file/dir
+#
+__exist() {
+  local where="";[[ "${2:0:1}" != "/" && "${2:0:1}" != "~" ]] && where=" under directory \"$PWD\""
+  case "$1" in
+    "-f") [ ! -f "$2" ] && _FATAL -S 1 "Unable to find the file \"$2\"$where";;
+    "-d") [ ! -d "$2" ] && _FATAL -S 1 "Unable to find the dir \"$2\"$where";;
+    *) _FATAL -S 1 "Invalid mode \"$1\"";;
+  esac
+}
+
+# Removes a directory only if it's marked a disposable
+#
+__rm_disdir() {
+  [ ! -d "$1" ] && _FATAL -S 1 "Not found or not a dir (\"$1\") "
+  if [ -f "$1/.entando-disdir" ]; then
+    rm -rf "$1" || _FATAL -S 1 "Unable to delete the dir (\"$1\") "
+  else
+    _FATAL -S 1 "I won't delete a directory (\"$1\") that is not marked as disposable" 1>&2
+  fi
+}
+
+# Creates or marks a directory as disposable
+#
+__mk_disdir() {
+  if  [ "$1" != "--mark" ]; then
+    mkdir "$1" || _FATAL "Unable to create the dir (\"$1\") "
+  else
+    shift
+    [ ! -d "$1" ] && _FATAL "Not found or not a dir (\"$1\") "
+  fi
+  touch "$1/.entando-disdir" || _FATAL "Unable to mark the dir (\"$1\") "
+}
+
 _sha256sum() {
   if $OS_WIN; then
-    sha256sum
+    sha256sum | cut -d ' ' -f 1
   else
-    shasum -a 256
+    shasum -a 256 | cut -d ' ' -f 1
   fi
+}
+
+_base64_e() {
+  perl -e "use MIME::Base64; print encode_base64(<>);" 
+}
+
+_base64_d() {
+  perl -e "use MIME::Base64; print decode_base64(<>);" 
 }

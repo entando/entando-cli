@@ -11,7 +11,7 @@ cd "$DIR/../.." || {
 # shellcheck disable=SC2120
 debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
-    trace_vars \
+    _pp \
       ENTANDO_RELEASE ENTANDO_RELEASES_STRUCTURE_V_6_3_2 ENTANDO_CLI_VERSION \
       DESIGNATED_PROFILE DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
       ENTANDO_NAMESPACE ENTANDO_APPNAME \

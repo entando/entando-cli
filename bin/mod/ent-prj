@@ -114,20 +114,20 @@ RUN() {
       require_develop_checked
       require_ent_project_dir
       print_entando_banner
-      activate_designated_node
+      node.activate_environment
       fe_build "$@"
       bundle_all
       ;;
     "fe-push" | "fp") #H: [--force] pushes the frontend to the repo
       require_develop_checked
       require_ent_project_dir
-      activate_designated_node
+      node.activate_environment
       fe_push "$@"
       ;;
     "fe-test-run" | "fr") #H: runs the one of the frontend components
       require_develop_checked
       require_ent_project_dir
-      activate_designated_node
+      node.activate_environment
       fe_test_run "$@"
       ;;
     "fe-list" | "fls") #H: lists the frontend components
@@ -207,9 +207,9 @@ RUN() {
       require_ent_project_dir
       be_test_run
       ;;
-    "be-logs" | "bl") #H: shows the logs of the bundle pod
+    "be-logs" | "be-log" | "bl") #H: shows the logs of the bundle pod
       require_ent_project_dir
-      be_pod_action "log"
+      be_pod_action "log" "$@"
       ;;
     "be-describe" | "bd") #H: shows the logs of the bundle pod
       require_ent_project_dir
@@ -340,13 +340,13 @@ fe_build() {
   if [[ "$1" == "--all" || "$1" == "-a" ]]; then
     shift
     require_ent_project_dir
-    activate_designated_node
+    node.activate_environment
     bash ./prepareMicrofrontends.sh
   else
     fe_select_widget "build" && (
       __cd "$SELECTED_WIDGET"
-      _npm install
-      _npm run build --production
+      _ent-npm install
+      _ent-npm run build --production
     )
   fi
 }
@@ -385,7 +385,7 @@ fe_widget_do() {
 fe_test_run() {
   fe_select_widget "run" && (
     __cd "$SELECTED_WIDGET"
-    _npm install && _npm start
+    _ent-npm install && _ent-npm start
   )
 }
 
@@ -406,7 +406,7 @@ get_be_info() {
     IMAGE_FQNAME="$(
       ./mvnw -q --non-recursive exec:exec \
         -Dexec.executable="echo" \
-        -Dexec.args="'$IMAGE_FQNAME_expr'" 2>/dev/null
+        -Dexec.args="'$IMAGE_FQNAME_expr'" 2>/dev/null | grep -v 'Warning:'
     )"
     if echo "$IMAGE_FQNAME" | grep -F "[ERROR]"; then
       IMAGE_FQNAME=""
@@ -420,7 +420,7 @@ get_be_info() {
     set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
   }
 
-  [ -z "$IMAGE_FQNAME" ] && FATAL -t "Unable to determine the image name"
+  [ -z "$IMAGE_FQNAME" ] && _FATAL "Unable to determine the image name"
   IMAGE_FQNAME_ORG="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[1]}')"
   local tmp="$(echo "$IMAGE_FQNAME" | awk '{split($0,a,"/"); print a[2]}')"
   IMAGE_FQNAME_NAME="$(echo "$tmp" | awk '{split($0,a,":"); print a[1]}')"
@@ -445,7 +445,7 @@ be_info() {
 
 be_build() {
   require_ent_project_dir
-  activate_designated_node
+  node.activate_environment
 
   get_be_info
   be_update_plugin_descriptor
@@ -664,8 +664,15 @@ be_push() {
 
 be_pod_action() {
   get_be_info
-  pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | tail +2 | cut -d' ' -f 1)"
-  ent pod "$1" "$pods"
+
+  pods="$(get_pods_list "$IMAGE_FQNAME_NAME" | tail +2 | cut -d' ' -f 1)"
+  _pp pods
+  
+  [ -z "$pods" ] && FATAL "Pod \"$IMAGE_FQNAME_NAME\" not found"
+  
+  local res="$1"; shift
+
+  ent pod "$res" "$pods" "$@"
 }
 
 push_docker() {
@@ -708,10 +715,10 @@ push_git() {
   git tag "$VERSION_NUMBER"
 
   if $FORCE; then
-    RES="$(git push --force 2>&1)"
+    RES="$(git push --set-upstream origin master --force 2>&1)"
     RV=$?
   else
-    RES="$(git push 2>&1)"
+    RES="$(git push --set-upstream origin master 2>&1)"
     RV=$?
   fi
 
@@ -818,12 +825,12 @@ init_pub() {
   if [ "$?" -eq 0 ]; then
     _log_i 1 "bundle publication repository initialized"
   else
-    _log_i w "bundle publication repository was not properly initialized"
+    _log_i 1 "bundle publication repository was not properly initialized"
   fi
 }
 
 initialize_publication_git_repository() {
-  cd bundle >/dev/null || FATAL -t "internal error"
+  cd bundle >/dev/null || _FATAL "internal error"
 
   # Base git init, if required
   [ ! -f .git ] && {
@@ -847,7 +854,7 @@ initialize_publication_git_repository() {
 
   pbs_fe_propose_credentials_cache
 
-  cd - >/dev/null || FATAL -t "internal error"
+  cd - >/dev/null || _FATAL "internal error"
 
   # Project: gitignore
   local UP=false
@@ -890,7 +897,7 @@ ensure_valid_location_for_git_publication() {
   fi
 
   if [ "$1" = ":initialized" ]; then
-    cd bundle || FATAL -t "internal error"
+    cd bundle || _FATAL "internal error"
 
     # git initialized
     [ -d ".git" ] || FATAL "Publication repository is not initialized"
@@ -976,7 +983,7 @@ ensure_valid_location_for_git_publication() {
       fi
     fi
 
-    cd - >/dev/null || FATAL -t "internal error"
+    cd - >/dev/null || _FATAL "internal error"
   fi
 
   return 0
@@ -984,7 +991,7 @@ ensure_valid_location_for_git_publication() {
 
 # If some information is missing tries to read it from the project
 read_missing_pub_info_from_project_sources_git() {
-  cd .. || FATAL -t "internal error"
+  cd .. || _FATAL "internal error"
 
   [ -z "$GIT_USER_NAME" ] && {
     GIT_USER_NAME="$(git config user.name 2>/dev/null)"
@@ -996,7 +1003,7 @@ read_missing_pub_info_from_project_sources_git() {
     [ -n "$GIT_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$GIT_USER_EMAIL\" from the bundle parent project dir"
   }
 
-  cd - >/dev/null || FATAL -t "internal error"
+  cd - >/dev/null || _FATAL "internal error"
 }
 
 pbs_fe_propose_credentials_cache() {
@@ -1027,6 +1034,6 @@ fi
 }
 
 . s/_base.sh
-cd - >/dev/null || FATAL -t "internal error"
+cd - >/dev/null || _FATAL "internal error"
 
 RUN "$@"
