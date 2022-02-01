@@ -627,6 +627,7 @@ get_pods_list() {
     -lEntandoPlugin="$pn" \
     -o "custom-columns=NAME:.metadata.name,STATUS:.status.phase"
 }
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
   require_ent_project_dir
@@ -665,8 +666,7 @@ be_push() {
 be_pod_action() {
   get_be_info
 
-  pods="$(get_pods_list "$IMAGE_FQNAME_NAME" | tail +2 | cut -d' ' -f 1)"
-  _pp pods
+  pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | tail +2 | cut -d' ' -f 1)"
   
   [ -z "$pods" ] && FATAL "Pod \"$IMAGE_FQNAME_NAME\" not found"
   
@@ -972,9 +972,13 @@ ensure_valid_location_for_git_publication() {
     if [[ "$MODE" == "NORMAL" || "$MODE" == "OVERRIDE" ]]; then
       # there is no master on remote
       echo "" >.gitignore
+      touch descriptor.yaml
       git add .gitignore descriptor.yaml
       ls plugins/*.yaml 1>/dev/null && git add plugins/*.yaml
-      git commit -m "init" || return $?
+      git commit --allow-empty -m "init" || {
+		  _log_e 0 "Error executing the init commit"
+		  return $?
+	  }
       git checkout -b master &>/dev/null
       if [ "$MODE" = "OVERRIDE" ]; then
         git push --set-upstream origin master --force || FATAL "Error pushing the base initialization"

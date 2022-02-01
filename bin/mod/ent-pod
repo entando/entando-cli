@@ -191,7 +191,7 @@ pod_action() {
         "$ENT_SHELL_CMD"
       ;;
     "exec")
-      echo "Executing \"exec\" command against $(mk_target_desc)"
+      echo "Executing \"exec\" command against $(mk_target_desc)" 1>&2
       _kubectl exec --stdin --tty ${NAMESPACE:+-n "$NAMESPACE"} "$SELECTED_POD" -c "$SELECTED_CONTAINER" -- "$@"
       ;;
     "force-reload")
@@ -200,7 +200,7 @@ pod_action() {
     "x")
       ACTION="$1"
       shift
-      echo "Executing \"$ACTION\" command against $(mk_target_desc)"
+      echo "Executing \"$ACTION\" command against $(mk_target_desc)" 1>&2
       if [ -n "$SELECTED_CONTAINER" ]; then
         _kubectl "$ACTION" ${NAMESPACE:+-n "$NAMESPACE"} "pod/$SELECTED_POD" -c "$SELECTED_CONTAINER" "$@"
       else
