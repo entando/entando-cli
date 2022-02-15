@@ -792,7 +792,7 @@ init_project__commit_all() {
 init_pub() {
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
-  args_or_ask -a ${HH:+"$HH-only"} URL_OF_ORIGIN  "1/url//%sp URL of the publication repository" "$@" 
+  args_or_ask -a ${HH:+"$HH-only"} URL_OF_ORIGIN  "1/git_repo//%sp URL of the publication repository" "$@" 
   args_or_ask -a ${HH:+"$HH-only"} GIT_USER_NAME  "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
   args_or_ask -a ${HH:+"$HH-only"} GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
   args_or_ask -n -F ${HH:+"$HH-only"} -- "FORCE" '--force///forces the initialization' "$@" && {
