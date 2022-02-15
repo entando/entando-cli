@@ -846,16 +846,20 @@ initialize_publication_git_repository() {
   cd - >/dev/null || _FATAL "internal error"
 
   # Project: gitignore
-  local UP=false
-  grep -sq "^bundle/\$" .gitignore || {
-    echo -e "\n####\nbundle/" >>.gitignore
-    UP=true
+  local UPD=false
+  grep -sq "^bundle/resources/\$" .gitignore || {
+    {
+      echo -e "\n####"
+      echo -e "/bundle/resources/"
+    } >> ".gitignore"
+    UPD=true
   }
   grep -sq "^$C_ENT_STATE_FILE\$" .gitignore || {
+    ! $UPD && echo -e "\n####"
     echo -e "\n$C_ENT_STATE_FILE" >>.gitignore
-    UP=true
+    UPD=true
   }
-  $UP && _log_d 1 "bundle project .gitignore updated"
+  $UPD && _log_d 1 "bundle project .gitignore updated"
 }
 
 require_ent_project_dir() {
@@ -965,9 +969,9 @@ ensure_valid_location_for_git_publication() {
       git add .gitignore descriptor.yaml
       ls plugins/*.yaml 1>/dev/null && git add plugins/*.yaml
       git commit --allow-empty -m "init" || {
-		  _log_e 0 "Error executing the init commit"
-		  return $?
-	  }
+        _log_e 0 "Error executing the init commit"
+        return $?
+      }
       git checkout -b master &>/dev/null
       if [ "$MODE" = "OVERRIDE" ]; then
         git push --set-upstream origin master --force || FATAL "Error pushing the base initialization"
