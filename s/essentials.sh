@@ -30,6 +30,7 @@
   # shellcheck disable=SC2034
   FORCE_URL_SCHEME=""
   C_DEF_ARCHIVE_FORMAT=""
+  # shellcheck disable=SC2034
   CTRACE=""
 
   # shellcheck disable=SC2034

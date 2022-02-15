@@ -444,7 +444,8 @@ _strip_colors() {
 
 _trace() {
   local trace_id="$1"; shift
-  [[ " $CTRACE " =~ " kubectl " ]] && debug-print "$*"
+  # shellcheck disable=SC2076
+  [[ " $CTRACE " =~ " $trace_id " ]] && debug-print "$*"
   "$@"
 }
 
