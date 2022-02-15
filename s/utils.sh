@@ -446,6 +446,7 @@ select_one() {
 # - -F    like "-f" but also sets the give var with true or false
 # - -a    looks for the positional arg of given index (that doesn't start with dash)
 # - -p    only set the var is a value was found
+# - -s    assumes space separator
 #
 # Example:
 # - args_or_ask  "NAME" "name/id//Enter the name" "$@"
@@ -526,7 +527,11 @@ args_or_ask() {
     elif $ARG; then
       :
     else
-      echo "${val_name}="
+      if $SPACE_SEP; then
+        echo "${val_name}"
+      else
+        echo "${val_name}="
+      fi
     fi
     
     $JUST_PRINT_HELP && return 1

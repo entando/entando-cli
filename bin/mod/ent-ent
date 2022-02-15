@@ -9,7 +9,7 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an the local ents" && exit 0
+  echo -e "Helper for managing the local ent installations" && exit 0
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"

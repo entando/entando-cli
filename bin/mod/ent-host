@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #H::
-#H:: Helps managing the system that hosts the quickstart VM
+#H:: Helper for managing the system that hosts the quickstart VM
 #H::
 #H:: Syntax:
 #H::  - ent {script} {command} {params}

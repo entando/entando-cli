@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #H::
-#H:: Helps dealing with the entando component repository
+#H:: Helper for managing the ECR
 #H::
 #H:: Syntax:
 #H::  - ent ecr {command} ...
@@ -9,7 +9,7 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an the Entando ECR" && exit 0
+  echo -e "Helper for managing the ECR" && exit 0
 }
 
 [ "$1" = "--cmplt" ] && {

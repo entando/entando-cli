@@ -9,7 +9,7 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an EntandoApp" && exit 0
+  echo -e "Helper for managing an Entando App" && exit 0
 }
 
 [ "$1" = "--cmplt" ] && {

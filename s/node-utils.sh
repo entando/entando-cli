@@ -120,7 +120,7 @@ _ent-npm() {
   fi
 }
 
-# Run the ent private installation of jhipster
+# Runs the ent private installation of jhipster
 _ent-jhipster() {
   require_develop_checked
   node.activate_environment
@@ -145,7 +145,7 @@ _mp_node_exec() {
   SYS_CLI_PRE "$CMD" "$@"
 }
 
-# Run the ent private installation of the entando bundle tool
+# Runs the ent private installation of the entando bundle tool
 _ent-bundler() {
   node.activate_environment
   if [ "$1" == "--ent-get-version" ]; then

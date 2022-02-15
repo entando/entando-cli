@@ -6,7 +6,7 @@ cd "$DIR/../.." || {
   exit
 }
 
-[[ "$1" == "--help" && "$2" == "--short" ]] && echo "Helps locally installing entando instances" && exit 0
+[[ "$1" == "--help" && "$2" == "--short" ]] && echo "Helper for installing Entando instances locally" && exit 0
 
 # shellcheck disable=SC2120
 debug_trace_vars() {
