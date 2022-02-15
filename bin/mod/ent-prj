@@ -38,7 +38,7 @@ RUN() {
       init_project
       ;;
     "build" | "ba") #H: builds both frontend and backend
-      simple_shell_completion_handler "$1" "--all" && return 0
+      simple_help_handler "parse_be_arguments" "$@" && return 0
       require_develop_checked
       require_ent_project_dir
       print_entando_banner
@@ -138,21 +138,9 @@ RUN() {
       # ~~~~~~~~~~~~~~~~~~~~
       #H:> BACKEND:
       # ~~~~~~~~~~~~~~~~~~~~
-    "be-build" | "bb") #H: (mvn-params) builds and package the backend
-      HH="$(parse_help_option "$@")"
-      show_help_option "$HH"
-      OPT_CLEAN="clean"
-      args_or_ask -n -f ${HH:+"$HH"} '--no-clean///avoid cleaning the build artifacts before the build' "$@" && {
-        OPT_CLEAN=""
-      }
-      OPT_TESTS=""
-      args_or_ask -n -f ${HH:+"$HH"} '--no-tests///avoid cleaning the build artifacts before the build' "$@" && {
-        OPT_TESTS="-Dmaven.test.skip=true"
-      }
-      OPT_MVN_PROFILE="prod"
-      args_or_ask ${HH:+"$HH"} -n -s -p "OPT_MVN_PROFILE" "-P///the maven profile" "$@"
-      [ -n "$HH" ] && return 0
-
+    "be-build" | "bb") #H: (mvn-params) builds and packages the backend
+      simple_help_handler "parse_be_arguments" "$@" && return 0
+      
       require_develop_checked
       require_ent_project_dir
       be_build "$@" || _SOE
@@ -1022,6 +1010,17 @@ pbs_fe_propose_credentials_cache() {
   }
 }
 
+parse_be_arguments() {
+  OPT_CLEAN="clean"
+  args_or_ask -n -f ${HH:+"$HH"} '--no-clean///avoid cleaning the build artifacts before the build' "$@" && {
+    OPT_CLEAN=""
+  }
+  OPT_TESTS=""
+  args_or_ask -n -f ${HH:+"$HH"} '--no-tests///avoid cleaning the build artifacts before the build' "$@" && {
+    OPT_TESTS="-Dmaven.test.skip=true"
+  }
+  args_or_ask ${HH:+"$HH"} -n -s OPT_MVN_PROFILE "-P//prod/the maven profile" "$@"
+}
 
 # ######################################################################################################################
 # ######################################################################################################################
