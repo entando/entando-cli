@@ -168,15 +168,14 @@ check_ver "awk" "*.*.*" "--version | head -n 1" "quiet" || {
   check_ver "awk" "*.*.*" "-W version 2>&1 | head -n 1" "literal" || DEPENDENCY_ERROR "$FAIL_MSG"
 }
 check_ver "grep" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"
-check_ver "command" "*.*.*" " -V cat" || DEPENDENCY_ERROR "$FAIL_MSG"
+check_ver "cat" "-" "-" || DEPENDENCY_ERROR "$FAIL_MSG"
 
 $M_DEVL && {
   #[ -z "$VER_JDK_REQ" ] && VER_JDK_REQ="11.*.*"
   check_ver "java" "*.*.*" "-version 2>&1 | head -n 1 | awk '{gsub(/\"/, \"\", \$3);print \$3}'" || {
-    _log_e 0 "Please set the JAVA_HOME of a valid java installation ($VER_JDK_REQ) before running this command"
     DEPENDENCY_ERROR "$FAIL_MSG"
   }
-  #save_cfg_value "DESIGNATED_JAVA_HOME" "$JAVA_HOME"
+  check_ver "docker" "*.*.*" "--version | sed 's/.*version \([0-9a-zA-Z.+-]*\).*/\1/'" || DEPENDENCY_ERROR "$FAIL_MSG"
 }
 
 $M_KUBE && { check_ver "hostname" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"; }

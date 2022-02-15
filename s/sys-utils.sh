@@ -54,9 +54,19 @@ check_ver() {
   else
     [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
     
-    [[ "$mode" =~ "literal" ]] &&
-      VER=$(eval "$1 $3") ||
-      VER=$(eval "$1 $3 2>/dev/null")
+    if command -V "$1" &> /dev/null; then
+      if [[ "$2" == "-" ]]; then
+        return 0
+      else
+        if [[ "$mode" =~ "literal" ]]; then
+          VER=$(eval "$1 $3")
+        else
+          VER=$(eval "$1 $3 2>/dev/null")
+        fi
+      fi
+    else
+      VER=""
+    fi
       
     if [ $? -ne 0 ] || [ -z "$VER" ]; then
       if [[ ! "$mode" =~ "quiet" ]]; then
