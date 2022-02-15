@@ -362,14 +362,6 @@ print_entando_banner() {
   } > /dev/stderr
 }
 
-print_hr() {
-  if "$SYS_IS_STDIN_A_TTY"; then
-    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
-  else
-    printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
-  fi
-}
-
 # requires that the system environment was checked for development mode
 #
 require_develop_checked() {

@@ -441,4 +441,39 @@ import_ent_installation() {
 _strip_colors() {
   perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
 }
+
+_trace() {
+  local trace_id="$1"; shift
+  [[ " $CTRACE " =~ " kubectl " ]] && debug-print "$*"
+  "$@"
+}
+
+print_hr() {
+  if "$SYS_IS_STDIN_A_TTY"; then
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
+  else
+    printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
+  fi
+}
+
+debug-print() {
+  if $SYS_IS_STDOUT_A_TTY; then
+    B() { echo -e '\033[101;37m'; }
+    E() { echo -e '\033[0;39m'; }
+  else
+    B() { true; }
+    E() { true; }
+  fi  
+  
+  {    
+    if [ "$1" == "--title" ]; then
+      echo -e "$(B)### DEBUG ### $2"
+      shift 2
+    else
+      echo -en "$(B) ### DEBUG ### "
+    fi
+
+    echo -e "$*$(E)"
+  }>&2
+}
 return 0

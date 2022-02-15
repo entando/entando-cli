@@ -30,6 +30,7 @@
   # shellcheck disable=SC2034
   FORCE_URL_SCHEME=""
   C_DEF_ARCHIVE_FORMAT=""
+  CTRACE=""
 
   # shellcheck disable=SC2034
   case "$(perl -MConfig -e 'print $Config{longsize}*8 . "\n";')" in
@@ -168,7 +169,7 @@
       _kubectl() {
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
-        KUBECONFIG="$DESIGNATED_KUBECONFIG" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+        KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
       }
       _kubectl-pre-sudo() { :; }
     else
@@ -180,7 +181,7 @@
         _kubectl() {
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
-          kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
         }
         _kubectl-pre-sudo() { :; }
       else
@@ -189,9 +190,9 @@
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           if $ENT_KUBECTL_NO_AUTO_SUDO; then
-            kubectl $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
           else
-            sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
           fi
         }
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
