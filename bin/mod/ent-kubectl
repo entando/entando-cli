@@ -48,6 +48,10 @@ RUN() {
       shift
       auto_align_with_server
       ;;
+    "ent-scale-namespace") #H: prints the command for setting the kubectl environment
+      shift
+      kube.scale_namespace "$@"
+      ;;
     *) #H: any other command is passed to kubectl
       HH="$(parse_help_option "$@")"; show_help_option "$HH"
       args_or_ask ${HH:+"$HH"} -n "NAMESPACE" "--namespace" "$@"
@@ -113,6 +117,18 @@ print_status_info() {
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   echo "~ ent kubectl is currently attached $mode"
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+}
+
+kube.scale_namespace() {
+  HH="$(parse_help_option "$@")"; show_help_option "$HH"
+  args_or_ask ${HH:+"$HH"} -n -a REPLICAS "1/num//the number of replicas" "$@"
+  args_or_ask ${HH:+"$HH"} -n TIMEOUT "--timeout/num/999/max wait before giving up" "$@"
+  args_or_ask ${HH:+"$HH"} -n NAMESPACE "--namespace/ext_ic_id//namespace override" "$@"
+  args_or_ask ${HH:+"$HH"} -n -s -p NAMESPACE "-n/ext_ic_id//namespace override" "$@"
+  [ -n "$HH" ] && exit 0
+  NONNULL TIMEOUT REPLICAS
+  _log_i 1 "Scaling the namespace: \"$ENTANDO_NAMESPACE\" to \"$REPLICAS\""
+  timeout "$TIMEOUT" ent k scale statefulset,deployment -n "$ENTANDO_NAMESPACE" --all --replicas="$REPLICAS"
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
