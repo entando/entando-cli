@@ -43,9 +43,9 @@ RUN() {
       require_ent_project_dir
       print_entando_banner
       _log_i 0 "Building the frontend"
-      fe_build -a
+      fe_build -a || _SOE
       _log_i 0 "Building the backend"
-      be_build "$@"
+      be_build "$@" || _SOE
       _log_i 0 "Collecting the bundle artifacts"
       bundle_all
       ;;
@@ -155,7 +155,7 @@ RUN() {
 
       require_develop_checked
       require_ent_project_dir
-      be_build "$@"
+      be_build "$@" || _SOE
       bundle_all
       ;;
     "be-list-pods" | "blp") #H: list the pods related to this bundle project
@@ -446,7 +446,7 @@ be_info() {
 be_build() {
   require_ent_project_dir
   node.activate_environment
-
+  
   get_be_info
   be_update_plugin_descriptor
 
@@ -461,6 +461,7 @@ be_build() {
     true
   } || {
     _log_e 0 "Error building image \"$IMAGE_FQNAME\""
+    false
   }
 }
 
@@ -1020,6 +1021,7 @@ pbs_fe_propose_credentials_cache() {
     }
   }
 }
+
 
 # ######################################################################################################################
 # ######################################################################################################################

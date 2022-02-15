@@ -683,6 +683,14 @@ simple_shell_completion_handler() {
   return 1
 }
 
+simple_help_handler() {
+  [ -z "$HH" ] && { HH="$(parse_help_option "$@")"; }
+  [ "$HH" == "--help" ] && show_help_option "$HH";
+  "$@"
+  [ -n "$HH" ] && return 0
+  return 1
+}
+
 parse_help_option() {
   # shellcheck disable=SC2124
   local ARG="${!#}"
