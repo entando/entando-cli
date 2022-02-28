@@ -50,7 +50,7 @@ node.install() {
     __exist -d "$ENT_NODE_DIR"
     __mk_disdir --mark "$ENT_NODE_DIR"
     
-    save_cfg_value "ENT_NODE_VER" "$ENT_NODE_VER"
+    save_cfg_value "ENT_NODE_VER" "$ENT_NODE_VER" "$ENT_DEFAULT_CFG_FILE"
     
     true
   ) || exit "$?"
