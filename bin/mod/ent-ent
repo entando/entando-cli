@@ -36,9 +36,12 @@ ent_activate() {
       exit 0
     fi
   }
-
-  if ! $DEFSET && ! $FOR_SOURCED_EXECUTION; then
-    FATAL "You need to source-execute me"
+  
+  #if ! $DEFSET && ! $FOR_SOURCED_EXECUTION; then
+  #  FATAL "You need to source-execute me"
+  #fi
+  if ! $FOR_SOURCED_EXECUTION; then
+    DEFSET=true
   fi
 
   # shellcheck disable=SC2035
@@ -64,11 +67,11 @@ ent_activate() {
   if $FOR_SOURCED_EXECUTION; then
     echo ". $ENTANDO_HOME/activate-$ENT --force 1> /dev/null" > "$COMMAND_FILE"
     # shellcheck disable=SC2016
-    echo 'echo Version "$ENTANDO_ENT_HOME" activated' >> "$COMMAND_FILE"
+    echo 'echo Version "'$ENT'" activated' >> "$COMMAND_FILE"
     true
   else
-    ! $FOR_SOURCED_EXECUTION && _log_i 0 "However, it couldn't be activated on this tty because the command was not sourced"
-    true
+    . $ENTANDO_HOME/activate-$ENT --force 1> /dev/null
+    echo "Version \"$ENT\" activated"
   fi
 }
 

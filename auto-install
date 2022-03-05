@@ -48,45 +48,49 @@ ent_clone_repo_DC7C420E09B4492D() {
   if [[ ! -d "$FLD" || "$UPDATE" -ne 0 ]]; then
     (
       if [[ ! -d "$FLD" || "$UPDATE" -eq 0 ]]; then
-        git clone "$URL" "$FLD"
+        git clone "$URL" "$FLD" &> /dev/null
       fi
+
       cd "$FLD" || {
-        echo "Unable to enter folder \"$FLD\"" 1>&2
+        echo "> Unable to enter folder \"$FLD\"" 1>&2
         exit 99
       }
-      git fetch --tags --force
-      local NOT_A_TAG=false
-      git tag | grep "^$TAG\$" > /dev/null || NOT_A_TAG=true
 
-      if [ "$UPDATE" -eq 1 ]; then
-        echo "> Updating branch of $DSC \"$TAG\"" 1>&2
-        git checkout -f ent-local-tmp &> /dev/null || git checkout -b ent-local-tmp &> /dev/null || {
-          echo "> Unable to checkout to a TMP branch" 1>&2
-          exit 92
+      git fetch --tags --force &>/dev/null
+
+      local RV=0
+      if git tag | grep "^$TAG\$" > /dev/null; then
+        git checkout -f "$TAG" 2>/dev/null || {
+          RV="$?"
+          echo "> Unable to checkout the reference \"$TAG\"."
         }
-        git branch -D "$TAG" 1> /dev/null 2>&1 || true
+      else
+        echo "> Reference \"$TAG\" is not a tag, trying as branch.."
+        
+        git checkout -f "origin/$TAG" 2>/dev/null || {
+          RV="$?"
+          echo "> Unable to checkout the reference \"$TAG\"."
+        }
       fi
       
-      if $NOT_A_TAG; then
-        git checkout -b "$TAG" 1> /dev/null;
-      else
-        git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null;
-      fi
-      
-      if [ $? -ne 0 ]; then
-        echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
-        exit 92
-      fi
-
-      if [ $? ]; then
-        git branch -D ent-local-tmp &> /dev/null
-        cd - > /dev/null
-      else
+      if [ "$RV" != 0 ]; then
+        echo "> Error downloading the release, rolling back.."
         cd - > /dev/null
         rm -rf "./$FLD"
-        exit "$?"
+        exit "$RV"
       fi
-    ) || return "$?"
+      
+      {
+        git fetch --tags --force
+        git reset --hard
+        git checkout .
+        git clean -d -f
+        cd - > /dev/null
+      } &> /dev/null
+      
+      echo "> Release \"$TAG\" installed.."
+
+    ) || exit "$?"
   else
     # Please note that this is not an error
     echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.. (you may use --update)"
@@ -233,36 +237,73 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   echo "> Finalizing"
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-
-  # Shortcuts generation
-  local ENTANDO_HOME="$TGT_DIR/$ENTANDO_DIR"
-  local ENTS_ROOT="$ENTANDO_HOME/$ENT_DIR"
-  local ENT_HOME="$ENTS_ROOT/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION"
-  for script_name in "bin/ent/ent" "activate" "activate-default" \
-    "activate-auto" "activate-PLACEHOLDER_RELEASE" "deactivate-default"
-  do
-    script_name="${script_name/PLACEHOLDER_RELEASE/$ENTANDO_RELEASE}"
-    local script_file="$ENTANDO_HOME/$script_name"
-    chmod u=rwx "$script_file" 2>/dev/null || true
-    [ -f "$script_file" ] && rm "$script_file"
-    {
-      echo "#!/bin/bash"
-      case "$script_name" in
-        "bin/ent/ent")
-          cat "$ENT_HOME/bin/ent-proxy";;
-        "activate"|"activate-auto")
-          echo ". $ENT_HOME/activate-auto \"\$@\"";;
-        deactivate-*)
-          echo ". $ENT_HOME/deactivate \"\$@\"";;
-        activate-*)
-          echo ". $ENT_HOME/activate \"\$@\"";;
-      esac
-    } > "$script_file"
-    chmod u=rx "$script_file"
-  done
-
-  # Banner
+  
   (
+    # Shortcuts generation
+    local ENTANDO_HOME="$TGT_DIR/$ENTANDO_DIR"
+    local ENTS_ROOT="$ENTANDO_HOME/$ENT_DIR"
+    local ENT_HOME="$ENTS_ROOT/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION"
+    
+    _echo_activation_script() {
+      echo "#!/bin/bash"
+      local F="$ENTANDO_HOME/active"
+      [ "$1" == "" ] && echo "ENTANDO_ENT_HOME=\"\$(cat ~/.entando/active)\" . "$ENT_HOME/$2" \"\$@\""
+      echo "chmod u=rwx \"$F\" 2>/dev/null || true"
+      echo "echo \"$1\" > \"$F\""
+      echo "chmod u=rx \"$F\" 2>/dev/null || true"
+      [ "$1" != "" ] && echo "ENTANDO_ENT_HOME=\"\$(cat ~/.entando/active)\" . "$ENT_HOME/$2" \"\$@\""
+      echo 'PATH="$(echo "$PATH" | sed -E "s/[^:]*.entando\/[^:]*://g")"'
+      echo 'PATH="$HOME/.entando/bin/ent:$PATH"'
+    }
+    
+    _echo_ent_proxy() {
+      echo '#!/bin/bash'
+      echo 'ENTANDO_ENT_HOME="$(cat ~/.entando/active)"'
+      echo '[ -z "$ENTANDO_ENT_HOME" ] && { echo "no version of ent is currently active" 1>&2; exit 1; }'
+      echo 'if ('
+      echo '[[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] || '
+      echo '[[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&'
+      echo 'printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] || '
+      echo '[[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)'
+      echo '); then'
+      echo 'export ENTANDO_ENT_HOME'
+      echo '. "$ENTANDO_ENT_HOME/bin/ent" "$@"'
+      echo 'else'
+      echo 'ENTANDO_ENT_HOME="$ENTANDO_ENT_HOME" exec "$ENTANDO_ENT_HOME/bin/ent" "$@"'
+      echo 'fi'
+    }
+    
+    mkdir -p "$ENTANDO_HOME/bin/ent"
+    
+    for script_name in "bin/ent/ent" "active" "activate" "deactivate" "activate-PLACEHOLDER_RELEASE"
+    do
+      script_name="${script_name/PLACEHOLDER_RELEASE/$ENTANDO_RELEASE}"
+      local script_file="$ENTANDO_HOME/$script_name"
+      #echo "Writing $script_file"
+      chmod u=rwx "$script_file" 2>/dev/null || true
+      #[ -f "$script_file" ] && rm "$script_file"
+      {
+        case "$script_name" in
+          "bin/ent/ent")
+            _echo_ent_proxy
+            ;;
+          "activate")
+            _echo_activation_script "$ENT_HOME" "activate"
+            ;;
+          "deactivate")
+            _echo_activation_script "" "deactivate"
+            ;;
+          activate-*)
+            _echo_activation_script "$ENT_HOME" "activate"
+            ;;
+          "active")
+            echo "$ENT_HOME";;
+        esac
+      } > "$script_file"
+      chmod u=rx "$script_file"
+    done
+
+    # Banner
     # shellcheck source=s/utils.sh
     . "$ENT_HOME/s/utils.sh" || true
     echo -e ".\n.."

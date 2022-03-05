@@ -79,3 +79,23 @@ ENTANDO_STANDARD_IMAGES=(
   [ -f w/_env ] && . w/_env
   [ -f _env ] && . _env
 }
+
+# READS THE ACTUAL VALUES AND OVERRIDES THE ONES COMING FROM THE MANIFEST
+
+TMP="$(
+  cd "$ENTANDO_ENT_HOME" &> /dev/null || exit 1
+  git describe --exact-match --tags 2>/dev/null
+)"
+
+ENTANDO_MANIFEST_CLI_VERSION="${ENTANDO_CLI_VERSION:-"$TMP"}"
+ENTANDO_CLI_VERSION="${TMP:-"$ENTANDO_MANIFEST_CLI_VERSION"}"
+
+
+ENTANDO_MANIFEST_RELEASE="$ENTANDO_RELEASE"
+TMP="$(
+  cd "$ENTANDO_ENT_HOME/dist" &> /dev/null || exit 1
+  git describe --tags $(git rev-list --tags --max-count=1)
+)"
+
+ENTANDO_MANIFEST_RELEASE="${ENTANDO_RELEASE:-"$TMP"}"
+ENTANDO_RELEASE="${TMP:-"$ENTANDO_MANIFEST_RELEASE"}"

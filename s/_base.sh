@@ -126,7 +126,9 @@ $SYS_OS_UNKNOWN && {
   chmod 700 "$ENTANDO_ENT_HOME/w"
   find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
 }
+
 . s/_conf.sh
+
 mkdir -p "$ENTANDO_PROFILES"
 mkdir -p "$ENTANDO_BINS"
 mkdir -p "$ENT_OPTS"

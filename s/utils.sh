@@ -727,6 +727,19 @@ show_help_option() {
   esac
 }
 
+bgn_help_parsing() {
+  local _tmp_HH="" _tmp_var="$1"
+  shift
+  _tmp_HH="$(parse_help_option "$@")"
+  show_help_option "$_tmp_HH"
+  _set_var "$_tmp_var" "$_tmp_HH"
+}
+
+enf_help_parsing() {
+  test -n "$HH"
+}
+
+
 # Takes a value from the arguments or interactively from a provided array or map-reference
 # A map reference the name of a map manipulated using the map-* functions
 #

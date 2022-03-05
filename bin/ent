@@ -26,8 +26,14 @@ RUN() {
     cmd="$1"
     shift
     case "$cmd" in
+      "version") #H: shows the version of the current ent
+        which_ent version
+        ;;
+      "home") #H: shows the location of the current ent
+        which_ent home
+        ;;
       "which") #H: shows the location of the current ent
-        which_ent
+        which_ent which
         ;;
       "activate") #H: activates one of the installed ents
         "${ENTANDO_ENT_HOME}/bin/mod/ent-ent" activate "$@" # see the other call for the source-execution
@@ -35,7 +41,7 @@ RUN() {
       "import") #H: imports configuration and library from another compatible ENT installation
         import_ent_installation
         ;;
-      "config") #H: [--edit] -- helps dealing with ent configurations
+      "config") #H: helps dealing with ent configurations
         handle_config_command "$@"
         ;;
       "namespace") #H: sets the namespace 
@@ -74,14 +80,14 @@ RUN() {
         ;;
       "fix-vm-ddns") #H: fixes the domain name in a dynamic DNS nip.io setup (--simple in quickstart)
         # shellcheck disable=SC1091
-        source ent host "$cmd" "$@"
+        _source_ent host "$cmd" "$@"
         ;;
       "commands") #H: shows other ent top level commands
         # shellcheck disable=SC1091
-        source ent help --simple
+        _source_ent help --simple
         ;;
       "print-completion-setup")
-        ent completion "$@";;
+        _ent completion "$@";;
       "completion") #H: setups the ent autocompletion
         [ -z "$1" ] && FATAL "Please provide the shell type (bash|zsh)"
         if [ "$1" = "zsh" ]; then
@@ -104,17 +110,17 @@ RUN() {
         print_ent_general_status
         ;;
       "auto-align-kubectl") #H: automaticall align the kubectl version to the server version
-        ent kubectl "ent-auto-align" "$@"
+        _ent kubectl "ent-auto-align" "$@"
         ;;
       "node"|"npm")
-        ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+        _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "jhipster"|"bundler")
-        ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+        _ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "")
         # shellcheck disable=SC1091
-        source ent help
+        _source_ent help
         ;;
       --cmplt)
         cmplt
@@ -139,27 +145,46 @@ RUN() {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 which_ent() {
-  echo "$ENTANDO_ENT_HOME"
-
+  case "$1" in
+    version) echo "${ENTANDO_CLI_VERSION}"; exit;;
+    which) echo "${ENTANDO_CLI_VERSION}";;
+    home) echo "$ENTANDO_ENT_HOME"; exit;;
+  esac
+  
   (
     echo ""
-    echo "> More Info:"
+    echo "---"
+    echo ""
+    
+    # CLI INFO
+    echo "## CLI:"
+    echo ""
     cd "$ENTANDO_ENT_HOME"
-    echo "- CLI:"
-    TAG="$(git describe --exact-match --tags)"
-    echo "$ENTANDO_CLI_VERSION ($TAG)"
-    git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
-    echo "- REL:"
+    echo "- DIR: $ENTANDO_ENT_HOME"
+    echo "- TAG: $(git describe --exact-match --tags 2>/dev/null)"
+    IFS='|' read sha time < <(git log --pretty=format:'%H|%ci' -1)
+    echo "- SHA: $sha"
+    echo "- UPD: $time"
+    echo ""
+    
+    # RELEASE INFO
+    
+    echo "## RELEASE:"
+    echo ""
     cd "dist"
-    TAG="$(git describe --exact-match --tags)"
-    echo "$ENTANDO_VERSION ($TAG)"
-    git log --pretty=format:'%H|%ci' | head -n 1 | _perl_sed "s/\|/\n/g"
+    echo "- DIR: $(cd ../../../dist;pwd)"
+    echo "- TAG: $(git describe --tags $(git rev-list --tags --max-count=1) 2>/dev/null)"
+    IFS='|' read sha time < <(git log --pretty=format:'%H|%ci' -1)
+    echo "- SHA: $sha"
+    echo "- UPD: $time"
+    echo ""
+    
   ) 1>&2
 }
 
 handle_config_command() {
-  HH="$(parse_help_option "$@")"
-  show_help_option "$HH"
+  bgn_help_parsing HH "$@"
+  
   args_or_ask ${HH:+"$HH"} -f -- '--default///selects the default ent configuration' "$@" && {
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_DEFAULT_CFG_FILE"
@@ -175,20 +200,29 @@ handle_config_command() {
     fi
     cat "$ENT_WORK_DIR/.cfg"
   }
+  
   args_or_ask ${HH:+"$HH"} -f -- '--edit///edits the configuration' "$@" && {
     _edit "$ENT_WORK_DIR/.cfg"
   }
+  
   args_or_ask ${HH:+"$HH"} -f -- '--set///sets a specific configuration parameter' "$@" && {
     args_or_ask -a ${HH:+"$HH"} "CFG_KEY" "1///%sp the config key" "$@"
     args_or_ask -a -n ${HH:+"$HH"} "CFG_VALUE" "2///%sp the value to set" "$@"
     save_cfg_value "$CFG_KEY" "$CFG_VALUE"
   }
+  
+  args_or_ask ${HH:+"$HH"} -f -- '--del///deletes a specific configuration parameter' "$@" && {
+    args_or_ask -a ${HH:+"$HH"} "CFG_KEY" "1///%sp the config key" "$@"
+    save_cfg_value "$CFG_KEY" ""
+  }
+  
   args_or_ask ${HH:+"$HH"} -f -- '--get///gets a specific configuration parameter' "$@" && {
     args_or_ask -a ${HH:+"$HH"} "CFG_KEY" "1///%sp the config key" "$@"
     reload_cfg
     echo "${!CFG_KEY}"
   }
-  [ -n "$HH" ] && exit 0
+  
+  enf_help_parsing && exit 0
 }
 
 cmplt() {
@@ -202,7 +236,7 @@ cmplt() {
   done
 
   local topcmd+=(
-    "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "import" "activate"
+    "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
       "kubectl-cmd" "reset-kubectl-mode" "status"
       "attach-kubeconfig" "detach-kubeconfig"
       "attach-kubectx" "detach-kubectx" "list-kubectx"
@@ -211,6 +245,14 @@ cmplt() {
   for tc in "${topcmd[@]}"; do
     echo "$tc"
   done
+}
+
+_ent() {
+  $ENTANDO_ENT_HOME/bin/ent "$@"
+}
+
+_source_ent() {
+  source $ENTANDO_ENT_HOME/bin/ent "$@"
 }
 
 # ######################################################################################################################
