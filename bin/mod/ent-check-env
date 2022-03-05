@@ -127,10 +127,14 @@ check_npm_git_package() {
         __mk_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
 
         (
+          local EC=0
           git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$PACKAGE_DESC" "ENTER,FATAL"
+          EC="$?"
           
           [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL "Inconsistent directory structure"
           __mk_disdir --mark "$BASE_PACKAGE_DIR/$VER_DEF"
+          
+          [ "$EC" != 0 ] && exit "$EC"
 
           _ent-npm install --global && {
             date > .entando-finalized
@@ -251,6 +255,7 @@ $M_DEVL && {
     fi
   }
   
+  reload_cfg "$C_ENT_STATE_FILE"
   reload_cfg
   node.activate_environment || DEPENDENCY_ERROR "Unable to activate the found version"
 }
@@ -305,4 +310,4 @@ $M_DEVL && {
   save_cfg_value "WAS_DEVELOP_CHECKED" "true" "$ENT_DEFAULT_CFG_FILE"
 }
 
-_log_i 0 "${0##*/} completed"
+_log_i 0 "${0##*/} execution completed"

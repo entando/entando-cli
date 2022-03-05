@@ -2,10 +2,12 @@
 
 PRINT_BANNER=false; [[ "$1" = "--banner" ]] && { PRINT_BANNER=true; shift; }
 
-WRAPPED_COMMAND="$1";
-[[ "$3" = "--cmplt" ]] && exit 0
-[[ "$3" = "--help" && "$4" == "--short" ]] && { echo -e "$2"; exit 0; }
-shift 2
+WRAPPED_COMMAND="$1";shift
+DESC="$1";shift
+
+[[ "$WRAPPED_COMMAND" = "--help" ]] && { echo -e "wrapper of node commands"; exit 0; }
+[[ "$1" = "--cmplt" ]] && exit 0
+[[ "$1" = "--help" ]] && { echo -e "$DESC"; exit 0; }
 
 ORIGINAL_DIR="$PWD"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
