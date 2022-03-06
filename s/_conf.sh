@@ -94,7 +94,8 @@ ENTANDO_CLI_VERSION="${TMP:-"$ENTANDO_MANIFEST_CLI_VERSION"}"
 ENTANDO_MANIFEST_RELEASE="$ENTANDO_RELEASE"
 TMP="$(
   cd "$ENTANDO_ENT_HOME/dist" &> /dev/null || exit 1
-  git describe --tags $(git rev-list --tags --max-count=1)
+  # shellcheck disable=SC1090
+  git describe --tags "$(git rev-list --tags --max-count=1)"
 )"
 
 ENTANDO_MANIFEST_RELEASE="${ENTANDO_RELEASE:-"$TMP"}"

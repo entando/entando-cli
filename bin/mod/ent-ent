@@ -66,12 +66,21 @@ ent_activate() {
 
   if $FOR_SOURCED_EXECUTION; then
     echo ". $ENTANDO_HOME/activate-$ENT --force 1> /dev/null" > "$COMMAND_FILE"
-    # shellcheck disable=SC2016
+    # shellcheck disable=SC2034
+    ENTANDO_ENT_HOME_FORCE="$ENTANDO_ENT_HOME"
+    # shellcheck disable=SC2086
     echo 'echo Version "'$ENT'" activated' >> "$COMMAND_FILE"
     true
   else
-    . $ENTANDO_HOME/activate-$ENT --force 1> /dev/null
-    echo "Version \"$ENT\" activated"
+    if [ "$ENTANDO_ENT_ACTIVATION_MODE" == "PROXY" ]; then
+      # shellcheck disable=SC1090
+      . "$ENTANDO_HOME/activate-$ENT" --force 1> /dev/null
+      echo "Version \"$ENT\" activated"
+    else
+      ! $FOR_SOURCED_EXECUTION && {
+        _log_i 0 "However, it was not activated on this shell because the command was not sourced"
+      }
+    fi
   fi
 }
 

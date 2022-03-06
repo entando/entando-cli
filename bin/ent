@@ -162,7 +162,7 @@ which_ent() {
     cd "$ENTANDO_ENT_HOME"
     echo "- DIR: $ENTANDO_ENT_HOME"
     echo "- TAG: $(git describe --exact-match --tags 2>/dev/null)"
-    IFS='|' read sha time < <(git log --pretty=format:'%H|%ci' -1)
+    IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
     echo ""
@@ -173,8 +173,8 @@ which_ent() {
     echo ""
     cd "dist"
     echo "- DIR: $(cd ../../../dist;pwd)"
-    echo "- TAG: $(git describe --tags $(git rev-list --tags --max-count=1) 2>/dev/null)"
-    IFS='|' read sha time < <(git log --pretty=format:'%H|%ci' -1)
+    echo "- TAG: $(git describe --tags "$(git rev-list --tags --max-count=1)" 2>/dev/null)"
+    IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
     echo ""
@@ -248,11 +248,13 @@ cmplt() {
 }
 
 _ent() {
-  $ENTANDO_ENT_HOME/bin/ent "$@"
+  # shellcheck disable=SC1090
+  "$ENTANDO_ENT_HOME/bin/ent" "$@"
 }
 
 _source_ent() {
-  source $ENTANDO_ENT_HOME/bin/ent "$@"
+  # shellcheck disable=SC1090
+  source "$ENTANDO_ENT_HOME/bin/ent" "$@"
 }
 
 # ######################################################################################################################
@@ -269,13 +271,13 @@ if (
   ENTANDO_ENT_TMPVAR_0002bb75=0
   case "${1}" in
     "activate")
-      "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
+      ENTANDO_ENT_ACTIVATION_MODE="$ENTANDO_ENT_ACTIVATION_MODE" "$ENTANDO_ENT_HOME/bin/mod/ent-ent" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
       ENTANDO_ENT_TMPVAR_0002bb75="$?"
       ;;
     "profile"|"P"|"pro")
       if [ "$2" = "use" ]; then
         shift 2
-        "$ENTANDO_ENT_HOME/bin/mod/ent-profile" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
+        ENTANDO_ENT_ACTIVATION_MODE="$ENTANDO_ENT_ACTIVATION_MODE" "$ENTANDO_ENT_HOME/bin/mod/ent-profile" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
       else
         rm "$ENTANDO_ENT_TMPFILE_0002bb75"
       fi

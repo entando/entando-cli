@@ -247,18 +247,27 @@ ENT_RUNNER_DC7C420E09B4492D() {
     _echo_activation_script() {
       echo "#!/bin/bash"
       local F="$ENTANDO_HOME/active"
-      [ "$1" == "" ] && echo "ENTANDO_ENT_HOME=\"\$(cat ~/.entando/active)\" . "$ENT_HOME/$2" \"\$@\""
+      local CMD="ENTANDO_ENT_ACTIVATION_MODE=PROXY "
+      CMD+="ENTANDO_ENT_HOME_TMP=\"\$(cat ~/.entando/active 2>/dev/null)\" "
+      CMD+='[ -n "$ENTANDO_ENT_HOME_TMP" ] && ENTANDO_ENT_HOME="${ENTANDO_ENT_HOME_TMP}"'
+      CMD+=". "$ENT_HOME/$2" \"\$@\""
+      [ "$1" == "" ] && echo "$CMD"
       echo "chmod u=rwx \"$F\" 2>/dev/null || true"
       echo "echo \"$1\" > \"$F\""
       echo "chmod u=rx \"$F\" 2>/dev/null || true"
-      [ "$1" != "" ] && echo "ENTANDO_ENT_HOME=\"\$(cat ~/.entando/active)\" . "$ENT_HOME/$2" \"\$@\""
+      [ "$1" != "" ] && echo "$CMD"
       echo 'PATH="$(echo "$PATH" | sed -E "s/[^:]*.entando\/[^:]*://g")"'
       echo 'PATH="$HOME/.entando/bin/ent:$PATH"'
     }
     
     _echo_ent_proxy() {
       echo '#!/bin/bash'
-      echo 'ENTANDO_ENT_HOME="$(cat ~/.entando/active)"'
+      echo 'if [ -n "$ENTANDO_ENT_HOME_FORCE" ]; then'
+      echo '  ENTANDO_ENT_HOME_TMP="$ENTANDO_ENT_HOME_FORCE"'
+      echo 'else'
+      echo '  ENTANDO_ENT_HOME_TMP="$(cat ~/.entando/active 2>/dev/null)"'
+      echo 'fi'
+      echo '[ -n "$ENTANDO_ENT_HOME_TMP" ] && ENTANDO_ENT_HOME="${ENTANDO_ENT_HOME_TMP}"'
       echo '[ -z "$ENTANDO_ENT_HOME" ] && { echo "no version of ent is currently active" 1>&2; exit 1; }'
       echo 'if ('
       echo '[[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] || '
@@ -266,10 +275,10 @@ ENT_RUNNER_DC7C420E09B4492D() {
       echo 'printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] || '
       echo '[[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)'
       echo '); then'
-      echo 'export ENTANDO_ENT_HOME'
-      echo '. "$ENTANDO_ENT_HOME/bin/ent" "$@"'
+      echo '  export ENTANDO_ENT_HOME'
+      echo '  ENTANDO_ENT_ACTIVATION_MODE=PROXY . "$ENTANDO_ENT_HOME/bin/ent" "$@"'
       echo 'else'
-      echo 'ENTANDO_ENT_HOME="$ENTANDO_ENT_HOME" exec "$ENTANDO_ENT_HOME/bin/ent" "$@"'
+      echo '  ENTANDO_ENT_HOME="$ENTANDO_ENT_HOME" exec "$ENTANDO_ENT_HOME/bin/ent" "$@"'
       echo 'fi'
     }
     
@@ -326,26 +335,24 @@ ENT_RUNNER_DC7C420E09B4492D() {
   
     if [ $? -eq 0 ]; then
       H() { echo -e '\033[44m\033[1;37m' ; }
+      Hx() { echo -e '\033['$1'm'; }
       E() { echo -e '\033[0;39m'; }
     else
       H() { true; }
+      Hx() { true; }
       E() { true; }
     fi
     
-    echo -e "▒$(H) P L E A S E   R E A D : $(E)▒"
-    echo -e "You now need to activate this version of ent by opening another shell or manually with this command:\n"
+    echo -e "_________________________"
+    echo -e "$(H)▒ P L E A S E   R E A D  $(E)"
+    echo -e "$(H)▒$(E) $(Hx 94)Activate this version of ent by opening another shell or manually with this command:$(E)"
+    echo "$(H)▒$(E)"
     if "$CURR_DIR"; then
-      echo -e "    source \"$TGT_DIR/$ENTANDO_DIR/activate\""
+      echo -e "$(H)▒$(E) $(Hx 34)>$(E) source \"$TGT_DIR/$ENTANDO_DIR/activate\"$(E)"
     else
-      echo -e "    source \"\$HOME/$ENTANDO_DIR/activate\""
+      echo -e "$(H)▒$(E) $(Hx 34)>$(E) source \"\$HOME/$ENTANDO_DIR/activate\"$(E)"
     fi
-    echo ""
-    echo "after which you can get help via \"ent help\""
-    echo ""
-    echo "═════════════════════════════════════════════════════════════════════════════"
-    echo ".."
-    echo "."
-    echo ""
+    echo "$(H)▒$(E)"
   )
 
   if ! "$CURR_DIR"; then
