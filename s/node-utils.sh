@@ -30,6 +30,12 @@ node.install() {
       EXT "${C_DEF_ARCHIVE_FORMAT}" \
     ;
     
+    if [ -d "$ENT_NODE_DIR" ]; then
+      if [ ! -f "$ENT_NODE_DIR/.entando-finalized" ]; then
+        __rm_disdir "$ENT_NODE_DIR"
+      fi
+    fi
+  
     if [ ! -d "$ENT_NODE_DIR" ]; then
       rm -rf "./node-$ENT_NODE_VER-linux-x64"
       if [ "$SYS_OS_TYPE" = "windows" ]; then
@@ -45,10 +51,11 @@ node.install() {
       fi
       mv "node-$ENT_NODE_VER-${pathseg_os}-${SYS_CPU_ARCH/x86-64/x64}" "$ENT_NODE_DIR"
     else
-      _log_i 0 "ENT node dir \"$ENT_NODE_DIR\" is already present and so it will be reused"
+      _log_i 0 "The ENT node installation \"$ENT_NODE_DIR\" is already present and so it will be reused"
     fi
     __exist -d "$ENT_NODE_DIR"
     __mk_disdir --mark "$ENT_NODE_DIR"
+    date > "$ENT_NODE_DIR/.entando-finalized"
     
     save_cfg_value "ENT_NODE_VER" "$ENT_NODE_VER" "$ENT_DEFAULT_CFG_FILE"
     
@@ -122,11 +129,11 @@ _ent-npm() {
 
 # Runs the ent private installation of jhipster
 _ent-jhipster() {
-  require_develop_checked
   node.activate_environment
-  if [ "$1" == "--ent-get-version" ]; then
+  if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
     _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
   else
+    require_develop_checked
     [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
       ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
         ent-init-project-dir

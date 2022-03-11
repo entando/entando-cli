@@ -326,20 +326,22 @@ git_clone_repo() {
   if cd "$FLD"; then
     (
       git fetch --tags --force
-      if [ -z "$(git tag | grep "^$TAG\$" >/dev/null)" ]; then
-        $ERRC "> Unable to find the tag or branch \"$TAG\" of package \""$DSC\"
+      # shellcheck disable=SC2143
+      if [ -z "$(git tag | grep -F "$TAG" | grep "^$TAG\$" 2>/dev/null)" ]; then
+        $ERRC "> Unable to find the tag or branch \"$TAG\" of package \"$DSC\""
         exit 91
       fi
       if ! git checkout -b "$TAG" "$TAG" 1>/dev/null; then
-        $ERRC "> Unable to checkout tag or branch \"$TAG\" of package \""$DSC\"
+        $ERRC "> Unable to checkout tag or branch \"$TAG\" of package \"$DSC\""
         exit 92
       fi
-    ) || return $?
+    )
 
-    if [ $? ]; then
+    if [ "$?" == 0 ]; then
       ! $ENTER && {
         cd - >/dev/null || $ERRC "Unable to return back to the original path"
       }
+      return 0
     else
       cd - >/dev/null && {
         rm -rf "./${FLD:?}" 2>/dev/null
