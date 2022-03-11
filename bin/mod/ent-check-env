@@ -241,9 +241,8 @@ $M_KUBE && {
 $M_DEVL && {
   _log_i 3 "Checking ENT private installation of node.js.."
   
-  check_ver "_ent-node" "$VER_NODE_REQ" "--version" "quiet,verbose" \
-    "ENT private node.js installation is not available" || 
-  {
+  check_ver "_ent-node" "$VER_NODE_REQ" "--version" "quiet,verbose" "" || {
+    _log_w 1 "ENT private node.js installation is not available"
     if ask "Should I try to install it?" "y"; then
       node.install "$VER_NODE_DEF"
       
@@ -255,7 +254,7 @@ $M_DEVL && {
     fi
   }
   
-  reload_cfg "$C_ENT_STATE_FILE"
+  reload_cfg "$ENTANDO_GLOBAL_CFG"
   reload_cfg
   node.activate_environment || DEPENDENCY_ERROR "Unable to activate the found version"
 }
@@ -263,7 +262,7 @@ $M_DEVL && {
 # ENT-LOCAL JHIPSTER installation
 $M_DEVL && {
   _log_i 3 "Checking ENT private installation of jhipster.."
-  
+
   check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" \
     "ENT private jhipster installation is not available" ||
   {
