@@ -31,7 +31,7 @@ RUN() {
 
       ADDR="$(multipass exec "$VM_NAME" -- hostname -I | awk '{print $1}')"
 
-      _log_i 1 "Setting up hostname \"$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX\" for VM \"$VM_NAME\" to address \"$ADDR\""
+      _log_i "Setting up hostname \"$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX\" for VM \"$VM_NAME\" to address \"$ADDR\""
 
       prepare_for_privileged_commands || _FATAL "Unable to obtain the required privileges"
 
@@ -39,7 +39,7 @@ RUN() {
       hostsfile_clear "$TAG"
       hostsfile_add_dns "$ADDR" "$VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX" "$TAG"
 
-      _log_i 1 "Operation completed"
+      _log_i "Operation completed"
 
       ;;
     #---------------------------------------------------------------------------------------------------------------------
@@ -79,30 +79,30 @@ RUN() {
       set_nn_dn "ENTANDO_APPNAME" "${CFG_ARR[1]}"
       set_nn_fdn "ENTANDO_SUFFIX" "${CFG_ARR[2]}"
 
-      _log_i 0 "In VM: $VM_NAME"
-      _log_i 0 "Found NAMESPACE: $ENTANDO_NAMESPACE"
-      _log_i 0 "Found APPNAME: $ENTANDO_APPNAME"
-      _log_i 0 "Found SUFFIX: $ENTANDO_SUFFIX"
+      _log_i "In VM: $VM_NAME"
+      _log_i "Found NAMESPACE: $ENTANDO_NAMESPACE"
+      _log_i "Found APPNAME: $ENTANDO_APPNAME"
+      _log_i "Found SUFFIX: $ENTANDO_SUFFIX"
 
       if [ "$ENTANDO_SUFFIX" = "$ADDR.nip.io" ]; then
-        _log_w 0 "The suffix configured in the VM seems to be aligned, no need to fix DNS"
+        _log_w "The suffix configured in the VM seems to be aligned, no need to fix DNS"
         _FATAL "Unnecessary operation"
       fi
 
-      _log_i 1 "Setting host file entries for VM \"$VM_NAME\" with address \"$ADDR\""
+      _log_i "Setting host file entries for VM \"$VM_NAME\" with address \"$ADDR\""
 
       local TAG="${VM_NAME}-DDNS"
       hostsfile_clear "$TAG"
       hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$TAG"
       hostsfile_add_dns "$ADDR" "$ENTANDO_APPNAME-kc-$ENTANDO_NAMESPACE.$ENTANDO_SUFFIX" "$TAG"
 
-      _log_i 1 "Done"
+      _log_i "Done"
 
       ask "Should I restart the VM?" Y && {
         multipass restart "$VM_NAME"
       }
 
-      _log_i 1 "Operation completed"
+      _log_i "Operation completed"
       ;;
     *)
       _FATAL "unknown option $CMD"

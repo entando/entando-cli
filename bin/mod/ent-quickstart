@@ -158,7 +158,7 @@ args_or_ask -f -- "--destroy" "$@" && {
 [ -n "$PROFILE" ] && {
   # shellcheck disable=SC1091
   sourced-ent-profile-use "$PROFILE" 2> /dev/null && {
-    _log_i 0 "Ent profile \"$PROFILE\" already exists, I will reuse it"
+    _log_i "Ent profile \"$PROFILE\" already exists, I will reuse it"
   }
 }
 
@@ -193,7 +193,7 @@ FOUND=false
       if $OS_WIN && $WITH_VM && [ -n "$ENTANDO_VM_NAME" ]; then
         # OS_WIN: derive the hostname from the
         ADDR="$ENTANDO_VM_NAME.$C_WIN_VM_HOSTNAME_SUFFIX"
-        _log_i 0 "Assuming hostname name: \"$ADDR\""
+        _log_i "Assuming hostname name: \"$ADDR\""
         assert_fdn "HOSTNAME" "$ADDR"
         FOUND=true
       else
@@ -211,15 +211,15 @@ FOUND=false
   # AUTO HOSTNAME MODE ----
   if $ENTANDO_AUTO_HOSTNAME; then
     if ! $WITH_HOSTNAME; then
-      _log_i 0 "Checking if user is admin (skippable with CTRL+C)"
+      _log_i "Checking if user is admin (skippable with CTRL+C)"
       if ! $ENTANDO_INTERACTIVE; then
         ENTANDO_AUTO_HOSTNAME=false
-        _log_i 0 "Non-interactive mode, requested auto-hostname not granted"
+        _log_i "Non-interactive mode, requested auto-hostname not granted"
       elif prepare_for_privileged_commands; then
         ENTANDO_AUTO_HOSTNAME=true
-        _log_i 0 "User is an admin, requested auto-hostname granted"
+        _log_i "User is an admin, requested auto-hostname granted"
       else
-        _log_i 0 "User admin check failed, requested auto-hostname not granted"
+        _log_i "User admin check failed, requested auto-hostname not granted"
       fi
     fi
   fi
@@ -234,7 +234,7 @@ FOUND=false
       FOUND=true
     else
       ADDR="$ENTANDO_VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX"
-      _log_i 0 "Assuming hostname name: \"$ADDR\""
+      _log_i "Assuming hostname name: \"$ADDR\""
       assert_fdn "HOSTNAME" "$ADDR"
       FOUND=true
       WITH_HOSTNAME=true
@@ -305,12 +305,12 @@ $JUST_SET_CFG && echo "Config has been written" && exit 0
 # WITH-VM
 
 RUN_WITH_VM() {
-  _log_i 2 "> Preflight checks"
+  _log_i "> Preflight checks"
   if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
     local err_msg="A VM named \"$ENTANDO_VM_NAME\" already exists"
 
     if [ -z "${ENTANDO_VM_REUSE}" ]; then
-      _log_w 2 "$err_msg"
+      _log_w "$err_msg"
       ! $ENTANDO_INTERACTIVE && FATAL "$err_msg"
       
       multipass info "$ENTANDO_VM_NAME"
@@ -318,9 +318,9 @@ RUN_WITH_VM() {
         EXIT_UE "$err_msg"
       }
     elif $ENTANDO_VM_REUSE; then
-      _log_i 2 "$err_msg and you choose to reuse it"
+      _log_i "$err_msg and you choose to reuse it"
     else
-      _log_w 0 "${err_msg}"
+      _log_w "${err_msg}"
       multipass info "$ENTANDO_VM_NAME"
       FATAL "$err_msg"
     fi
@@ -352,10 +352,10 @@ RUN_WITH_VM() {
 
   #~ LAUNCH OR REUSE VM
   if $LAUNCH_NEW_VM; then
-    _log_i 2 "> Generating the base VM"
+    _log_i "> Generating the base VM"
     multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
   else
-    _log_i 2 "Trying to reuse the exiting base VM"
+    _log_i "Trying to reuse the exiting base VM"
   fi
 
   #~ PREPARES OVERRIDES
@@ -375,7 +375,7 @@ RUN_WITH_VM() {
   esac
 
   #~ INSTALL ENT IN THE VM
-  _log_i 2 "> Installing Ent on the VM"
+  _log_i "> Installing Ent on the VM"
   multipass exec "$ENTANDO_VM_NAME" -- bash -c "
     bash <(curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\") \
       --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
@@ -383,16 +383,16 @@ RUN_WITH_VM() {
   #~ HANDLE AUTO-HOSTNAME
   $ENTANDO_AUTO_HOSTNAME && {
     if prepare_for_privileged_commands; then
-      _log_i 2 "> Creating the hostname DNS \"$ENTANDO_VM_NAME\" on the hosts file"
+      _log_i "> Creating the hostname DNS \"$ENTANDO_VM_NAME\" on the hosts file"
       ent-host setup-vm-hostname "$ENTANDO_VM_NAME"
     else
-      _log_w 2 "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
-      _log_w 2 "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
+      _log_w "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
+      _log_w "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
     fi
   }
 
   #~ RUN THE CHECK-ENV in the VM
-  _log_i 2 "> Checking the environment on the VM"
+  _log_i "> Checking the environment on the VM"
   if ! $ENTANDO_NO_CHECK; then
     local YES_OPT=""
     if $ENTANDO_OPT_YES_FOR_ALL; then
@@ -416,7 +416,7 @@ RUN_WITH_VM() {
   #~ RUN THE QUICKSTART in the VM
   map-set REMOTES "$ENTANDO_VM_NAME" "$ENTANDO_NAMESPACE/$ENTANDO_APPNAME/$ENTANDO_RELEASE"
 
-  _log_i 2 "> Registering the VM"
+  _log_i "> Registering the VM"
   ! $ENTANDO_NO_AUTO_ATTACH && {
     ent-attach-vm "$ENTANDO_VM_NAME"
     save_cfg_value "DESIGNATED_VM_NAMESPACE" "$ENTANDO_NAMESPACE"
@@ -441,7 +441,7 @@ RUN_WITH_VM() {
 
 # shellcheck disable=SC2120
 RUN_DIRECT() {
-  _log_i 2 "> Checking environment"
+  _log_i "> Checking environment"
 
   # -- CHECK-ENV
 
@@ -501,7 +501,7 @@ RUN_DIRECT() {
     FQADDR="$ADDR.nip.io"
     SINGLE_HOSTNAME="~"
 
-    _log_d 5 "> Using ip address: $ADDR"
+    _log_d "> Using ip address: $ADDR"
   else
     FQADDR="$ADDR"
     if $WITH_SINGLE_HOSTNAME; then
@@ -510,7 +510,7 @@ RUN_DIRECT() {
       SINGLE_HOSTNAME="~"
     fi
 
-    _log_d 5 "> Using domain: $ADDR"
+    _log_d "> Using domain: $ADDR"
   fi
 
   # -- GENERATES THE YAML TGT_FILE FILE
@@ -522,12 +522,12 @@ RUN_DIRECT() {
   fi
 pwd
   if [ -f "dist/$MANIFEST_TEMPLATE_FILE" ]; then
-    _log_i 1 "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
+    _log_i "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
   else
     FATAL "Unable to find manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
   fi
 
-  _log_i 2 "> Generating the kubernetes specification file \"w/$DEPL_SPEC_YAML_FILE\" for the deployment"
+  _log_i "> Generating the kubernetes specification file \"w/$DEPL_SPEC_YAML_FILE\" for the deployment"
 
   # shellcheck disable=SC2002
   cat "dist/$MANIFEST_TEMPLATE_FILE" |
@@ -541,7 +541,7 @@ pwd
     _sed_in_place "s/dbms: .*/dbms: $OVERRIDE_DB_TYPE/g" "w/$DEPL_SPEC_YAML_FILE"
   }
 
-  _log_i 3 "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
+  _log_i "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
 
   $ENTANDO_STANDARD_QUICKSTART && {
     ask "Should I register the Cluster Level Resources?" && {
@@ -564,7 +564,7 @@ pwd
 
     # ConfigMap override
     [ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ] && {
-      _log_i 0 "Applying the ConfigMap override"
+      _log_i "Applying the ConfigMap override"
       s/entando-quickstart-yaml-helper.sh set-configmap \
         "$TGT_FILE" \
         "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
@@ -573,7 +573,7 @@ pwd
     mv "$TMP_FILE" "$TGT_FILE"
     # CoCoo override
     [ -n "$ENTANDO_COCOO_VERSION_OVERRIDE" ] && {
-      _log_i 0 "Applying the Controller Coordinator override"
+      _log_i "Applying the Controller Coordinator override"
       s/entando-quickstart-yaml-helper.sh set-cocoo-version \
         "$TGT_FILE" \
         "$ENTANDO_COCOO_VERSION_OVERRIDE" \

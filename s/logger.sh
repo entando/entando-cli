@@ -29,23 +29,23 @@ __log() { #NOTRACE
 }
 
 _log_e() {
-  __log "E" "[E]" "$@" 1>&2
+  __log "E" "[E]" 0 "$@" 1>&2
 }
 
 _log_w() {
-  __log "W" "[W]" "$@"
+  __log "W" "[W]" 0 "$@"
 }
 
 _log() {
-  __log "T" "[T]" "$@"
+  __log "T" "[T]" 0 "$@"
 }
 
 _log_i() {
-  __log "I" "[I]" "$@"
+  __log "I" "[I]" 0 "$@"
 }
 
 _log_d() {
-  __log "D" "[D]" "$@"
+  __log "D" "[D]" 0 "$@"
 }
 
 _log_enable_types() {

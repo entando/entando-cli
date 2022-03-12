@@ -53,7 +53,7 @@ RUN() {
         local MSG="On this TTY normal \"ent profile\" commands will be overridden"
         MSG+=" by the TTY local setup (see \"ent status\");"
         MSG+=" you can switch the another app or free the tty by issuing another sourced ent-profile."
-        _log_e 0 "$MSG"
+        _log_e "$MSG"
         FATAL "TTY_APP_LOCKED"
       }
     fi
@@ -95,7 +95,7 @@ RUN() {
     args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as base  profile dir" "$@"
     [ -n "$HH" ] && exit 0
     print_current_profile_info
-    _log_i 2 "The available profiles are:"
+    _log_i "The available profiles are:"
     list_profiles "$@"
     ;;
   esac
@@ -159,7 +159,7 @@ use_profile() {
       local app_dir="$apps_base_dir/$tmp_profile"
 
       if [ ! -d "$app_dir" ]; then
-        _log_w 0 "Application profile \"$tmp_profile\" not found"
+        _log_w "Application profile \"$tmp_profile\" not found"
         $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
         $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
         new_profile "$tmp_profile"
@@ -273,7 +273,7 @@ new_profile() {
   mkdir -p "${app_dir}/w"
   chmod 700 "$ENTANDO_ENT_HOME/w"
   find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
-  _log_i 0 "Application profile \"$PROFILE\" created"
+  _log_i "Application profile \"$PROFILE\" created"
 
   local cfg_file="$app_dir/w/.cfg"
   save_cfg_value THIS_PROFILE "$PROFILE" "$cfg_file"
@@ -282,7 +282,7 @@ new_profile() {
 
   if $AUTO_USE; then
     set_curr_profile "$PROFILE" "$app_dir"
-    _log_i 0 "Application profile \"$PROFILE\" activated"
+    _log_i "Application profile \"$PROFILE\" activated"
     activate_designated_workdir
     print_first_use_readme
   else
@@ -342,11 +342,11 @@ delete_profile() {
   [ ! -d "$PROFILE/w" ] && FATAL "Invalid profile dir"
 
   (
-    _log_w 0 "Application profile \"$PROFILE\" found"
+    _log_w "Application profile \"$PROFILE\" found"
     $AUTO_YES || ask "Should I really delete it?" || EXIT_UE "User interrupted"
 
     rm -rf "$PROFILE"
-    _log_i 0 "Application profile \"$PROFILE\" deleted"
+    _log_i "Application profile \"$PROFILE\" deleted"
 
     save_cfg_value "DESIGNATED_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
     save_cfg_value "DESIGNATED_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"

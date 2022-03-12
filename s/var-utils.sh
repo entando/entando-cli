@@ -101,14 +101,14 @@ set_nn_ip() { assert_ip "$1" "$2" && _set_nn "$@"; }
 
 assert_nn() {
   local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
-  [ -z "$2" ] && [ "$3" != "silent" ] && _log_e 0 "${pre}Value $1 cannot be null" && exit 3
+  [ -z "$2" ] && [ "$3" != "silent" ] && _log_e "${pre}Value $1 cannot be null" && exit 3
   return 0
 }
 
 assert_lit() {
   local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
   local desc && [ -n "$3" ] && desc=" for $3"
-  [ "$1" != "$2" ] && _log_e 0 "${pre}Expected literal \"$1\" found \"$2\"$desc" && exit 3
+  [ "$1" != "$2" ] && _log_e "${pre}Expected literal \"$1\" found \"$2\"$desc" && exit 3
   return 0
 }
 
@@ -225,7 +225,7 @@ _assert_regex_nn() {
         FATAL "${pre}Value of $1 ($2) is not a valid $5"
       elif [ "$6" != "silent" ]; then
         local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
-        _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"
+        _log_e "${pre}Value of $1 ($2) is not a valid $5"
       fi
       return 1
     fi

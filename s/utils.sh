@@ -96,7 +96,7 @@ reload_cfg() {
       sanitized="${sanitized/\\n/}"
       eval "$var"="$sanitized"
     else
-      _log_e 0 "Skipped illegal var name $var"
+      _log_e "Skipped illegal var name $var"
     fi
   done <<<"$(cat "$config_file")"
   return 0
@@ -228,12 +228,12 @@ _FATAL() {
   if [ "$1" != "-s" ]; then
     SKIP=1;[ "$1" = "-S" ] && { SKIP="$((SKIP+$2))"; shift 2; }
     [ "$1" = "-99" ] && shift && rv=99
-    CALL_TRACE_LOGGER() { _log_e 0 "$*" 1>&2; }
+    CALL_TRACE_LOGGER() { _log_e "$*" 1>&2; }
     print_calltrace "$SKIP" 5 "" CALL_TRACE_LOGGER "$@" 1>&2
   else
     shift
     [ "$1" = "-99" ] && shift && rv=99
-    _log_e 0 "$@" 1>&2
+    _log_e "$@" 1>&2
   fi
   exit "$rv"
 }
@@ -256,7 +256,7 @@ NONNULL() {
 #
 EXIT_UE() {
   echo -e "---"
-  [ "$1" != "" ] && _log_w 0 "$@"
+  [ "$1" != "" ] && _log_w "$@"
   xu_set_status "USER-ERROR"
   exit 1
 }
@@ -857,13 +857,13 @@ stdin_to_arr() {
 print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if $VERBOSE; then
-    _log_i 0 "Current profile info:"
+    _log_i "Current profile info:"
     echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
   else
     if [ -n "$THIS_PROFILE" ]; then
-      _log_i 0 "Currently using profile \"$THIS_PROFILE\"" 1>&2
+      _log_i "Currently using profile \"$THIS_PROFILE\"" 1>&2
     else
-      _log_i 0 "Currently not using any profile" 1>&2
+      _log_i "Currently not using any profile" 1>&2
     fi
   fi
   
@@ -1061,7 +1061,7 @@ keycloak-query-connection-data() {
   
   if [[ "$?" = "0" && -n "$tmp" ]]; then
     # EXTERNAL KEYCLOAK CONFIGURATION
-    _log_d 3 "external-sso-secret found"
+    _log_d "external-sso-secret found"
     _tmp_auth_url="$(echo "$tmp" | cut -d':' -f3)"
     _tmp_auth_url=$(_base64_d <<< "$_tmp_auth_url")
     _tmp_realm="$(echo "$tmp" | cut -d':' -f4)"

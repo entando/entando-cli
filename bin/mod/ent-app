@@ -89,7 +89,7 @@ print_operator_configmap() {
     app-get-main-ingresses ignore ignore ignore ignore
     if ! check_ver_ge "6.3.0" "$ENTANDO_LATEST_DETECTED_APPVER"; then
       {
-        _log_w 0 "This EntandoApp version doesn't seem to support the configmap \"entando-operator-config\""
+        _log_w "This EntandoApp version doesn't seem to support the configmap \"entando-operator-config\""
         ask "Should I proceed anyway?" "Y" || FATAL "Quitting"
       } 1>&2
     fi

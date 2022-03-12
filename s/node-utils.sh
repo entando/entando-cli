@@ -51,7 +51,7 @@ node.install-node() {
       fi
       mv "node-$ENT_NODE_VER-${pathseg_os}-${SYS_CPU_ARCH/x86-64/x64}" "$ENT_NODE_DIR"
     else
-      _log_i 0 "The ENT node installation \"$ENT_NODE_DIR\" is already present and so it will be reused"
+      _log_i "The ENT node installation \"$ENT_NODE_DIR\" is already present and so it will be reused"
     fi
     __exist -d "$ENT_NODE_DIR"
     __mk_disdir --mark "$ENT_NODE_DIR"

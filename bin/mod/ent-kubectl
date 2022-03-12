@@ -32,7 +32,7 @@ RUN() {
       if [ -n "$DESIGNATED_KUBECONFIG" ]; then
         echo "export KUBECONFIG=\"$DESIGNATED_KUBECONFIG\""
       else
-        _log_e 0 "No ENT KUBECONFIG set"
+        _log_e "No ENT KUBECONFIG set"
       fi
       ;;
     "ent-set-cmd") #H: prints the command for setting the kubectl environment
@@ -127,7 +127,7 @@ kube.scale_namespace() {
   args_or_ask -h "$HH" -n -s -p NAMESPACE "-n/ext_ic_id//namespace override" "$@"
   [ -n "$HH" ] && exit 0
   NONNULL TIMEOUT REPLICAS
-  _log_i 1 "Scaling the namespace: \"$ENTANDO_NAMESPACE\" to \"$REPLICAS\""
+  _log_i "Scaling the namespace: \"$ENTANDO_NAMESPACE\" to \"$REPLICAS\""
   timeout "$TIMEOUT" ent k scale statefulset,deployment -n "$ENTANDO_NAMESPACE" --all --replicas="$REPLICAS"
 }
 
@@ -152,10 +152,10 @@ auto_align_with_server() {
     KUBECTL_NAME="kubectl.$ver$EXT"
 
     if [ ! -f "$KUBECTL_NAME" ]; then
-      _log_i 1 "I don't have the kubectl for this server (\"$ver\"). I'll try to download it"
+      _log_i "I don't have the kubectl for this server (\"$ver\"). I'll try to download it"
       
       # DOWNLOAD kubectl
-      _log_i 1 "Downloading kubectl \"$ver\""
+      _log_i "Downloading kubectl \"$ver\""
       
       RES=$(
         curl -Ls --write-out '%{http_code}' -o "kubectl.tmp" \
@@ -168,7 +168,7 @@ auto_align_with_server() {
       }
       
       # DOWNLOAD checksum
-      _log_i 1 "Downloading kubectl \"$ver\" checksum"
+      _log_i "Downloading kubectl \"$ver\" checksum"
       
       RES=$(
         curl -Ls --write-out '%{http_code}' -o "$KUBECTL_NAME.sha256" \
@@ -179,12 +179,12 @@ auto_align_with_server() {
         #~
         rm "$KUBECTL_NAME.sha256"
         
-        _log_w 1 "Unable to download the kubectl checksum file"
+        _log_w "Unable to download the kubectl checksum file"
         ask "Should I proceed anyway?" || {
           rm "kubectl.tmp"
           FATAL "Quitting"
         }
-        _log_w 1 "kubectl checksum verification skipped by the user"
+        _log_w "kubectl checksum verification skipped by the user"
         COMMENT=" but not checked"
       }
       
@@ -199,14 +199,14 @@ auto_align_with_server() {
       # FINALIZE THE NAME
       mv "kubectl.tmp" "$KUBECTL_NAME"
       chmod +x "$KUBECTL_NAME"
-      _log_i 1 "kubectl \"$ver\" downloaded$COMMENT"
+      _log_i "kubectl \"$ver\" downloaded$COMMENT"
     else
-      _log_i 1 "I already have a good version for this server (\"$ver\")"
+      _log_i "I already have a good version for this server (\"$ver\")"
     fi
     
     set_kubectl_command "$PWD/$KUBECTL_NAME"
     
-    _log_i 1 "Ent profile configuration updated (run \"ent status\" for details)"
+    _log_i "Ent profile configuration updated (run \"ent status\" for details)"
   ) || exit "$?"
 }
 

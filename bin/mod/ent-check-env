@@ -63,7 +63,7 @@ check-env.runtime.minimal-sys-requirements() {
 
 check-env.runtime.check-k3s() {
   if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | _perl_sed 's/k3s version (.*)\+k.*/\1/'"; then
-    _log_i 3 "\tfound: $check_ver_res => OK"
+    _log_i "\tfound: $check_ver_res => OK"
   else
     if ask "Should I try to install it?" "y"; then
       curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$VER_K3S_DEF" sh -
@@ -94,7 +94,7 @@ check-env.runtime.quickstart.apply-fixes() {
 }
 
 check-env.runtime.check-dns() {
-  _log_i 1 "Checking DNS"
+  _log_i "Checking DNS"
 
   dns_state="$(s/check-dns-state.sh)"
 
@@ -103,19 +103,19 @@ check-env.runtime.check-dns() {
       true
       ;;
     "no-dns")
-      _log_e 1 "SEVERE: This system appears to have no DNS."
+      _log_e "SEVERE: This system appears to have no DNS."
       ask "Should I proceed anyway?" || FATAL "Quitting"
       ;;
     "filtered[RR]")
-      _log_e 1 "SEVERE: DNS query for local addresses appears to be actively filtered."
+      _log_e "SEVERE: DNS query for local addresses appears to be actively filtered."
       ask "Should I proceed anyway?" || FATAL "Quitting"
       ;;
     "filtered[R]")
       if $M_QS; then
-        _log_e 1 "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
+        _log_e "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
         ask "Workaround doesn't seem to work. Should I proceed anyway?" || FATAL "Quitting"
       else
-        _log_e 1 "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
+        _log_e "SEVERE: Your DNS server appears to implement DNS rebinding protection, preventing queries like 192.168.1.1.nip.io to work."
         if $NO_DNS_FIX; then
           ask "Should I proceed anyway?" || FATAL "Quitting"
         else
@@ -126,7 +126,7 @@ check-env.runtime.check-dns() {
       fi
       ;;
     "*")
-      _log_e 1 "SEVERE: Unable to precisely determine the status of the DNS."
+      _log_e "SEVERE: Unable to precisely determine the status of the DNS."
       ask " Should I proceed anyway?" || FATAL "Quitting"
       ;;
   esac
@@ -136,14 +136,14 @@ check-env.check-node() {
   __cd "$ENTANDO_ENT_HOME"
   mkdir -p "lib/node"
 
-  _log_i 3 "Checking ENT private installation of node.js.."
+  _log_i "Checking ENT private installation of node.js.."
   
   check_ver "_ent-node" "$VER_NODE_REQ" "--version" "quiet,verbose" "" || {
-    _log_w 1 "ENT private node.js installation is not available"
+    _log_w "ENT private node.js installation is not available"
     if ask "Should I try to install it?" "y"; then
       node.install-node "$VER_NODE_DEF"
       
-      _log_i 1 "Node installed and activated:"
+      _log_i "Node installed and activated:"
       echo "  NODE: $(_ent-node --version)"
       echo "  NPM: $(_ent-npm --version)"
     else
@@ -157,7 +157,7 @@ check-env.check-node() {
 }
 
 check-env.check-jhipster() {
-  _log_i 3 "Checking ENT private installation of jhipster.."
+  _log_i "Checking ENT private installation of jhipster.."
 
   check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" \
     "ENT private jhipster installation is not available" ||
@@ -195,7 +195,7 @@ check_ver_cfg() {
     local VERS
     VERS="$(list_compatible_installations "$ENTANDO_CLI_VERSION")"
     if [ -n "$VERS" ]; then
-      _log_w 0 "This installation has no config"
+      _log_w "This installation has no config"
       ask "Should I try to import from another one?" && {
         import_ent_installation
       }
@@ -213,16 +213,16 @@ check_npm_git_package() {
   local PACKAGE_NAME="$4"
   local PACKAGE_DESC="$5"
 
-  _log_i 3 "Checking ENT private installation of $PACKAGE_DESC.."
+  _log_i "Checking ENT private installation of $PACKAGE_DESC.."
 
   (
     [ ! -d "$ENT_OPTS_ENTANDO" ] && __mk_disdir "$ENT_OPTS_ENTANDO"
     __cd "$ENT_OPTS_ENTANDO"
     
     if [ -f "$PACKAGE_NAME/$VER_REQ/.entando-finalized" ]; then
-      _log_i 3 "\tfound: $VER_REQ => OK"
+      _log_i "\tfound: $VER_REQ => OK"
     else
-      _log_i 2 "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found"
+      _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found"
 
       if ask "Should I try to install it?" "y"; then
         [ ! -d "$PACKAGE_NAME" ] && __mk_disdir "$PACKAGE_NAME"
@@ -247,7 +247,7 @@ check_npm_git_package() {
           }
         ) || {
           local EC="$?"
-          _log_e 0 "An error has occurred while installing $PACKAGE_DESC.. rolling back"
+          _log_e "An error has occurred while installing $PACKAGE_DESC.. rolling back"
           __cd "$BASE_PACKAGE_DIR"
           [ ! -d "$PACKAGE_NAME/$VER_DEF" ] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
           exit $EC
@@ -317,4 +317,4 @@ PARSE_ARGS() {
 
 PARSE_ARGS "$@"
 RUN
-_log_i 0 "${0##*/} execution completed"
+_log_i "${0##*/} execution completed"

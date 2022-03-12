@@ -256,9 +256,9 @@ process_pod_pattern() {
 pod_action.force-reload() {
   local POD="$1"
   
-  _log_d 0 "Selected pod \"$SELECTED_POD\""
+  _log_d "Selected pod \"$SELECTED_POD\""
   
-  _log_d 0 "Looking for the pod's k8s deployment.."
+  _log_d "Looking for the pod's k8s deployment.."
   
   local pod_depl="$(
     ent kubectl get pod "$POD" -o json | jq '.metadata.labels."entando.org/deployment"' -r
@@ -274,10 +274,10 @@ pod_action.force-reload() {
     pod_depl+="-deployment"
   fi
   
-  _log_d 3 "Found k8s deployment \"$pod_depl\""
+  _log_d "Found k8s deployment \"$pod_depl\""
   
   # PHASE 1: change the pull strategy
-  _log_i 0 "This operation will change the pull strategy of the k8s deployment: \"$pod_depl\""
+  _log_i "This operation will change the pull strategy of the k8s deployment: \"$pod_depl\""
   ask "I trust you know what you are doing. Should I proceed?" "Y" || FATAL "Quitting"
   
   ent kubectl patch deployment "$pod_depl" \
@@ -285,17 +285,17 @@ pod_action.force-reload() {
     -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Always"}]' \
   ;
   
-  _log_d 3 "The pull strategy of deployment \"$pod_depl\" was changed to \"Always\""
+  _log_d "The pull strategy of deployment \"$pod_depl\" was changed to \"Always\""
   
   # PHASE 2: delete the pod
-  _log_i 0 "I you like I can now delete the old (inactive) POD? \"$POD\""
+  _log_i "I you like I can now delete the old (inactive) POD? \"$POD\""
   ask "Should I proceed?" "Y" || FATAL "Quitting"
   
   ent kubectl delete pod "$POD"
   
-  _log_d 3 "Pod \"$POD\" deletion requested"
+  _log_d "Pod \"$POD\" deletion requested"
   
-  _log_i 0 "Force reload completed."
+  _log_i "Force reload completed."
 }
 
 RUN "$@"

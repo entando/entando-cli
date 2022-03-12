@@ -52,7 +52,7 @@ check_ver() {
     VER="$1"
     mode+=",quiet"
   else
-    [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
+    [[ ! "$mode" =~ "quiet" ]] && _log_i "Checking $1.."
     
     if command -V "$1" &> /dev/null; then
       if [[ "$2" == "-" ]]; then
@@ -71,9 +71,9 @@ check_ver() {
     if [ $? -ne 0 ] || [ -z "$VER" ]; then
       if [[ ! "$mode" =~ "quiet" ]]; then
         if [ -z "$err_desc" ]; then
-          _log_i 2 "Program \"$1\" is not available"
+          _log_i "Program \"$1\" is not available"
         else
-          _log_i 2 "$err_desc"
+          _log_i "$err_desc"
         fi
       fi
       return 1
@@ -101,10 +101,10 @@ check_ver() {
     return 0
   ) && {
     check_ver_res="$VER"
-    [[ "$mode" =~ "verbose" ]] && _log_i 3 "\tfound: $check_ver_res => OK"
+    [[ "$mode" =~ "verbose" ]] && _log_i "\tfound: $check_ver_res => OK"
     return 0
   } || {
-    [[ ! "$mode" =~ "quiet" ]] && _log_i 2 "Version \"$2\" of program \"$1\" is not available (found: $VER)"
+    [[ ! "$mode" =~ "quiet" ]] && _log_i "Version \"$2\" of program \"$1\" is not available (found: $VER)"
     return 1
   }
 }
@@ -233,7 +233,7 @@ $OS_WIN && {
 
 function ent-init-project-dir() {
   [ -f "$C_ENT_PRJ_FILE" ] && {
-    _log_w 0 "The project seems to be already initialized"
+    _log_w "The project seems to be already initialized"
     ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
@@ -302,7 +302,7 @@ git_clone_repo() {
     ERRC="FATAL"
   fi
   if [[ "$OPT" =~ "LOGW" ]]; then
-    ERRC="_log_w 0"
+    ERRC="_log_w"
   fi
   if [[ "$OPT" =~ "FORCE" ]]; then
     FORCE=true
@@ -396,7 +396,7 @@ import_ent_config() {
       cp "../$src/w/.cfg" "w/.cfg" && exit 0
       exit 1
     else
-      _log_e 0 "Unable to import the cfg from $src"
+      _log_e "Unable to import the cfg from $src"
       exit 99
     fi
   )
@@ -419,7 +419,7 @@ import_ent_library() {
         exit 1
       fi
     fi
-    _log_e 0 "Unable to import the cfg from $src"
+    _log_e "Unable to import the cfg from $src"
     exit 99
   )
 }
@@ -432,12 +432,12 @@ import_ent_installation() {
     # shellcheck disable=SC2154
     VER_TO_IMPORT="$select_one_res_alt"
     import_ent_config "$VER_TO_IMPORT" && {
-      _log_i 0 "done"
+      _log_i "done"
 
       ask "Should I try to import the library?" && {
-        _log_i 0 "This may take a while"
+        _log_i "This may take a while"
         import_ent_library "$VER_TO_IMPORT" "copy" && {
-          _log_i 0 "done."
+          _log_i "done."
         }
       }
     }
@@ -482,5 +482,97 @@ debug-print() {
 
     echo -e "$*$(E)"
   }>&2
+}
+
+# Installs a command given its package name
+#
+# Params:
+# $1: name of the package
+#
+# Options:
+# -c command          command to check if != package name
+# --tar-install url   installation based on the url of the executable archive
+#
+_pkg_get() {
+  local chk
+  local P="-"
+  
+  # Args parse: Command presence check override
+  if [ "$1" = "-c" ]; then
+    local chk="$2"
+    shift 2
+  fi
+  
+  # Args parse: Installation mode override    
+  TAR_INSTALL_URL=""
+  if [ "$1" == "--tar-install" ]; then
+    TAR_INSTALL_URL="$2"
+    shift 2
+  fi
+  
+  # Args parse: Package Name
+  P="$1"
+  [ -z "$chk" ] && chk="$P"
+  
+  # Command presence check
+  if _pkg_is_command_available "$chk"; then
+    _log_t "Command \"$chk\" available"
+    return 0
+  fi
+  
+  # Installation if required
+  _log_t "Installing packet \"$P\".."
+  
+  if [ -n "$TAR_INSTALL_URL" ]; then
+    _pkg_tar_install "$TAR_INSTALL_URL" "${chk:-$P}"
+  else
+    _pkg_apt_install "$P"
+  fi
+  
+  [ "$?" != "0" ] && _FATAL "Installation of packet \"$P\" failed"
+  
+  if _pkg_is_command_available "$chk"; then
+    _log_d "Packet \"$P\" installed"
+  else
+    _FATAL "Installation of packet \"$P\" failed"
+  fi
+  
+  return 0
+}
+
+# Installs a package given a link to a tarball
+#
+# $1: semicolon-delimited list containing:
+#     position #1     the url
+#     position #2..4  3 additional args for the curl command
+#
+# this limited syntax was implemented mostly to allow specifying "--insecure"
+# note that all the args are individually quoted
+#
+_pkg_tar_install() {
+  local url opt1 opt2 opt3
+  # shellcheck disable=SC2162
+  IFS=';' read url opt1 opt2 opt3 <<< "$1"
+  (
+    # NOTE: this form autodetects compressed tars
+    tar xf <(
+      curl -s ${opt1:+"$opt1"} ${opt2:+"$opt2"} ${opt3:+"$opt3"} "$url"
+    )
+    ${ENTANDO_OPT_SUDO:+"$ENTANDO_OPT_SUDO" -n} mv "$2" "/usr/local/bin/$2"
+    chmod +x "/usr/local/bin/$2"
+  )
+}
+
+#  Checks for the presence of a command
+#
+# Params:
+# $1: the command
+#
+# Options:
+# [-m] if provided failing finding the command is fatal
+#
+_pkg_is_command_available() {
+  local MANDATORY=false;[ "$1" = "-m" ] && { MANDATORY=true; shift; }
+  command -v "$1" >/dev/null || { "$MANDATORY" && _FATAL "Unable to find required command \"$1\""; }
 }
 return 0

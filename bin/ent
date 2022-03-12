@@ -130,7 +130,7 @@ RUN() {
 
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
         [ ! -f "$mod_script" ] && {
-          _log_i 0 "Unrecognized ent command \"$cmd\""
+          _log_i "Unrecognized ent command \"$cmd\""
           return 0
         }
         # shellcheck disable=SC1090
@@ -194,9 +194,9 @@ handle_config_command() {
 
   args_or_ask -h "$HH" -f -d -- '--print///print the configuration (default)' "$@" && {
     if [ -n "$THIS_PROFILE" ]; then
-      _log_i 0 "Configuration of the profile \"$THIS_PROFILE\"" 1>&2
+      _log_i "Configuration of the profile \"$THIS_PROFILE\"" 1>&2
     else
-      _log_i 0 "Default configuration of the current ent installation" 1>&2
+      _log_i "Default configuration of the current ent installation" 1>&2
     fi
     cat "$ENT_WORK_DIR/.cfg"
   }

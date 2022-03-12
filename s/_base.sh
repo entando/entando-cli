@@ -190,7 +190,7 @@ activate_application_workdir() {
       CFG_FILE="$ENT_WORK_DIR/.cfg"
       return 0
     else
-      _log_e 0 \
+      _log_e \
         "Unable to load the profile \"$DESIGNATED_PROFILE\", falling back to the default profile"
       DESIGNATED_PROFILE_HOME=""
       DESIGNATED_PROFILE=""
@@ -337,7 +337,7 @@ check_kubectl() {
     local VER="$(_kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs)"
     if [ -n "$VER" ]; then
       if check_ver_ge "$VER" "1.22.0" 2>/dev/null; then
-        _log_w 0 "this version of kubectl is not yet supported, replace it with a version < 1.22" \
+        _log_w "this version of kubectl is not yet supported, replace it with a version < 1.22" \
                  "or try running \"ent auto-align-kubectl\" against a kubernetes server." \
                  "To suppress this message execute \"ent config --set WARN_KUBECTL false\"" \
                  > /dev/stderr
@@ -352,7 +352,7 @@ print_ent_general_status() {
   setup_kubectl
   kubectl_update_once_options ""
   #print_hr
-  #_log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
   #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
   echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
   if [ -z "$DESIGNATED_KUBECONFIG" ]; then
@@ -384,7 +384,7 @@ print_ent_general_status() {
     | xargs -I {} echo " - TTY SESSION {}"
   )
   if [ -n "$TTY_ENV" ]; then
-    _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
+    _log_i "TTY environment ($ENTANDO_DEV_TTY):"
     echo -n "$TTY_ENV"
     echo ""
     print_hr

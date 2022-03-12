@@ -78,7 +78,7 @@ ent_activate() {
       echo "Version \"$ENT\" activated"
     else
       ! $FOR_SOURCED_EXECUTION && {
-        _log_i 0 "However, it was not activated on this shell because the command was not sourced"
+        _log_i "However, it was not activated on this shell because the command was not sourced"
       }
     fi
   fi
@@ -89,14 +89,14 @@ ent_set_default_ent() {
   chmod u=rwx "$ENTANDO_HOME/activate" 2>/dev/null
   cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
   chmod u=rx "$ENTANDO_HOME/activate" 2>/dev/null
-  _log_i 0 "Ent \"$ENT\" is now the global default ent"
+  _log_i "Ent \"$ENT\" is now the global default ent"
 }
 
 ent_set_profile_default_ent() {
   if [ -n "$DESIGNATED_PROFILE" ]; then
     ENT="$1"
     save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
-    _log_i 0 "Ent \"$ENT\" is now the default ent for the profile \"$DESIGNATED_PROFILE\""
+    _log_i "Ent \"$ENT\" is now the default ent for the profile \"$DESIGNATED_PROFILE\""
   fi
 }
 

@@ -42,11 +42,11 @@ RUN() {
       require_develop_checked
       require_ent_project_dir
       print_entando_banner
-      _log_i 0 "Building the frontend"
+      _log_i "Building the frontend"
       fe_build -a || _SOE
-      _log_i 0 "Building the backend"
+      _log_i "Building the backend"
       be_build "$@" || _SOE
-      _log_i 0 "Collecting the bundle artifacts"
+      _log_i "Collecting the bundle artifacts"
       bundle_all
       ;;
     "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
@@ -100,7 +100,7 @@ RUN() {
       args_or_ask -a -h "$HH-only" GIT_USER_NAME "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
       args_or_ask -a -h "$HH-only" GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
       args_or_ask -n -F -h "$HH-only" -- "FORCE" '--force///forces the initialization' "$@" && {
-        _log_i 0 "pub_init: Force mode active"
+        _log_i "pub_init: Force mode active"
       }
       end_help_parsing
 
@@ -243,7 +243,7 @@ ext_keycloak() {
     docker-compose -f src/main/docker/keycloak.yml logs "$@"
     ;;
   *)
-    _log_w 0 "Please provide a valid action: start|stop|logs"
+    _log_w "Please provide a valid action: start|stop|logs"
     ;;
   esac
 }
@@ -264,7 +264,7 @@ prj_ecr_install() {
 
   ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" "$DATA" &>/dev/null ||
     return $?
-  _log_i 0 "Installation of bundle \"$ENT_PRJ_NAME\" started"
+  _log_i "Installation of bundle \"$ENT_PRJ_NAME\" started"
 
   ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
 }
@@ -272,7 +272,7 @@ prj_ecr_install() {
 prj_ecr_uninstall() {
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
-  _log_i 0 "Uninstallation of bundle \"$ENT_PRJ_NAME\" started"
+  _log_i "Uninstallation of bundle \"$ENT_PRJ_NAME\" started"
   ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" &>/dev/null || return $?
   ecr-watch-installation-result "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
 }
@@ -349,9 +349,9 @@ fe_widget_do() {
   done < <(find ui/widgets/ -iname package.json -not -path "*/node_modules/*")
 
   [[ "$action" =~ :select ]] && {
-    _log_i 0 "Select the Widget to $desc"
+    _log_i "Select the Widget to $desc"
     select_one "" "${arr[@]}"
-    _log_i 0 "Widget \"$select_one_res_alt\" selected"
+    _log_i "Widget \"$select_one_res_alt\" selected"
 
     SELECTED_WIDGET="$select_one_res_alt"
   }
@@ -390,7 +390,7 @@ get_be_info() {
   fi
 
   [ -z "$IMAGE_FQNAME" ] && {
-    _log_w 0 "Unable to determine the image name"
+    _log_w "Unable to determine the image name"
     PARSED_POM_CHECKSUM=""
     save_cfg_value "PARSED_POM_CHECKSUM" "" "$C_ENT_STATE_FILE"
     set_or_ask "IMAGE_FQNAME" "" "Please provide the full image name (org/name:tag)"
@@ -412,7 +412,7 @@ get_be_info() {
 
 be_info() {
   get_be_info
-  _log_i 0 "Docker image info:\n\
+  _log_i "Docker image info:\n\
   - IMAGE ORG:    \"$IMAGE_FQNAME_ORG\"\n\
   - IMAGE NAME:   \"$IMAGE_FQNAME_NAME\"\n\
   - IMAGE TAG:    \"$IMAGE_FQNAME_TAG\"\n\
@@ -433,10 +433,10 @@ be_build() {
       ${OPT_TESTS:+"$OPT_TESTS"} \
       package jib:dockerBuild && {
     echo ""
-    _log_i 0 "Built image \"$IMAGE_FQNAME\""
+    _log_i "Built image \"$IMAGE_FQNAME\""
     true
   } || {
-    _log_e 0 "Error building image \"$IMAGE_FQNAME\""
+    _log_e "Error building image \"$IMAGE_FQNAME\""
     false
   }
 }
@@ -462,13 +462,13 @@ be_restart_pods() {
   local pods
   pods="$(get_pods_list "$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME" | grep "server-deployment" | cut -d' ' -f 1)"
   [ "${#pods}" -eq 0 ] && {
-    _log_i 0 "Restart pods was not able to find any pod in the current profile"
+    _log_i "Restart pods was not able to find any pod in the current profile"
     return 0
   }
-  _log_i 0 "Restart pods will start in $restart_pods_after seconds"
+  _log_i "Restart pods will start in $restart_pods_after seconds"
   sleep "$restart_pods_after"
   for pod in $pods; do
-    _log_i 0 "Restarting pod: \"$pod\""
+    _log_i "Restarting pod: \"$pod\""
     _kubectl delete pod "$pod" >/dev/null
   done
 }
@@ -478,7 +478,7 @@ be_purge_k8s() {
   get_be_info
   local pn="$IMAGE_FQNAME_ORG-$IMAGE_FQNAME_NAME"
   local tpn="${pn:0:31}"
-  _log_i 0 "Warning, this will delete the plugin and it resources"
+  _log_i "Warning, this will delete the plugin and it resources"
   ask "Should I proceed?" || EXIT_UE "User interrupted"
   del_resource -n "EntandoPlugin" "$tpn"
   del_resource -l "deployment" "$tpn"
@@ -490,11 +490,11 @@ be_purge_k8s() {
   del_resource -m "secret" "$tpn" \
     "^$pn-server-secret$" "^$pn-sidecar-secret$" "^$ENTANDO_APPNAME-$pn-link-controller-ca-cert-secret$"
   ${PURGE_VOLUMES:-false} && {
-    _log_i 0 "Warning, this will delete the volumes of the plugin"
+    _log_i "Warning, this will delete the volumes of the plugin"
     ask "Should I proceed?" || EXIT_UE "User interrupted"
     del_resource -l "pvc" "$tpn"
   }
-  _log_i 0 "done."
+  _log_i "done."
 }
 
 del_resource() {
@@ -515,10 +515,10 @@ del_resource() {
     LST="$(_kubectl get "$type" "$flt" --no-headers -o "custom-columns=NAME:.metadata.name" 2>/dev/null)"
 
     if [ -z "$LST" ]; then
-      _log_d 1 "Deleting $type(s):\n  <none>"
+      _log_d "Deleting $type(s):\n  <none>"
       return 254
     else
-      _log_d 1 "Deleting $type(s):\n  - ${LST//$'\n'/$'\n  - '}"
+      _log_d "Deleting $type(s):\n  - ${LST//$'\n'/$'\n  - '}"
     fi
 
     ${DRY_RUN:-true} && return 0
@@ -568,16 +568,16 @@ del_resource() {
   esac
 
   ${DRY_RUN:-true} && {
-    _log_d 1 "$type deletion skipped (dry run)"
+    _log_d "$type deletion skipped (dry run)"
     return 0
   }
 
   if [ "$res" -eq 0 ]; then
-    _log_d 1 "$type deleted"
+    _log_d "$type deleted"
   elif [ "$res" -eq 254 ]; then
-    _log_w 0 "No $type found for this plugin"
+    _log_w "No $type found for this plugin"
   else
-    _log_w 0 "Error deleting the $type"
+    _log_w "Error deleting the $type"
   fi
 }
 
@@ -611,12 +611,12 @@ publish_version() {
   require_pbs_initialized
 
   echo "~~~"
-  _log_i 0 "Publishing the frontend to git"
+  _log_i "Publishing the frontend to git"
   fe_push "$@"
   echo "~~~"
-  _log_i 0 "Publishing the backend to the docker registry"
+  _log_i "Publishing the backend to the docker registry"
   be_push
-  _log_i 0 "Publication completed"
+  _log_i "Publication completed"
 }
 
 fe_push() {
@@ -653,7 +653,7 @@ be_pod_action() {
 }
 
 push_docker() {
-  [ -z "$DOCKER_REGISTRY_URL" ] && _log_d 1 "No docker registry configured, using default"
+  [ -z "$DOCKER_REGISTRY_URL" ] && _log_d "No docker registry configured, using default"
   docker login "$DOCKER_REGISTRY_URL"
   docker push "$@"
 }
@@ -662,7 +662,7 @@ push_git() {
   ensure_valid_location_for_git_publication
 
   args_or_ask -n -F -- "FORCE" '--force' "$@" && {
-    _log_i 0 "push_git: Force mode active"
+    _log_i "push_git: Force mode active"
   }
   args_or_ask -a "VERSION_NUMBER" "1/semver/$LATEST_VERSION_NUMBER/%sp bundle version number" "$@"
   DEF="$VERSION_NUMBER  - $(date -u '+%Y-%m-%dT%H:%M:%S%z')"
@@ -701,8 +701,8 @@ push_git() {
 
   if [ $RV -ne 0 ]; then
     if echo "$RES" | head -n 2 | grep -q -F '! [rejected]'; then
-      _log_w 1 "Unable to push to the remote repository, reason; REMOTE HISTORY NOT COMPATIBLE"
-      _log_w 1 "I'll try to fix it"
+      _log_w "Unable to push to the remote repository, reason; REMOTE HISTORY NOT COMPATIBLE"
+      _log_w "I'll try to fix it"
 
       git fetch origin master &&
         git rebase -Xtheirs origin/master
@@ -714,30 +714,30 @@ push_git() {
 
   local show_version_tag_msg=false
   if [ $RV -ne 0 ]; then
-    _log_e 1 "Unable to push to the remote repository, reason; $RES"
+    _log_e "Unable to push to the remote repository, reason; $RES"
     FATAL "Manual intervention required"
   else
     if echo "$RES" | head -n 2 | grep -q -F 'up-to-date'; then
-      _log_w 1 "No new content was published: The remote repository is already up to date"
+      _log_w "No new content was published: The remote repository is already up to date"
       show_version_tag_msg=true
     else
-      _log_i 1 "Version $VERSION_NUMBER published"
+      _log_i "Version $VERSION_NUMBER published"
     fi
   fi
 
   git push --tags --force 2>/dev/null
   RV=$?
   if [ $RV -ne 0 ]; then
-    _log_e 1 "Error publishing the version tag"
+    _log_e "Error publishing the version tag"
   else
-    $show_version_tag_msg && _log_i 1 "Version tags published"
+    $show_version_tag_msg && _log_i "Version tags published"
   fi
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 init_project() {
-  _log_i 1 "Preparing.."
+  _log_i "Preparing.."
   ent-init-project-dir && {
-    _log_i 1 "Project initialized."
+    _log_i "Project initialized."
   }
 }
 
@@ -771,7 +771,7 @@ init_project__commit_all() {
     git config user.email "$FE_GIT_USER_EMAIL"
   fi
 
-  _log_i 1 "Committing the generated files.."
+  _log_i "Committing the generated files.."
   git add -A && git commit -m "First generation commit"
 }
 
@@ -790,9 +790,9 @@ init_pub() {
   ensure_valid_location_for_git_publication :initialized "$@"
 
   if [ "$?" -eq 0 ]; then
-    _log_i 1 "bundle publication repository initialized"
+    _log_i "bundle publication repository initialized"
   else
-    _log_i 1 "bundle publication repository was not properly initialized"
+    _log_i "bundle publication repository was not properly initialized"
   fi
 }
 
@@ -807,7 +807,7 @@ initialize_publication_git_repository() {
   # Set origin, if required
   ORIG="$(git remote get-url origin 2>/dev/null)"
   [ -n "$ORIG" ] && {
-    _log_w 0 "An origin is already present ($ORIG)"
+    _log_w "An origin is already present ($ORIG)"
     ! $FORCE && {
       ask "Should I overwrite it?" || EXIT_UE "User abort"
     }
@@ -837,7 +837,7 @@ initialize_publication_git_repository() {
     echo -e "\n$C_ENT_STATE_FILE" >>.gitignore
     UPD=true
   }
-  $UPD && _log_d 1 "bundle project .gitignore updated"
+  $UPD && _log_d "bundle project .gitignore updated"
 }
 
 require_ent_project_dir() {
@@ -859,7 +859,7 @@ require_pbs_initialized() {
 ensure_valid_location_for_git_publication() {
   local FORCE
   args_or_ask -n -F -- "FORCE" '--force' "$@" && {
-    _log_i 0 "valid_loc: Force mode active"
+    _log_i "valid_loc: Force mode active"
   }
 
   # valid path
@@ -889,7 +889,7 @@ ensure_valid_location_for_git_publication() {
     # git master branch
     if [ "$(git ls-remote origin master)" ]; then
       # remote already has a master => import it
-      _log_w 1 "A remote master has been detected"
+      _log_w "A remote master has been detected"
       ask "Should I import it?"
 
       if [ $? -ne 0 ]; then
@@ -898,7 +898,7 @@ ensure_valid_location_for_git_publication() {
           MSG="PLEASE NOTE: You chose to not import the remote repository and the force flag was provided, "
           MSG+="therefore I will now DESTROY the remote repository content and replace it with the local content"
           echo ""
-          _log_w 0 "$MSG"
+          _log_w "$MSG"
           echo ""
           ask "Should I DESTROY the remote repository content and proceed?" "N" || EXIT_UE "User interrupted"
           MODE="OVERRIDE"
@@ -908,7 +908,7 @@ ensure_valid_location_for_git_publication() {
           MSG+="should be resolved by applying one of these solutions: 1) import the remote artifacts repository "
           MSG+="2) reset the remote artifacts repository 3) provide a new, empty artifacts repository"
           echo ""
-          _log_w 0 "$MSG"
+          _log_w "$MSG"
           EXIT_UE "Unable to proceed; manual intervention required"
         fi
       else
@@ -917,7 +917,7 @@ ensure_valid_location_for_git_publication() {
         MSG+="Your local build artifacts may be discarded. "
         MSG+="If you just run a build, you'd better run it again."
         echo ""
-        _log_w 0 "$MSG"
+        _log_w "$MSG"
         echo ""
         ask "Should I proceed?" "Y" || EXIT_UE "User interrupted"
         MODE="IMPORT"
@@ -927,14 +927,14 @@ ensure_valid_location_for_git_publication() {
         # LOCAL BRANCH BACKUP
         if [ "$(git status --porcelain)" ]; then
           local BBN="__AUTOSAVE_$(date -u '+%Y-%m-%dT%H-%M-%S%z')__"
-          _log_w 1 "Saving the local changes to the backup branch: \"$BBN\""
+          _log_w "Saving the local changes to the backup branch: \"$BBN\""
           git reset HEAD 2>/dev/null
           git checkout -b "$BBN" &&
             git add -A &&
             git commit -m "$BBN"
 
           # IMPORT
-          _log_d 1 "Checking out the remote master"
+          _log_d "Checking out the remote master"
           git branch -m master master_old &>/dev/null
           git branch -D master &>/dev/null
           git fetch origin master
@@ -951,7 +951,7 @@ ensure_valid_location_for_git_publication() {
       git add .gitignore descriptor.yaml
       ls plugins/*.yaml 1>/dev/null && git add plugins/*.yaml
       git commit --allow-empty -m "init" || {
-        _log_e 0 "Error executing the init commit"
+        _log_e "Error executing the init commit"
         return $?
       }
       git checkout -b master &>/dev/null
@@ -974,12 +974,12 @@ read_missing_pub_info_from_project_sources_git() {
 
   [ -z "$GIT_USER_NAME" ] && {
     GIT_USER_NAME="$(git config user.name 2>/dev/null)"
-    [ -n "$GIT_USER_NAME" ] && _log_d 1 "Assuming user name \"$GIT_USER_NAME\" from the bundle project dir"
+    [ -n "$GIT_USER_NAME" ] && _log_d "Assuming user name \"$GIT_USER_NAME\" from the bundle project dir"
   }
 
   [ -z "$GIT_USER_EMAIL" ] && {
     GIT_USER_EMAIL="$(git config user.email 2>/dev/null)"
-    [ -n "$GIT_USER_EMAIL" ] && _log_d 1 "Assuming user email \"$GIT_USER_EMAIL\" from the bundle parent project dir"
+    [ -n "$GIT_USER_EMAIL" ] && _log_d "Assuming user email \"$GIT_USER_EMAIL\" from the bundle parent project dir"
   }
 
   cd - >/dev/null || _FATAL "internal error"
