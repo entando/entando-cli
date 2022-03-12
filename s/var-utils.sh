@@ -256,21 +256,21 @@ SET_KV() {
 # MAP MANAGEMENT FUNCTIONS
 
 map-clear() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
       unset "${name}"
     fi
   done
 }
 
 map-count() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
   local i=0
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
       i=$((i + 1))
     fi
   done
@@ -280,28 +280,29 @@ map-count() {
 }
 
 map-set() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
-  local name="$1"
+  local name="${1//-/_DASH_}"
   local address="$2"
-  _set_var "${arr_var_name}${name}" "$address"
+  _set_var "${arr_var_prefix}${name}" "$address"
 }
 
 map-get() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local MAP_NAME="$1"
+  local arr_var_prefix="__AA_ENTANDO_${MAP_NAME}__"
   shift
   local name
 
   if [ "$1" = "--first" ]; then
     shift
     local dst_var_name="$1"
-    name="$(map-list REMOTES | head -n 1)"
+    name="$(map-list "${MAP_NAME}" | head -n 1)"
   else
     local dst_var_name="$1"
     name="$2"
   fi
   local tmp
-  tmp="${arr_var_name}${name}"
+  tmp="${arr_var_prefix}${name//-/_DASH_}"
   value="${!tmp}"
   _set_var "$dst_var_name" "$value"
   [ -n "$value" ] && return 0
@@ -309,40 +310,50 @@ map-get() {
 }
 
 map-del() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
-  local name="$1"
-  unset "${arr_var_name}${name}"
+  local name="${1//-/_DASH_}"
+  unset "${arr_var_prefix}${name}"
 }
 
+# Lists the elements of a map
+#
+# prints by default only the keys or just the values with "-v" or both if $2 is provided
+#
+# $1 the map name
+# $2 the key/value separator
+#
+# Options:
+# -v  prints only the values
+#
 # shellcheck disable=SC2120
 map-list() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
   local SEP="$1"
   local tmp
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
-      if [ "$SEP" == "-k" ]; then
-        tmp="${name}"
-        echo "${!tmp}"
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
+      if [ "$SEP" == "-v" ]; then
+        echo "${!name}"
       elif [ -z "$SEP" ]; then
-        echo "${name/${arr_var_name}/}"
+        tmp="${name/${arr_var_prefix}/}"
+        echo ${tmp//_DASH_/-}
       else
-        tmp="${name}"
-        echo "${name/${arr_var_name}/}${SEP}${!tmp}"
+        tmp="${name/${arr_var_prefix}/}${SEP}${!name}"
+        echo ${tmp//_DASH_/-}
       fi
     fi
   done
 }
 
 map-get-keys() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   local dst_var_name="$2"
   shift
   local i=0
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
       _set_var "dst_var_name[$i]" "$line"
     fi
   done

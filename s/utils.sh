@@ -822,7 +822,7 @@ args_or_ask_from_list() {
       else
         # shellcheck disable=SC2207
         if $IS_MAPREF; then
-          TITLES=($(map-list "${src_list}" -k))
+          TITLES=($(map-list "${src_list}" -v))
         else
           TITLES=("${src_list[@]}")
         fi
