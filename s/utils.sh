@@ -527,7 +527,7 @@ args_or_ask() {
     elif $ARG; then
       :
     else
-      if $SPACE_SEP; then
+      if $SPACE_SEP || $FLAG || $FLAGADVAR; then
         echo "${val_name}"
       else
         echo "${val_name}="
@@ -712,7 +712,12 @@ parse_help_option() {
 show_help_option() {
   case "$1" in
     --help)
-      echo ""
+      if [ -n "$ENT_MODULE_FILE" ]; then
+        print_ent_module_help "$ENT_MODULE_FILE" "$2"
+      else
+        echo ""
+      fi
+
       if [ -n "$2" ]; then
         if [ "$2" = ":main" ]; then
           ENT_HELP_SECTION_TITLE="> Main arguments:"
@@ -730,13 +735,15 @@ show_help_option() {
 bgn_help_parsing() {
   local _tmp_HH="" _tmp_var="$1"
   shift
+  ENT_MODULE_FILE="$1"; shift;
   _tmp_HH="$(parse_help_option "$@")"
   show_help_option "$_tmp_HH"
   _set_var "$_tmp_var" "$_tmp_HH"
+  test -n "$_tmp_HH"
 }
 
-enf_help_parsing() {
-  test -n "$HH"
+end_help_parsing() {
+  test -n "$HH" && exit 0
 }
 
 

@@ -184,7 +184,7 @@ which_ent() {
 
 handle_config_command() {
   bgn_help_parsing HH "$@"
-  
+
   args_or_ask ${HH:+"$HH"} -f -- '--default///selects the default ent configuration' "$@" && {
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_DEFAULT_CFG_FILE"
@@ -222,7 +222,7 @@ handle_config_command() {
     echo "${!CFG_KEY}"
   }
   
-  enf_help_parsing && exit 0
+  end_help_parsing
 }
 
 cmplt() {
