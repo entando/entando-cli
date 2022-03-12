@@ -689,6 +689,10 @@ args_or_ask() {
   fi
 }
 
+simple_cmplt_handler() {
+  [ "$HH" == "--cmplt" ] && { echo "$@" | tr ' ' $'\n'; exit 0; }
+}
+
 simple_help_handler() {
   [ -z "$HH" ] && { HH="$(parse_help_option "$@")"; }
   [ "$HH" == "--help" ] && show_help_option "$HH";
@@ -1110,7 +1114,7 @@ keycloak-get-token() {
   # Finds the KEYCLOAK ENDPOINT
   local TOKEN_ENDPOINT
   TOKEN_ENDPOINT="$(curl --insecure -sL "${auth_url}/realms/${realm}/.well-known/openid-configuration" \
-    | jq -r ".token_endpoint")"
+    | _jq -r ".token_endpoint")"
   
   local TOKEN
   TOKEN="$(curl --insecure -sL "$TOKEN_ENDPOINT" \
@@ -1118,7 +1122,7 @@ keycloak-get-token() {
     -H "Accept-Language: en_US" \
     -u "$client_id:$client_secret" \
     -d "grant_type=client_credentials" \
-    | jq -r '.access_token')"
+    | _jq -r '.access_token')"
 
   [[ -z "$TOKEN" || "$TOKEN" == "null" ]] && FATAL "Unable to extract the access token"
 
@@ -1241,4 +1245,48 @@ _base64_e() {
 
 _base64_d() {
   perl -e "use MIME::Base64; print decode_base64(<>);" 
+}
+
+_pkg_get() {
+  local VERBOSE=false;[ "$1" = "--verbose" ] && { VERBOSE=true;shift; }
+  local var=""
+  case "$1" in
+    jq)
+      var="JQ_PATH"
+      _pkg_download_and_install "$var" "jq" "1.6" \
+        "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64" \
+        "" \
+        "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-osx-amd64" \
+        "" \
+        "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" \
+        ""
+      ;;
+    *)
+      _FATAL "Unknown package \"$1\""
+      ;;
+  esac
+  
+  [ -n "$var" ] && {
+    $VERBOSE && {
+      _log_i "Config var: ${var}"
+      _log_i "Location: ${!var}"
+    }
+    save_cfg_value "$var" "${!var}" "$ENT_DEFAULT_CFG_FILE"
+  }
+}
+
+_jq() {
+  if [ -n "$JQ_PATH" ]; then
+    "$JQ_PATH" "$@"
+  else
+    jq "$@"
+  fi
+}
+
+_jq_ok() {
+  if [ -n "$JQ_PATH" ]; then
+    command -v "$JQ_PATH" > /dev/null
+  else
+    command -v jq > /dev/null
+  fi
 }

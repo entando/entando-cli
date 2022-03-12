@@ -184,6 +184,12 @@ assert_fdn() {
   _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "full domain" "$3"
 }
 
+assert_strict_file_name() {
+  _assert_regex_nn --neg "$1" "$2" '^[.]$' "" "strict file name" "$3"
+  _assert_regex_nn --neg "$1" "$2" '^[.][.]' "" "strict file name" "$3"
+  _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "strict file name" "$3"
+}
+
 assert_semver() {
   _assert_regex_nn "$1" "$2" "^v?[0-9]+\.[0-9]+\.[0-9]+$" \
   "^v?[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9-]+$" "version" "$3"
@@ -208,13 +214,19 @@ assert_giga() {
 # - $4  alternative regex
 # - $5  var type description
 # - $6  if "silent" prints no error
+#
+# Options:
+# --neg negates the regex comparison result
+#
 _assert_regex_nn() {
+  local CMPRES=0;[ "$1" = "--neg" ] && { CMPRES=1;shift; }
   [ "$7" != "" ] && FATAL "[_assert_regex_nn] Internal Error: Invalid function call "
   assert_nn "$1" "$2" "$6"
   local FATAL=false; [ "$6" = "fatal" ] && FATAL=true
   (
     LC_COLLATE=C
-    if [[ "$2" =~ $3 ]]; then
+    [[ "$2" =~ $3 ]]
+    if [ "$?" = "$CMPRES" ]; then
       return 0
     else
       if [[ -n "$4" && "$2" =~ $4 ]]; then

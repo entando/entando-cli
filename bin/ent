@@ -14,14 +14,11 @@ ENT_ORIGIN_WORKDIR="$PWD"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 RUN() {
-  local HH
   upgrade_project_file "$C_ENT_PRJ_FILE" "$C_ENT_OLD_PRJ_FILE"
   reload_cfg "$C_ENT_PRJ_FILE"
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
   
-  [[ "$1" =~ --profile=.* ]] && shift
-
   while true; do
     cmd="$1"
     shift
@@ -118,6 +115,9 @@ RUN() {
       "jhipster"|"bundler")
         _ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
+      "bin") #H: helps dealing with the ent bin tools
+        ent-bin "$@"
+        ;;
       "")
         # shellcheck disable=SC1091
         _source_ent help
@@ -144,6 +144,37 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ent-bin() {
+  bgn_help_parsing ":ENT-BIN" "$@"
+  args_or_ask -h "$HH" -a -n -- CMD '1///%sp command' "$@"
+  
+  case "$CMD" in
+    "list"|"ls") 
+      end_help_parsing
+      ls -l "$ENTANDO_BINS" | grep -v "^.*\.tmp$";;
+    "delete"|"rm")
+      args_or_ask -h "$HH" -a -n -- FILE '2///%sp file to delete' "$@"
+      end_help_parsing
+      NONNULL FILE
+      assert_strict_file_name "FILE" "$FILE" fatal
+      [ "$FILE" = "ent" ] && _FATAL -s "Denied"
+      file="$2"
+      rm "$ENTANDO_BINS/$file";;
+    "get")
+      args_or_ask -h "$HH" -a -n -- BIN '2///%sp bin to get' "$@"
+      end_help_parsing
+      NONNULL BIN
+      assert_strict_file_name "BIN" "$BIN" fatal
+      [ "$BIN" = "ent" ] && _FATAL -s "Denied"
+      _pkg_get --verbose "$BIN"
+      ;;
+    *)
+      simple_cmplt_handler "ls rm get"
+      [ -n "$CMD" ] && _FATAL "Unknown command \"$CMD\""
+      ;;
+  esac
+}
+
 which_ent() {
   case "$1" in
     version) echo "${ENTANDO_CLI_VERSION}"; exit;;
@@ -238,7 +269,7 @@ cmplt() {
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
       "kubectl-cmd" "reset-kubectl-mode" "status"
-      "attach-kubeconfig" "detach-kubeconfig"
+      "attach-kubeconfig" "detach-kubeconfig" "namespace" "appname" "bin"
       "attach-kubectx" "detach-kubectx" "list-kubectx"
   )
 

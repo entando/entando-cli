@@ -234,9 +234,9 @@ COLLECT.CRDs() {
       if ! "$TOSTDOUT"; then
         LOG_TITLE "Entando CRDs full dump"
         
-        if command -v "jq" >/dev/null; then
+        if _jq_ok; then
           ent kubectl get crd -o json \
-              | jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
+              | _jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
         else
           _log "The CRD json dump was not collected, install \"jq\" for enabling this function" | _comment 
         fi

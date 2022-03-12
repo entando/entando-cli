@@ -261,11 +261,11 @@ pod_action.force-reload() {
   _log_d "Looking for the pod's k8s deployment.."
   
   local pod_depl="$(
-    ent kubectl get pod "$POD" -o json | jq '.metadata.labels."entando.org/deployment"' -r
+    ent kubectl get pod "$POD" -o json | _jq '.metadata.labels."entando.org/deployment"' -r
   )"
   if [[ -z "$pod_depl" || "$pod_depl" = "null" ]]; then
     pod_depl="$(
-      ent kubectl get pod "$POD" -o json | jq '.metadata.labels."deployment"' -r
+      ent kubectl get pod "$POD" -o json | _jq '.metadata.labels."deployment"' -r
     )"
   fi
   [[ -z "$pod_depl" || "$pod_depl" = "null" ]] && FATAL "Unable to find the pod's k8s deployment"

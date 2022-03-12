@@ -149,7 +149,7 @@ ecr-watch-installation-result() {
     
     if [ "${http_res:0:1}" != '%' ]; then
       http_res=$(
-        echo "$http_res" | jq -r ".payload.status" 2> /dev/null
+        echo "$http_res" | _jq -r ".payload.status" 2> /dev/null
       )
   
       end_time="$(date -u +%s)"

@@ -484,83 +484,87 @@ debug-print() {
   }>&2
 }
 
-# Installs a command given its package name
+# Installs a command given its package name and version
 #
 # Params:
-# $1: name of the package
+# $1: config var to store the result
+# $2: name of the package to install
+# $3: version of the package to install
+# $4: download url linux64
+# $5: checksum url linux64
+# $6: download url darwin64
+# $7: checksum url darwin64
+# $8: download url win64
+# $9: checksum url win64
 #
-# Options:
-# -c command          command to check if != package name
-# --tar-install url   installation based on the url of the executable archive
-#
-_pkg_get() {
-  local chk
-  local P="-"
+_pkg_download_and_install() {
+  local CHECK=false;[ "$1" = "--check" ] && { CHECK=true;shift; }
+  local _tmp_resvar="$1" _tmp_name="$2" _tmp_ver="$3"
+  local COMMENT
+  local RESFILE="$(mktemp /tmp/ent-resfile-XXXXXXXX)"
+  trap "rm \"$RESFILE\"" exit
   
-  # Args parse: Command presence check override
-  if [ "$1" = "-c" ]; then
-    local chk="$2"
-    shift 2
-  fi
+  case "$SYS_OS_TYPE" in
+    "linux") local _tmp_url="$4" _tmp_chkurl="$5" EXT="";;
+    "darwin") local _tmp_url="$6" _tmp_chkurl="$7" EXT="";;
+    "windows") local _tmp_url="$8" _tmp_chkurl="$9" EXT=".exe";;
+  esac
   
-  # Args parse: Installation mode override    
-  TAR_INSTALL_URL=""
-  if [ "$1" == "--tar-install" ]; then
-    TAR_INSTALL_URL="$2"
-    shift 2
-  fi
-  
-  # Args parse: Package Name
-  P="$1"
-  [ -z "$chk" ] && chk="$P"
-  
-  # Command presence check
-  if _pkg_is_command_available "$chk"; then
-    _log_t "Command \"$chk\" available"
-    return 0
-  fi
-  
-  # Installation if required
-  _log_t "Installing packet \"$P\".."
-  
-  if [ -n "$TAR_INSTALL_URL" ]; then
-    _pkg_tar_install "$TAR_INSTALL_URL" "${chk:-$P}"
-  else
-    _pkg_apt_install "$P"
-  fi
-  
-  [ "$?" != "0" ] && _FATAL "Installation of packet \"$P\" failed"
-  
-  if _pkg_is_command_available "$chk"; then
-    _log_d "Packet \"$P\" installed"
-  else
-    _FATAL "Installation of packet \"$P\" failed"
-  fi
-  
-  return 0
-}
-
-# Installs a package given a link to a tarball
-#
-# $1: semicolon-delimited list containing:
-#     position #1     the url
-#     position #2..4  3 additional args for the curl command
-#
-# this limited syntax was implemented mostly to allow specifying "--insecure"
-# note that all the args are individually quoted
-#
-_pkg_tar_install() {
-  local url opt1 opt2 opt3
-  # shellcheck disable=SC2162
-  IFS=';' read url opt1 opt2 opt3 <<< "$1"
   (
-    # NOTE: this form autodetects compressed tars
-    tar xf <(
-      curl -s ${opt1:+"$opt1"} ${opt2:+"$opt2"} ${opt3:+"$opt3"} "$url"
-    )
-    ${ENTANDO_OPT_SUDO:+"$ENTANDO_OPT_SUDO" -n} mv "$2" "/usr/local/bin/$2"
-    chmod +x "/usr/local/bin/$2"
-  )
+    mkdir -p "$ENTANDO_BINS"
+    __cd "$ENTANDO_BINS"
+    
+    local CMD_NAME="$_tmp_name.$_tmp_ver$EXT"
+    
+    if [ ! -f "$CMD_NAME" ]; then
+      _log_i "I don't have the package (\"$_tmp_ver\"). I'll try to download it"
+      
+      # DOWNLOAD
+      _log_i "Downloading $_tmp_name \"$_tmp_ver\""
+      
+      RES=$(curl -Ls --write-out '%{http_code}' -o "~download.tmp" "$_tmp_url")
+      [[ "$RES" != "200" ]] && FATAL "Unable to download $_tmp_name"
+      
+      if [ -n "$_tmp_chkurl" ]; then
+        # DOWNLOAD checksum
+        _log_i "Downloading $_tmp_name \"$_tmp_ver\" checksum"
+        
+        RES=$(curl -Ls --write-out '%{http_code}' -o "$CMD_NAME.sha256" "$_tmp_chkurl")
+        
+        [[ "$RES" != "200" ]] && {
+          #~
+          rm "$CMD_NAME.sha256"
+          _log_w "Unable to download the $_tmp_name checksum file"
+          ask "Should I proceed anyway?" || {
+            rm "~download.tmp"
+            FATAL "Quitting"
+          }
+          _log_w "$_tmp_name checksum verification skipped by the user"
+          COMMENT=" but not checked"
+        }
+
+        # VERIFY checksum
+        [[ -f "$CMD_NAME.sha256" ]] && {
+            [ "$(<"$CMD_NAME.sha256")" = "$(echo ~download.tmp | _sha256sum)" ] || {
+            rm "~download.tmp"
+            FATAL "Checksum verification failed, operation interrupted"
+          }
+          COMMENT=" and checked"
+        }
+      fi
+      
+      # FINALIZE THE NAME
+      mv "~download.tmp" "$CMD_NAME"
+      chmod +x "$CMD_NAME"
+      _log_i "$_tmp_name \"$_tmp_ver\" downloaded$COMMENT"
+    else
+      _log_i "I already have this version of $_tmp_name"
+    fi
+    
+    echo "$PWD/$CMD_NAME" > "$RESFILE"
+  ) || exit "$?"
+  
+  _set_var "$_tmp_resvar" "$(cat "$RESFILE")"
 }
 
 #  Checks for the presence of a command
