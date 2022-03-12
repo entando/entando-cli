@@ -58,7 +58,12 @@ set_var() {
   return 0
 }
 
+# Tests for non-null a variable given in $1
+# If test fails and $2 is also provided the variable is set with $2
+#
 _nn() {
+  test -n "${!1}" && return 0
+  test -n "${2}" && _set_var "${1}" "${2}"
   test -n "${!1}"
 }
 
@@ -161,7 +166,8 @@ assert_url() {
 }
 
 assert_git_repo() {
-  _assert_regex_nn "$1" "$2" '^(git|https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "url" "$3"
+  _assert_regex_nn "$1" "$2" \
+    '^(git|https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "git-url" "$3"
 }
 
 assert_email() {

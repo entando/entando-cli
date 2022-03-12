@@ -27,26 +27,10 @@ cd "$DIR/../.." || {
 . s/_base.sh
 
 RUN() {
-  HH="$(parse_help_option "$@")"
-
-  show_help_option "$HH" ":main"
-  args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
-
-  [[ -n "$HH" || -z "$CMD" ]] && {
-    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-    exit 0
-  }
-
-  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
-
-  [[ -n "$HH" && -z "$CMD" ]] && exit
-
-  show_help_option "$HH" "\"$CMD\""
-  local INGRESS_URL TOKEN
-
-  shift
-  case "$CMD" in
+  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
+  case "$1" in
     "list") #H: shows the list of bundles
+      end_help_parsing
       if args_or_ask -h "$HH" -n -f "--debug///" "$@"; then
         app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
         _pp ENTANDO_LATEST_DETECTED_APPVER url_scheme main_ingress ecr_ingress ignored
@@ -64,26 +48,50 @@ RUN() {
       fi
       ;;
     "uninstall") #H: uninstalls a bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
     "install-status") #H: shows the uninstall status of the bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
       ;;
     "uninstall-status") #H: shows the uninstall status of the bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$@"
       ;;
     "usage-status") #H: shows the usage status of the bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
+    "generate-cr"|"cr") #H: shows the usage status of the bundle
+      ecr-generate-custom-resource "$@"
+      ;;
+    "--help"|"")
+      args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+      args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+      end_help_parsing
+      ;;
     *)
-      [ -n "$HH" ] && exit 0
       FATAL "Unknown command \"$CMD\""
       ;;
   esac
+}
+
+ecr-generate-custom-resource() {
+  local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
+
+  bgn_help_parsing ":ECR-CR" "$@"
+  args_or_ask -n -h "$HH" NAME '--name///name of the bundle project' "$@"
+  args_or_ask -n -h "$HH" REPOSITORY '--repository///url of the publication repository' "$@"
+  args_or_ask -n -h "$HH" THUMBNAIL_FILE "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -h "$HH" THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  end_help_parsing
+  
+  ecr.generate-custom-resource "$NAME" "$REPOSITORY" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
 
 RUN "$@"

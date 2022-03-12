@@ -194,7 +194,7 @@ ecr-watch-installation-result() {
 # $3: the thumbnail file
 # $4: the thumbnail url (alternative to $3)
 #
-ecr.generate_custom_resource() {
+ecr.generate-custom-resource() {
   local NAME="$1"
   local REPOSITORY="$2"
   local THUMBNAIL_FILE="$3"
@@ -212,7 +212,7 @@ ecr.generate_custom_resource() {
     OPT_VALUE="$THUMBNAIL_URL"
   fi
 
-  echo _ent-bundler from-git \
+  _ent-bundler from-git \
     --dry-run \
     --name "$NAME" \
     --repository "$REPOSITORY" \

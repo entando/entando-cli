@@ -473,6 +473,8 @@ args_or_ask() {
     local val_name="$1"
     local val_msg="$2"
     $PRINT_HELP && {
+      before_printing_help
+      
       if [ -n "$ENT_HELP_SECTION_TITLE" ]; then
         echo "$ENT_HELP_SECTION_TITLE"
         ENT_HELP_SECTION_TITLE=""
@@ -743,14 +745,27 @@ bgn_help_parsing() {
   fi
   shift
   HH="$(parse_help_option "$@")"
-  HH_COMPLETION_REQUEST=false;HH_HELP_REQUEST=false;
+  HH_COMPLETION_REQUEST=false;HH_HELP_REQUEST=false;HH_COMMAND=false;
 
+  HH_LATCHED_HELP_HEADING() { :; }
   case "$HH" in
-    "--help") HH_COMPLETION_REQUEST=true;;
-    "--cmplt") HH_HELP_REQUEST=true;;
+    "--help")
+      HH_HELP_REQUEST=true
+      HH_LATCHED_HELP_HEADING() { show_help_option "$HH"; }
+      ;;
+    "--cmplt")
+      HH_COMPLETION_REQUEST=true
+      ;;
+    *)
+      HH_COMMAND=true
+      ;;
   esac
-  show_help_option "$HH"
   test -n "$HH"
+}
+
+before_printing_help() {
+  HH_LATCHED_HELP_HEADING
+  HH_LATCHED_HELP_HEADING() { :; }
 }
 
 end_help_parsing() {

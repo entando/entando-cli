@@ -51,7 +51,6 @@ RUN() {
       ;;
     "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
       require_develop_checked
-      require_ent_project_dir
       prj_generate_custom_resource "$@"
       ;;
     "deploy") #H: generates the CR and deploys it to the current profile
@@ -96,7 +95,7 @@ RUN() {
       #H:> PUB SYSTEM:
       # ~~~~~~~~~~~~~~~~~~~~
     "pbs-init") #H: (url, username, email) initializes the publication system
-      bgn_help_parsing ":PBS-INIT" "$@"
+      bgn_help_parsing ":PRJ-PBS-INIT" "$@"
       args_or_ask -a -h "$HH-only" URL_OF_ORIGIN "1/git_repo//%sp URL of the publication repository" "$@" 
       args_or_ask -a -h "$HH-only" GIT_USER_NAME "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
       args_or_ask -a -h "$HH-only" GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
@@ -291,7 +290,7 @@ prj_ecr_unregister_bundle() {
 prj_generate_custom_resource() {
   local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
 
-  bgn_help_parsing ":CR" "$@"
+  bgn_help_parsing ":PRJ-CR" "$@"
   args_or_ask -n -p -h "$HH" NAME '--name///name of the bundle project' "$@"
   args_or_ask -n -p -h "$HH" REPOSITORY '--repository///url of the publication repository' "$@"
   args_or_ask -n -p -h "$HH" THUMBNAIL_FILE "--thumbnail-file///pathname of the thumbnail" "$@"
@@ -302,15 +301,11 @@ prj_generate_custom_resource() {
   require_ent_project_dir
   require_pbs_initialized
   
-  _nn NAME && NAME="$ENT_PRJ_NAME"
+  _nn NAME "$ENT_PRJ_NAME"
   _nn NAME && camel_to_snake -d NAME "$(basename "$PWD")"
-  
-  local REPOSITORY="$(get_bundle_repo_url)"
-  local THUMBNAIL_FILE THUMBNAIL_URL
-  
-  _pp REPOSITORY
+  _nn REPOSITORY "$(get_bundle_repo_url)"
 
-  ecr.generate_custom_resource "$NAME" "$REPOSITORY" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
+  ecr.generate-custom-resource "$NAME" "$REPOSITORY" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
 
 bundle_all() {
