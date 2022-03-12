@@ -187,10 +187,6 @@ ecr-watch-installation-result() {
   done
 }
 
-
-
-
-
 #-----------------------------------------------------------------------------------------------------------------------
 # Generates the and EntandoDeBundle CR given:
 # $1: the name of the bundle

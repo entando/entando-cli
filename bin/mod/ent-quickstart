@@ -31,12 +31,12 @@ debug_trace_vars() {
 HH="$(parse_help_option "$@")"
 show_help_option "$HH"
 
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_PRE_EXISTING" \
+args_or_ask -h "$HH" -n -F "ENTANDO_PRE_EXISTING" \
   "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create cluster resources and namespace" "$@"
 
 ENT_KUBECTL_CMD=""
 
-args_or_ask ${HH:+"$HH"} -n "PROFILE" "--profile///Forces the quickstart to use the profile" "$@"
+args_or_ask -h "$HH" -n "PROFILE" "--profile///Forces the quickstart to use the profile" "$@"
 
 if [ -z "$HH" ]; then
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -57,32 +57,32 @@ fi
 ENTANDO_INTERACTIVE="true"
 EDIT_MANIFEST=false
 ENTANDO_VM_REUSE=""
-args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
-args_or_ask ${HH:+"$HH"} -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
-args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
-args_or_ask ${HH:+"$HH"} -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug information" "$@"
-args_or_ask ${HH:+"$HH"} -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
-args_or_ask ${HH:+"$HH"} -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 5G" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 15G" "$@"
-args_or_ask ${HH:+"$HH"} -n -p -F "ENTANDO_VM_REUSE" "--vm-reuse///Allows the quickstart to reuse an existing VM" "$@"
-args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_COCOO_VERSION_OVERRIDE" \
+args_or_ask -h "$HH" -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
+args_or_ask -h "$HH" -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
+args_or_ask -h "$HH" -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
+args_or_ask -h "$HH" -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
+args_or_ask -h "$HH" -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug information" "$@"
+args_or_ask -h "$HH" -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
+args_or_ask -h "$HH" -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+args_or_ask -h "$HH" -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
+args_or_ask -h "$HH" -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
+args_or_ask -h "$HH" -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
+args_or_ask -h "$HH" -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 5G" "$@"
+args_or_ask -h "$HH" -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 15G" "$@"
+args_or_ask -h "$HH" -n -p -F "ENTANDO_VM_REUSE" "--vm-reuse///Allows the quickstart to reuse an existing VM" "$@"
+args_or_ask -h "$HH" -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
+args_or_ask -h "$HH" -n "ENTANDO_COCOO_VERSION_OVERRIDE" \
   "--override-cocoo-version///Overrides the version of the controller coordinator with the supplied version" "$@"
-args_or_ask ${HH:+"$HH"} -n "ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
+args_or_ask -h "$HH" -n "ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
   "--override-configmap///Overrides the configmap with the supplied file content" "$@"
-args_or_ask ${HH:+"$HH"} -n -p -F "ENTANDO_STANDARD_QUICKSTART" \
+args_or_ask -h "$HH" -n -p -F "ENTANDO_STANDARD_QUICKSTART" \
   "--standard///Forces the standard behaviour in case of special kubectl setup or pre-existing k8s targets" "$@"
-args_or_ask ${HH:+"$HH"} -n "K8S_TEMPLATE" "--use-template///Forces the use of a specific manifest template type" "$@"
-args_or_ask ${HH:+"$HH"} -n -p -F "EDIT_MANIFEST" \
+args_or_ask -h "$HH" -n "K8S_TEMPLATE" "--use-template///Forces the use of a specific manifest template type" "$@"
+args_or_ask -h "$HH" -n -p -F "EDIT_MANIFEST" \
   "--edit-manifest///Allows the user to manually customize the manifest yaml file" "$@"
-args_or_ask ${HH:+"$HH"} -n -p "EDIT_MANIFEST" \
+args_or_ask -h "$HH" -n -p "EDIT_MANIFEST" \
   "--edit-manifest-with///Allows the user to manually customize the manifest yaml file" "$@"
-args_or_ask ${HH:+"$HH"} -n "OVERRIDE_DB_TYPE" \
+args_or_ask -h "$HH" -n "OVERRIDE_DB_TYPE" \
   "--override-db-type///Forces the use of the given DB type" "$@"
 
 [ -n "$HH" ] && echo "" && exit 0

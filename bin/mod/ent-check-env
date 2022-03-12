@@ -262,10 +262,10 @@ check_npm_git_package() {
 PARSE_ARGS() {
   bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
   [ "$1" = "--cmplt" ] && { echo -e "develop\nruntime"; exit 0; }
-  args_or_ask ${HH:+"$HH"} -n -a -- ARG1 '1///the SubCommand' "$@"
-  args_or_ask ${HH:+"$HH"} -n -F NO_DNS_FIX "--no-dns-fix///Does't try to fix the DNS when starting the quickstart" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F ENTANDO_OPT_YES_FOR_ALL "--yes///Assumes yes for all yes-no questions" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F LENIENT "--lenient///Assumes yes for all yes-no questions" "$@"
+  args_or_ask -h "$HH" -n -a -- ARG1 '1///the SubCommand' "$@"
+  args_or_ask -h "$HH" -n -F NO_DNS_FIX "--no-dns-fix///Does't try to fix the DNS when starting the quickstart" "$@"
+  args_or_ask -h "$HH" -n -F ENTANDO_OPT_YES_FOR_ALL "--yes///Assumes yes for all yes-no questions" "$@"
+  args_or_ask -h "$HH" -n -F LENIENT "--lenient///Assumes yes for all yes-no questions" "$@"
   end_help_parsing
 
 

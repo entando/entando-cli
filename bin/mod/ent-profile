@@ -31,8 +31,8 @@ RUN() {
   HH="$(parse_help_option "$@")"
 
   show_help_option "$HH" ":main"
-  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
   
   [[ -n "$HH" ]] && {
     print_ent_module_help "${BASH_SOURCE[0]}" "$2"
@@ -42,9 +42,9 @@ RUN() {
 
   case "$CMD" in
   "use") #H: selects the profile that ent should use
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "USE_NO_PROFILE" "--none///Assumes the global profile" "$@"
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+    args_or_ask -h "$HH" -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+    args_or_ask -h "$HH" -n -F "USE_NO_PROFILE" "--none///Assumes the global profile" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
 
     if [ -z "$COMMAND_FILE" ]; then
@@ -74,15 +74,15 @@ RUN() {
     setup_curr_profile "$@"
     ;;
   "delete") #H: delete the given profile
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+    args_or_ask -h "$HH" -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+    args_or_ask -h "$HH" -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     delete_profile "$@"
     ;;
   "list") #H: prints a list of the available profiles
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     list_profiles "$@"
@@ -92,7 +92,7 @@ RUN() {
     profile_link_context "$1"
     ;;
   "")
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as base  profile dir" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as base  profile dir" "$@"
     [ -n "$HH" ] && exit 0
     print_current_profile_info
     _log_i 2 "The available profiles are:"
@@ -103,10 +103,10 @@ RUN() {
 
 setup_curr_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask ${HH:+"$HH"} ENTANDO_APPNAME "--appname/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@" && {
+  args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@" && {
     save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME"
   }
-  args_or_ask ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_ic_id/$PROFILE/%sp default namespace" "$@" && {
+  args_or_ask -h "$HH" ENTANDO_NAMESPACE "--namespace/ext_ic_id/$PROFILE/%sp default namespace" "$@" && {
     save_cfg_value ENTANDO_NAMESPACE "$ENTANDO_NAMESPACE"
   }
   [ -n "$HH" ] && exit 0
@@ -124,7 +124,7 @@ use_profile() {
   fi
 
   $USE_NO_PROFILE && profile="--none"
-  args_or_ask ${HH:+"$HH"} -a -p -n -- "profile" '1///%sp profile (or --none)' "$@"
+  args_or_ask -h "$HH" -a -p -n -- "profile" '1///%sp profile (or --none)' "$@"
 
   DESIGNATED_PROFILE=""
   # shellcheck disable=SC2034
@@ -210,7 +210,7 @@ _list_profiles() {
   local filter
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a -- filter '1///filter' "$@"
+  args_or_ask -h "$HH" -n -a -- filter '1///filter' "$@"
   [ -n "$HH" ] && exit 0
 
   if [ -n "$filter" ]; then
@@ -248,16 +248,16 @@ select_profile() {
 parse_basic_profile_args() {
   local from="$1"
   shift
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@"
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
+  args_or_ask -h "$HH" -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@"
+  args_or_ask -h "$HH" -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
 }
 
 new_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask ${HH:+"$HH"} -a PROFILE "1/ext_ic_id//%sp profile name" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F AUTO_USE \
+  args_or_ask -h "$HH" -a PROFILE "1/ext_ic_id//%sp profile name" "$@"
+  args_or_ask -h "$HH" -n -F AUTO_USE \
     "--and-use//true/%sp if true (default) automatically switches to the new profile" "$@"
-  args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
+  args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
   parse_basic_profile_args 2 "$@"
   [ -n "$HH" ] && exit 0
   # ~~~~~~~~~~~~~~
@@ -336,7 +336,7 @@ delete_profile() {
   __cd "$apps_base_dir"
   # shellcheck disable=SC2035
   map-from-stdin "profile" $'\n\r' < <(ls -d * 2>/dev/null)
-  args_or_ask_from_list "profile" -m -a ${HH:+"$HH"} PROFILE 1 "any" \
+  args_or_ask_from_list "profile" -m -a -h "$HH" PROFILE 1 "any" \
     "profile" "Select the profile" "$@"
   [ ! -d "$PROFILE" ] && FATAL "Unable to select given profile: not found"
   [ ! -d "$PROFILE/w" ] && FATAL "Invalid profile dir"
@@ -379,12 +379,12 @@ list_profiles() {
 
 profile_link_context() {
   local kube_context use_def
-  if args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kubectx' "$@"; then
+  if args_or_ask -h "$HH" -F -n -- use_def '--default///selects the default kubectx' "$@"; then
     args_or_ask -n -a -- kube_context '1///' "$@" && {
       FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
     }
   else
-    args_or_ask ${HH:+"$HH"} -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
+    args_or_ask -h "$HH" -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
   fi
   [ -n "$HH" ] && exit 0
 

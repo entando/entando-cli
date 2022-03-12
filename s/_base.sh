@@ -398,10 +398,10 @@ determine_namespace() {
 
   HH="$(parse_help_option "$@")"
 
-  if args_or_ask ${HH:+"$HH"} -n ns "--namespace/ext_ic_id//" "$@" ||
-    args_or_ask ${HH:+"$HH"} -n -s ns "-n/ext_ic_id//" "$@"; then
-    if args_or_ask ${HH:+"$HH"} -n -f "--all-namespaces///" "$@" ||
-      args_or_ask ${HH:+"$HH"}-n -f dummy "-A///" "$@"; then
+  if args_or_ask -h "$HH" -n ns "--namespace/ext_ic_id//" "$@" ||
+    args_or_ask -h "$HH" -n -s ns "-n/ext_ic_id//" "$@"; then
+    if args_or_ask -h "$HH" -n -f "--all-namespaces///" "$@" ||
+      args_or_ask -h "$HH"-n -f dummy "-A///" "$@"; then
       ns="*"
     fi
     _set_var "$var_name" "$ns"

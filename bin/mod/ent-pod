@@ -30,21 +30,21 @@ RUN() {
   HH="$(parse_help_option "$@")"
 
   show_help_option "$HH" ":main"
-  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-  args_or_ask ${HH:+"$HH"} -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
+  args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+  args_or_ask -h "$HH" -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
   
   if [ "$CMD" = "x" ]; then
-    args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '3/any?/.*/%sp pod pattern (or --all)' "$@"
+    args_or_ask -h "$HH" -a -n -- "POD_PATT" '3/any?/.*/%sp pod pattern (or --all)' "$@"
   else
-    args_or_ask ${HH:+"$HH"} -a -n -- "POD_PATT" '2/any?/.*/%sp pod pattern (or --all)' "$@"
+    args_or_ask -h "$HH" -a -n -- "POD_PATT" '2/any?/.*/%sp pod pattern (or --all)' "$@"
   fi
   
   GREP_PATT_POS="3"
-  args_or_ask ${HH:+"$HH"} -n -f '--all/any?// for all pods' "$@" && {
+  args_or_ask -h "$HH" -n -f '--all/any?// for all pods' "$@" && {
     POD_PATT='.*'
     GREP_PATT_POS="2"
   }
-  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
   
   [[ -n "$HH" || -z "$CMD" ]] && {
     print_ent_module_help "${BASH_SOURCE[0]}" "$2"
@@ -67,7 +67,7 @@ RUN() {
       ;;
     "shell") #H: run a shell into the pod
       ENT_SHELL_CMD="/bin/sh"
-      args_or_ask ${HH:+"$HH"} -n -p -- ENT_SHELL_CMD "--shell-cmd/any?//the shell command" "$@"
+      args_or_ask -h "$HH" -n -p -- ENT_SHELL_CMD "--shell-cmd/any?//the shell command" "$@"
       pod_action shell "$@"
       ;;
     "exec") #H: run a command into the pod container
@@ -103,8 +103,8 @@ multi_pod_action() {
   local IGNORE_CASE=true
 
   [ "$ACTION" = "grep" ] && {
-    args_or_ask ${HH:+"$HH-only"} -a -- LOG_PATT "$GREP_PATT_POS/any?//%sp the log grep pattern" "$@"
-    args_or_ask ${HH:+"$HH-only"} -n -p -F IGNORE_CASE '--ignore-case/any?//%sp the log filter pattern' "$@"
+    args_or_ask -h "$HH-only" -a -- LOG_PATT "$GREP_PATT_POS/any?//%sp the log grep pattern" "$@"
+    args_or_ask -h "$HH-only" -n -p -F IGNORE_CASE '--ignore-case/any?//%sp the log filter pattern' "$@"
   }
 
   $IGNORE_CASE && {
@@ -140,7 +140,7 @@ multi_pod_action() {
 }
 
 pod_list() {
-  args_or_ask ${HH:+"$HH"} -n -F WITH_CONTAINERS '-c/any?// shows also the containers' "$@"
+  args_or_ask -h "$HH" -n -F WITH_CONTAINERS '-c/any?// shows also the containers' "$@"
   [ -n "$HH" ] && exit 0
 
   _kubectl-pre-sudo

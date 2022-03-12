@@ -12,12 +12,12 @@ cd "$DIR/../.." || {
 . s/_base.sh
 
 HH="$(parse_help_option "$@")"; show_help_option "$HH"
-args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
-args_or_ask ${HH:+"$HH"} -n -F LOCALINFO '--localinfo///%sp the information of the localhost' "$@"
-args_or_ask ${HH:+"$HH"} -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
-args_or_ask ${HH:+"$HH"} -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
-args_or_ask ${HH:+"$HH"} -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
-args_or_ask ${HH:+"$HH"} -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
+args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+args_or_ask -h "$HH" -n -F LOCALINFO '--localinfo///%sp the information of the localhost' "$@"
+args_or_ask -h "$HH" -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
+args_or_ask -h "$HH" -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
+args_or_ask -h "$HH" -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
+args_or_ask -h "$HH" -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
 
 if ! "$TOSTDOUT"; then
   SUMMARY_FILE="summary.txt"

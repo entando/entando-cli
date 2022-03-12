@@ -54,8 +54,8 @@ RUN() {
       ;;
     *) #H: any other command is passed to kubectl
       HH="$(parse_help_option "$@")"; show_help_option "$HH"
-      args_or_ask ${HH:+"$HH"} -n "NAMESPACE" "--namespace" "$@"
-      args_or_ask ${HH:+"$HH"} -n -s -p "NAMESPACE" "-n" "$@"
+      args_or_ask -h "$HH" -n "NAMESPACE" "--namespace" "$@"
+      args_or_ask -h "$HH" -n -s -p "NAMESPACE" "-n" "$@"
       [ -n "$HH" ] && exit 0
 
       if [ -z "$ENT_KUBECTL_CMD" ]; then
@@ -96,10 +96,10 @@ set_kubectl_command() {
   # reset kubeconfig setup
   # kubectl_mode --reset-cfg
   
-  args_or_ask -a ${HH:+"$HH"} "ENT_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
+  args_or_ask -a -h "$HH" "ENT_KUBECTL_CMD" "1///%sp kubectl command to use" "$@"
   save_cfg_value "ENT_KUBECTL_CMD" "$ENT_KUBECTL_CMD"
   
-  args_or_ask -n ${HH:+"$HH"} KUBECONFIG "--kubeconfig" "$@" && {
+  args_or_ask -n -h "$HH" KUBECONFIG "--kubeconfig" "$@" && {
     save_cfg_value "DESIGNATED_KUBECONFIG" "$KUBECONFIG"
   }
 }
@@ -121,10 +121,10 @@ print_status_info() {
 
 kube.scale_namespace() {
   HH="$(parse_help_option "$@")"; show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a REPLICAS "1/num//the number of replicas" "$@"
-  args_or_ask ${HH:+"$HH"} -n TIMEOUT "--timeout/num/999/max wait before giving up" "$@"
-  args_or_ask ${HH:+"$HH"} -n NAMESPACE "--namespace/ext_ic_id//namespace override" "$@"
-  args_or_ask ${HH:+"$HH"} -n -s -p NAMESPACE "-n/ext_ic_id//namespace override" "$@"
+  args_or_ask -h "$HH" -n -a REPLICAS "1/num//the number of replicas" "$@"
+  args_or_ask -h "$HH" -n TIMEOUT "--timeout/num/999/max wait before giving up" "$@"
+  args_or_ask -h "$HH" -n NAMESPACE "--namespace/ext_ic_id//namespace override" "$@"
+  args_or_ask -h "$HH" -n -s -p NAMESPACE "-n/ext_ic_id//namespace override" "$@"
   [ -n "$HH" ] && exit 0
   NONNULL TIMEOUT REPLICAS
   _log_i 1 "Scaling the namespace: \"$ENTANDO_NAMESPACE\" to \"$REPLICAS\""

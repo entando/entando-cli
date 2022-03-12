@@ -24,7 +24,7 @@ RUN() {
       local VM_NAME ADDR
 
       if [ -z "$DESIGNATED_VM" ]; then
-        args_or_ask -a ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
+        args_or_ask -a -h "$HH" "VM_NAME" "1/ext_id//VM NAME" "$@" || FATAL "Unable to determine the VM name"
       else
         VM_NAME="$DESIGNATED_VM"
       fi
@@ -47,13 +47,13 @@ RUN() {
       local VM_NAME ADDR CFG
       #---
       if [ -z "$DESIGNATED_VM" ]; then
-        args_or_ask -a ${HH:+"$HH"} "VM_NAME" "1/ext_id//VM NAME" "$@" || {
+        args_or_ask -a -h "$HH" "VM_NAME" "1/ext_id//VM NAME" "$@" || {
           [ -z "$HH" ] && _FATAL "Unable to determine the VM name"
         }
       else
         VM_NAME="$DESIGNATED_VM"
       fi
-      args_or_ask ${HH:+"$HH"} -n RELEASE '--release/any?//Optional ent version' "$@"
+      args_or_ask -h "$HH" -n RELEASE '--release/any?//Optional ent version' "$@"
 
       [ -n "$HH" ] && return 0
 

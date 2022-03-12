@@ -501,9 +501,17 @@ args_or_ask() {
       -p) PRESERVE=true;shift;;
       -s) SPACE_SEP=true;shift;;
       -d) IS_DEFAULT=true;shift;;
-      --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
       --help) PRINT_HELP=true;NEVER_ASK=true;shift;;
+      --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
       --cmplt) PRINT_COMPLETION_CODE=true;NEVER_ASK=true;shift;;
+      -h)
+        case "$2" in
+          "--help") PRINT_HELP=true;NEVER_ASK=true;;
+          "--help-only") PRINT_HELP=true;JUST_PRINT_HELP=true;;
+          "--cmplt") PRINT_COMPLETION_CODE=true;NEVER_ASK=true;;
+        esac
+        shift 2
+        ;;
       --)
         shift
         break
@@ -546,7 +554,7 @@ args_or_ask() {
 
   # user provided value
   if $ARG; then                                                                     # POSITIONAL VALUE
-    assert_num "the index of position argument" "$val_name" || _FATAL "Internal Error"
+    assert_num "the index of positional argument" "$val_name" || _FATAL "Internal Error"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
     val_name="Argument #$((val_name))"
@@ -679,15 +687,6 @@ args_or_ask() {
   fi
 }
 
-simple_shell_completion_handler() {
-  if [ "$1" = "--cmplt" ]; then
-    shift
-    for a in "$@"; do echo "$a"; done
-    return 0
-  fi
-  return 1
-}
-
 simple_help_handler() {
   [ -z "$HH" ] && { HH="$(parse_help_option "$@")"; }
   [ "$HH" == "--help" ] && show_help_option "$HH";
@@ -698,26 +697,17 @@ simple_help_handler() {
 
 parse_help_option() {
   # shellcheck disable=SC2124
-  local ARG="${!#}"
-  local HH
-
-  case "$ARG" in
-    "--help") HH="--help" ;;
-    "--cmplt") HH="--cmplt" ;;
+  case "${!#}" in
+    "--help") echo "--help";;
+    "--cmplt") echo "--cmplt";;
+    *) echo ""
   esac
-
-  echo "$HH"
 }
 
 show_help_option() {
   case "$1" in
-    --help)
-      if [ -n "$ENT_MODULE_FILE" ]; then
-        print_ent_module_help "$ENT_MODULE_FILE" "$2"
-      else
-        echo ""
-      fi
-
+    "--help")
+      _nn ENT_MODULE_FILE && print_ent_module_help "$ENT_MODULE_FILE" "$2"
       if [ -n "$2" ]; then
         if [ "$2" = ":main" ]; then
           ENT_HELP_SECTION_TITLE="> Main arguments:"
@@ -728,36 +718,44 @@ show_help_option() {
         ENT_HELP_SECTION_TITLE="> Arguments:"
       fi
       ;;
-    --cmplt) echo "--help" ;;
+    "--cmplt") echo "--help" ;;
   esac
 }
 
 # declates the begin of the help and completion parsing phase, given:
-# $1: the location on disk (ARG0) of the script for which the help is generated
+# $1: the location on disk (ARG0) of the script for which the help is generated, or :<TITLE> if it's a sub-command
 # $2: the command line parameters
 #
 # Implictly calls print_ent_module_help if help is requested
 #
 # Affects 3 global vars:
-# HH                  set with the help/completion command ("--help", "--cmplt", "")
-# COMPLETION_REQUEST  set to true if it's the completion was requested
-# HELP_REQUEST        set to true if it's the help was requested
+# HH                     set with the help/completion command ("--help", "--cmplt", "")
+# HH_COMPLETION_REQUEST  set to true if it's the completion was requested
+# HH_HELP_REQUEST        set to true if it's the help was requested
 #
 # Returns 0 if help or completion was requested
 #
 bgn_help_parsing() {
-  local _tmp_var="$1"; shift
-  ENT_MODULE_FILE="$1"; shift;
+  if [ "${1:0:1}" != ":" ]; then
+    ENT_MODULE_FILE="$1"
+  else
+    ENT_MODULE_FILE=""
+  fi
+  shift
   HH="$(parse_help_option "$@")"
-  COMPLETION_REQUEST=false;[ "$HH" == "--cmplt" ] && COMPLETION_REQUEST=true
-  HELP_REQUEST=false;[ "$HH" == "--help" ] && HELP_REQUEST=true
+  HH_COMPLETION_REQUEST=false;HH_HELP_REQUEST=false;
+
+  case "$HH" in
+    "--help") HH_COMPLETION_REQUEST=true;;
+    "--cmplt") HH_HELP_REQUEST=true;;
+  esac
   show_help_option "$HH"
-  _set_var "$_tmp_var" "$HH"
   test -n "$HH"
 }
 
 end_help_parsing() {
   test -n "$HH" && exit 0
+  HH=""
 }
 
 
@@ -782,7 +780,7 @@ args_or_ask_from_list() {
       "-m") IS_MAPREF=true;shift;;
       "-e") EXACT=true;shift;;
       "-a") PRE="$1";shift;;
-      "--help") HH="$1";shift;;
+      "-h") HH="$2";shift 2;;
       *) break ;;
     esac
   done
@@ -794,7 +792,7 @@ args_or_ask_from_list() {
 
   local TMP
 
-  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_code_or_num/$type//$msg" "$@"
+  args_or_ask "$PRE" -n -p -h "$HH" "TMP" "$arg_code_or_num/$type//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
@@ -1127,7 +1125,7 @@ handle_forced_profile() {
   local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   if [[ "$1" =~ --profile=.* ]]; then
-    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
+    args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
     _set_var "$phv" "$ENTANDO_PROFILES/$ENTANDO_USE_PROFILE"
   fi

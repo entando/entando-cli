@@ -25,9 +25,9 @@ ent_activate() {
   local LIST
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a "ENT" "1///The ent to activate" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F "LIST" "--list///Lists the locally available ents" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F "DEFSET" "--set-default///Sets the selected ent as default" "$@"
+  args_or_ask -h "$HH" -n -a "ENT" "1///The ent to activate" "$@"
+  args_or_ask -h "$HH" -n -F "LIST" "--list///Lists the locally available ents" "$@"
+  args_or_ask -h "$HH" -n -F "DEFSET" "--set-default///Sets the selected ent as default" "$@"
 
   [ -n "$HH" ] && {
     if $FOR_SOURCED_EXECUTION; then
@@ -53,7 +53,7 @@ ent_activate() {
       exit 0
     }
     map-from-stdin "ENTS" $'\n\r' < <(cd "$ENTANDO_HOME/ent" && ls -d *)
-    args_or_ask_from_list ENTS -m -e -a ${HH:+"$HH"} ENT 1 "any" \
+    args_or_ask_from_list ENTS -m -e -a -h "$HH" ENT 1 "any" \
       "ent installation" "Select the ent to activate" "$@"
   }
 

@@ -31,8 +31,8 @@ RUN() {
 
   
   show_help_option "$HH" ":main"
-  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
 
   show_help_option "$HH" "$CMD"
   case "$CMD" in
@@ -48,8 +48,8 @@ RUN() {
   "status") #H: prints status information about the current EntandoApp
     local WATCH
     determine_namespace ENTANDO_NAMESPACE "$@"
-    args_or_ask ${HH:+"$HH"} -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F WATCH "--watch///" "$@"
+    args_or_ask -h "$HH" -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
+    args_or_ask -h "$HH" -n -F WATCH "--watch///" "$@"
 
     [ -n "$HH" ] && exit 0
 
@@ -79,7 +79,7 @@ print_configmap() {
 
 print_operator_configmap() {
   CHECK=true
-  args_or_ask ${HH:+"$HH"} -f -- "--no-check///suppress the check of the application version" "$@" && {
+  args_or_ask -h "$HH" -f -- "--no-check///suppress the check of the application version" "$@" && {
     CHECK=false;
   }
   [ -n "$HH" ] && exit 0

@@ -50,7 +50,6 @@ RUN() {
       bundle_all
       ;;
     "generate-cr" | "cr") #H: generates the CUSTOM RESOURCE for registering the bundle into the entando instance
-      #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
       require_develop_checked
       require_ent_project_dir
       prj_generate_custom_resource "$@"
@@ -97,6 +96,15 @@ RUN() {
       #H:> PUB SYSTEM:
       # ~~~~~~~~~~~~~~~~~~~~
     "pbs-init") #H: (url, username, email) initializes the publication system
+      bgn_help_parsing ":PBS-INIT" "$@"
+      args_or_ask -a -h "$HH-only" URL_OF_ORIGIN "1/git_repo//%sp URL of the publication repository" "$@" 
+      args_or_ask -a -h "$HH-only" GIT_USER_NAME "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
+      args_or_ask -a -h "$HH-only" GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
+      args_or_ask -n -F -h "$HH-only" -- "FORCE" '--force///forces the initialization' "$@" && {
+        _log_i 0 "pub_init: Force mode active"
+      }
+      end_help_parsing
+
       require_develop_checked
       #require_initialized_dir
       print_entando_banner
@@ -283,12 +291,12 @@ prj_ecr_unregister_bundle() {
 prj_generate_custom_resource() {
   local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
 
-  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
-  args_or_ask -n -p ${HH:+"$HH"} NAME '--name///name of the bundle project' "$@"
-  args_or_ask -n -p ${HH:+"$HH"} REPOSITORY '--repository///url of the publication repository' "$@"
-  args_or_ask -n -p ${HH:+"$HH"} THUMBNAIL_FILE "--thumbnail-file///pathname of the thumbnail" "$@"
-  args_or_ask -n -p ${HH:+"$HH"} THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
-  $HELP_REQUEST && echo -e "\n> Notes:\n  - all arguments are optional\n"
+  bgn_help_parsing ":CR" "$@"
+  args_or_ask -n -p -h "$HH" NAME '--name///name of the bundle project' "$@"
+  args_or_ask -n -p -h "$HH" REPOSITORY '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p -h "$HH" THUMBNAIL_FILE "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p -h "$HH" THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  $HH_HELP_REQUEST && echo -e "\n> Notes:\n  - all arguments are optional\n"
   end_help_parsing
   
   require_ent_project_dir
@@ -775,16 +783,6 @@ init_project__commit_all() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # shellcheck disable=SC2181
 init_pub() {
-  HH="$(parse_help_option "$@")"
-  show_help_option "$HH"
-  args_or_ask -a ${HH:+"$HH-only"} URL_OF_ORIGIN  "1/git_repo//%sp URL of the publication repository" "$@" 
-  args_or_ask -a ${HH:+"$HH-only"} GIT_USER_NAME  "2/ext_ic_id_spc/$GIT_USER_NAME/%sp git user name" "$@"
-  args_or_ask -a ${HH:+"$HH-only"} GIT_USER_EMAIL "3/email/$GIT_USER_EMAIL/%sp git email" "$@"
-  args_or_ask -n -F ${HH:+"$HH-only"} -- "FORCE" '--force///forces the initialization' "$@" && {
-    _log_i 0 "pub_init: Force mode active"
-  }
-  [ -n "$HH" ] && return 0
-  
   mkdir -p bundle
   ensure_valid_location_for_git_publication
 
