@@ -53,7 +53,7 @@ RUN() {
       #H:- [--name] [--repository] [--thumbnail-file|--thumbnail-url]
       require_develop_checked
       require_ent_project_dir
-      generate_custom_resource "$@"
+      prj_generate_custom_resource "$@"
       ;;
     "deploy") #H: generates the CR and deploys it to the current profile
       require_develop_checked
@@ -280,44 +280,29 @@ prj_ecr_unregister_bundle() {
   _kubectl delete EntandoDeBundle "$pn"
 }
 
-generate_custom_resource() {
-  local NAME="$ENT_PRJ_NAME"
-  [ -z "$NAME" ] && camel_to_snake -d NAME "$(basename "$PWD")"
+prj_generate_custom_resource() {
+  local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
+
+  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
+  args_or_ask -n -p ${HH:+"$HH"} NAME '--name///name of the bundle project' "$@"
+  args_or_ask -n -p ${HH:+"$HH"} REPOSITORY '--repository///url of the publication repository' "$@"
+  args_or_ask -n -p ${HH:+"$HH"} THUMBNAIL_FILE "--thumbnail-file///pathname of the thumbnail" "$@"
+  args_or_ask -n -p ${HH:+"$HH"} THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  $HELP_REQUEST && echo -e "\n> Notes:\n  - all arguments are optional\n"
+  end_help_parsing
+  
+  require_ent_project_dir
+  require_pbs_initialized
+  
+  _nn NAME && NAME="$ENT_PRJ_NAME"
+  _nn NAME && camel_to_snake -d NAME "$(basename "$PWD")"
+  
   local REPOSITORY="$(get_bundle_repo_url)"
-  local THUMBNAIL_FILE="$ENTANDO_ENT_HOME/$C_ENTANDO_LOGO_FILE"
+  local THUMBNAIL_FILE THUMBNAIL_URL
+  
+  _pp REPOSITORY
 
-  args_or_ask -n -f -- '--help' "$@" && {
-    local HH="--help"
-    echo ""
-    echo "> Parameters:"
-  }
-
-  args_or_ask -n -p ${HH:+"$HH"} "NAME" '--name///name of the bundle project' "$@"
-  args_or_ask -n -p ${HH:+"$HH"} "REPOSITORY" '--repository///url of the publication repository' "$@"
-  args_or_ask -n -p ${HH:+"$HH"} "THUMBNAIL_FILE" "--thumbnail-file///pathname of the thumbnail" "$@"
-  args_or_ask -n -p ${HH:+"$HH"} "THUMBNAIL_URL" "--thumbnail-url///url of the thumbnail" "$@"
-
-  [ -n "$HH" ] && {
-    echo ""
-    echo "> Notes:"
-    echo "  - all parameters are optional"
-    echo ""
-    return 0
-  }
-
-  if [ -n "$THUMBNAIL_FILE" ]; then
-    OPT="--thumbnail-file"
-    OPT_VALUE="$THUMBNAIL_FILE"
-  elif [ -n "$THUMBNAIL_URL" ]; then
-    OPT="--thumbnail-url"
-    OPT_VALUE="$THUMBNAIL_URL"
-  fi
-
-  _ent-bundler from-git \
-    --dry-run \
-    --name "$NAME" \
-    --repository "$REPOSITORY" \
-    $OPT "$OPT_VALUE"
+  ecr.generate_custom_resource "$NAME" "$REPOSITORY" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
 
 bundle_all() {
@@ -620,7 +605,7 @@ get_pods_list() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 publish_version() {
   require_ent_project_dir
-  [ -d "bundle/.git" ] || FATAL "Publication repository is not initialized"
+  require_pbs_initialized
 
   echo "~~~"
   _log_i 0 "Publishing the frontend to git"
@@ -874,6 +859,10 @@ require_ent_project_dir() {
 
 }
 
+require_pbs_initialized() {
+  [ -d "bundle/.git" ] || FATAL "Publication repository not initialized"
+}
+
 ensure_valid_location_for_git_publication() {
   local FORCE
   args_or_ask -n -F -- "FORCE" '--force' "$@" && {
@@ -893,7 +882,7 @@ ensure_valid_location_for_git_publication() {
     cd bundle || _FATAL "internal error"
 
     # git initialized
-    [ -d ".git" ] || FATAL "Publication repository is not initialized"
+    [ -d ".git" ] || FATAL "Publication repository not initialized"
 
     ORIG="$(git remote get-url origin 2>/dev/null)"
     [ -z "$ORIG" ] && FATAL "Repo not initialized (run \"${0##*/} init ...\")"

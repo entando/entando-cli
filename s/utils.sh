@@ -264,7 +264,7 @@ EXIT_UE() {
 # converts a snake case identifier to camel case
 snake_to_camel() {
   local res="$(echo "$2" | _perl_sed 's/[ _-]([a-z])/\U\1/gi;s/^([A-Z])/\l\1/')"
-  _set_var "$1" "$res"
+  _set_or_print "$1" "$res"
 }
 
 # converts a snake case identifier to camel case
@@ -275,7 +275,7 @@ camel_to_snake() {
   else
     local res="$(echo "$2" | _perl_sed 's/([A-Z]{1,})/_\L\1/g;s/^_//')"
   fi
-  _set_var "$1" "$res"
+  _set_or_print "$1" "$res"
 }
 
 # Returns the index of the given argument value
@@ -527,7 +527,7 @@ args_or_ask() {
     elif $ARG; then
       :
     else
-      if $SPACE_SEP || $FLAG || $FLAGADVAR; then
+      if $SPACE_SEP || $FLAG || $FLAGANDVAR; then
         echo "${val_name}"
       else
         echo "${val_name}="
@@ -732,14 +732,28 @@ show_help_option() {
   esac
 }
 
+# declates the begin of the help and completion parsing phase, given:
+# $1: the location on disk (ARG0) of the script for which the help is generated
+# $2: the command line parameters
+#
+# Implictly calls print_ent_module_help if help is requested
+#
+# Affects 3 global vars:
+# HH                  set with the help/completion command ("--help", "--cmplt", "")
+# COMPLETION_REQUEST  set to true if it's the completion was requested
+# HELP_REQUEST        set to true if it's the help was requested
+#
+# Returns 0 if help or completion was requested
+#
 bgn_help_parsing() {
-  local _tmp_HH="" _tmp_var="$1"
-  shift
+  local _tmp_var="$1"; shift
   ENT_MODULE_FILE="$1"; shift;
-  _tmp_HH="$(parse_help_option "$@")"
-  show_help_option "$_tmp_HH"
-  _set_var "$_tmp_var" "$_tmp_HH"
-  test -n "$_tmp_HH"
+  HH="$(parse_help_option "$@")"
+  COMPLETION_REQUEST=false;[ "$HH" == "--cmplt" ] && COMPLETION_REQUEST=true
+  HELP_REQUEST=false;[ "$HH" == "--help" ] && HELP_REQUEST=true
+  show_help_option "$HH"
+  _set_var "$_tmp_var" "$HH"
+  test -n "$HH"
 }
 
 end_help_parsing() {
@@ -1096,190 +1110,6 @@ keycloak-get-token() {
   [[ -z "$TOKEN" || "$TOKEN" == "null" ]] && FATAL "Unable to extract the access token"
 
   _set_var "$res_var" "$TOKEN"
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
-# Runs general operation to prepare running actions against the ECR
-# $1: the received of the url to use for the action
-# $2: the received of the authentication token to use for the action
-ecr-prepare-action() {
-  local var_url="$1"
-  shift
-  local var_token="$1"
-  shift
-  print_current_profile_info
-  # shellcheck disable=SC2034
-  local main_ingress ecr_ingress ignored url_scheme
-  app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
-  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
-  [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
-  if [ -n "$url_scheme" ]; then
-    main_ingress="$url_scheme://$main_ingress"
-  else
-    case "$FORCE_URL_SCHEME" in
-      "http")
-        http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
-        ;;
-      *)
-        http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
-        ;;
-    esac
-  fi
-  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
-  http-get-url-scheme url_scheme "$main_ingress"
-  save_cfg_value LATEST_URL_SCHEME "$url_scheme"
-  local token
-  keycloak-get-token token "$url_scheme"
-  _set_var "$var_url" "$url_scheme://$ecr_ingress"
-  _set_var "$var_token" "$token"
-}
-
-# Runs an ECR action for a bundle given:
-# $1: the received of the of the http status
-# $2: the http verb
-# $3: the action
-# $4: the ingress url
-# $5: the authentication token
-# $6: the bundle id
-#
-# returns:
-# - the http status in $1
-# - the http operation output in stdout
-#
-ecr-bundle-action() {
-  local DEBUG=false; [ "$1" == "--debug" ] && DEBUG=true && shift
-  local res_var="$1";shift
-  local verb="$1";shift
-  local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
-  local bundle_id="$1";shift
-  local raw_data="$1";shift
-  
-  local url
-  path-concat url "${ingress}" ""
-  url+="components"
-  
-  local http_status OUT
-
-  [ -n "$bundle_id" ] && url+="/$bundle_id"
-  [ -n "$action" ] && url+="/$action"
-
-  local OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-  
-  # shellcheck disable=SC2155
-  if "$DEBUG"; then
-      local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-      local STATUS="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-      curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
-        -H 'Accept: */*' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer $token" \
-        -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
-        1> "$STATUS" 2> "$ERR"
-      
-      # shellcheck disable=SC2155 disable=SC2034
-      {
-        local T_STATUS="$(cat "$STATUS")"
-        local T_OUT="$(cat "$OUT")"
-        local T_ERR="$(cat "$ERR")"
-        _pp T_STATUS T_OUT T_ERR
-      } > /dev/tty
-      
-    rm "$STATUS" "$ERR" "$OUT"
-    return
-  else
-    http_status=$(
-      curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
-        -H 'Accept: */*' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer $token" \
-        -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
-        2> /dev/null
-    )
-  fi
-  
-  if [ "$res_var" != "%" ]; then
-    if [ "$res_var" != "" ]; then
-      _set_var "$res_var" "$http_status"
-    fi
-  else
-    if [ "$http_status" -ge 300 ]; then
-      echo "%$http_status"
-      return 1
-    fi
-  fi
-  
-  if [ -s "$OUT" ]; then
-    cat "$OUT"
-  else
-    if [ "$res_var" = "%" ]; then
-      echo "%$http_status"
-    fi
-  fi
-  rm "$OUT"
-}
-
-# Runs an ECR action for a bundle given:
-# $1: the received of the of the http status
-# $2: the http verb
-ecr-watch-installation-result() {
-  local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
-  local bundle_id="$1";shift
-  local http_res
-
-  local start_time end_time elapsed
-  start_time="$(date -u +%s)"
-
-  echo ""
-
-  while true; do
-    http_res=$(
-      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
-    )
-    
-    if [ "${http_res:0:1}" != '%' ]; then
-      http_res=$(
-        echo "$http_res" | jq -r ".payload.status" 2> /dev/null
-      )
-  
-      end_time="$(date -u +%s)"
-      elapsed="$((end_time - start_time))"
-      printf "\r                                  \r"
-      printf "%4ds STATUS: %s.." "$elapsed" "$http_res"
-    fi
-
-    case "$http_res" in
-      "INSTALL_IN_PROGRESS" | "INSTALL_CREATED" | "UNINSTALL_IN_PROGRESS" | "UNINSTALL_CREATED") ;;
-      "INSTALL_COMPLETED")
-        echo -e "\nTerminated."
-        return 0
-        ;;
-      "UNINSTALL_COMPLETED")
-        echo -e "\nTerminated."
-        return 0
-        ;;
-      "INSTALL_ROLLBACK") ;;
-      "INSTALL_ERROR")
-        echo -e "\nTerminated."
-        return 1
-        ;;
-      %*)
-        echo -e "\nTerminated \"$http_res\""
-        return 2
-        ;;
-      *)
-        echo ""
-        FATAL "Unknown status \"$http_res\""
-        return 99
-        ;;
-    esac
-    sleep 3
-  done
 }
 
 # Implements a mechanism restrict and preserve in the current tty the profile to use 

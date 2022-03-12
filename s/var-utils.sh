@@ -15,6 +15,14 @@ _set_var() {
   return 0
 }
 
+
+_coalesce_vars() {
+  read -r -d '' "$1" <<< "$2"; [ -n "${!1}" ] && return 0
+  read -r -d '' "$1" <<< "$3"; [ -n "${!1}" ] && return 0
+  read -r -d '' "$1" <<< "$4"; [ -n "${!1}" ] && return 0
+  read -r -d '' "$1" <<< "$5"; [ -n "${!1}" ] && return 0
+}
+
 _print_var() {
   if [ -n "$ZSH_VERSION" ]; then
     echo "${(P)1}"
@@ -22,6 +30,19 @@ _print_var() {
     echo "${!1}"
   fi
 }
+
+# Set of prints a value according with $1 that can be:
+# - --print           the value is printed
+# - <anything-else>   the value is assigned to the var name in $1
+#
+_set_or_print() {
+  if [ "$1" != "--print" ]; then
+    _set_var "$@"
+  else
+    shift; _print_var "$@"
+  fi
+}
+
 
 # set variable with nonnull value
 # - $1: variable to set
@@ -35,6 +56,10 @@ _set_nn() {
 set_var() {
   _set_var "$@"
   return 0
+}
+
+_nn() {
+  test -n "${!1}"
 }
 
 # set variable with nonnull identifier

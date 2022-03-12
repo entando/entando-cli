@@ -138,8 +138,9 @@ mkdir -p "$ENT_OPTS"
 
 . s/utils.sh
 . s/var-utils.sh
-. s/attach-utils.sh
 . s/logger.sh
+. s/ecr-utils.sh
+. s/attach-utils.sh
 . s/node-utils.sh
 
 DESIGNATED_VM=""

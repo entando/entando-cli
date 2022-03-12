@@ -183,7 +183,7 @@ which_ent() {
 }
 
 handle_config_command() {
-  bgn_help_parsing HH "$@"
+  bgn_help_parsing HH "${BASH_SOURCE[0]}" "$@"
 
   args_or_ask ${HH:+"$HH"} -f -- '--default///selects the default ent configuration' "$@" && {
     # shellcheck disable=SC2034

@@ -260,7 +260,7 @@ check_npm_git_package() {
 }
 
 PARSE_ARGS() {
-  bgn_help_parsing HH "${BASH_SOURCE[0]}" "$@"
+  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
   [ "$1" = "--cmplt" ] && { echo -e "develop\nruntime"; exit 0; }
   args_or_ask ${HH:+"$HH"} -n -a -- ARG1 '1///the SubCommand' "$@"
   args_or_ask ${HH:+"$HH"} -n -F NO_DNS_FIX "--no-dns-fix///Does't try to fix the DNS when starting the quickstart" "$@"
