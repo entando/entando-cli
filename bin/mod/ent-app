@@ -99,20 +99,19 @@ print_operator_configmap() {
 }
 
 print_images() {
-
   [ -n "$HH" ] && exit 0
   
   # shellcheck disable=SC2021 disable=SC2155
   local RES=$(
-    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get pods -o jsonpath="{..image}" |
-      \tr -s '[[:space:]]' $'\n' | \sort -u
+    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get pods -o json \
+      | _jq ".items[] | [ .metadata.name, [ .spec.containers[] | .name, .image ] ] | flatten | join(\"|\")" -r \
+      | \tr -s '|' $'\t'
   )
   [ -z "$RES" ] && FATAL "Unable fetch the images list"
 
-  echo "$RES"
+  echo "$RES" | _column -t | \sort -u
   echo ""
   echo "$RES" | _sha256sum
 }
 
 RUN "$@"
-

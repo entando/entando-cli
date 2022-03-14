@@ -1290,3 +1290,12 @@ _jq_ok() {
     command -v jq > /dev/null
   fi
 }
+
+_column() {
+  if command -v column 2>/dev/null; then
+    column "$@"
+  else
+    cat -
+  fi
+}
+
