@@ -67,8 +67,20 @@ RUN() {
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
-    "generate-cr"|"cr") #H: shows the usage status of the bundle
+    "generate-cr"|"gen-cr"|"cr") #H: shows the usage status of the bundle
       ecr-generate-custom-resource "$@"
+      ;;
+    "get-bundle-id"|"bid") #H: calulates and displays the bundle id
+      shift
+      _ecr-get-bundle-id "$@"
+      ;;
+    "get-plugin-id"|"pid") #H: calulates and displays the plugin id
+      shift
+      _ecr-get-plugin-id "$@"
+      ;;
+    "gen-secret"|"sec") #H: generates and displays a plugin secret skeleton
+      shift
+      _ecr-gen-secret "$@"
       ;;
     "--help"|"")
       args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
@@ -76,11 +88,58 @@ RUN() {
       end_help_parsing
       ;;
     *)
-      FATAL "Unknown command \"$CMD\""
+      FATAL "Unknown command \"$1\""
       ;;
   esac
 }
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_ecr-gen-secret() {
+  bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
+  args_or_ask -h "$HH" -a -n -- SEC_NAME "1/ext_ic_id//%sp the bundle secret name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
+  args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
+  args_or_ask -h "$HH" -n -- SAVE_TO '--save///%sp saves to the given file instead of printing' "$@"
+  args_or_ask -h "$HH" -F -- APPLY '--apply///%sp applies to the current kube instead of printing' "$@"
+  end_help_parsing
+  
+  _nn SAVE_TO && assert_strict_file_name "SAVE_TO" "$SAVE_TO" fatal
+  
+  _nn BUNDLE_ID || {
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_NAME" "$BUNDLE_PUB_REPO"
+  }
+  
+  ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_ecr-get-plugin-id() {
+  bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
+  args_or_ask -h "$HH" -a -n -- PLUGIN_NAME '1/ext_ic_id//%sp the plugin base name' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
+  end_help_parsing
+  _nn BUNDLE_ID || {
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_NAME" "$BUNDLE_PUB_REPO"
+  }
+  local RES
+  ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
+  echo "$RES"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_ecr-get-bundle-id() {
+  bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
+  args_or_ask -h "$HH" -a -n -- NAME "1/ext_ic_id//%sp the bundle name" "$@"
+  args_or_ask -h "$HH" -a -n -- URL '2/url//%sp bundle publication repository URL' "$@"
+  end_help_parsing
+  local RES
+  ecr.calculate-bundle-id RES "$NAME" "$URL"
+  echo "$RES"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ecr-generate-custom-resource() {
   local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
 
@@ -93,5 +152,6 @@ ecr-generate-custom-resource() {
   
   ecr.generate-custom-resource "$NAME" "$REPOSITORY" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 RUN "$@"

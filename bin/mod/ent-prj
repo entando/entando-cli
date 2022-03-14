@@ -91,9 +91,9 @@ RUN() {
       $BE_PURGE && be_purge_k8s
       $ECR_UNDEPLOY && prj_ecr_unregister_bundle
       ;;
-      # ~~~~~~~~~~~~~~~~~~~~
-      #H:> PUB SYSTEM:
-      # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    #H:> PUB SYSTEM:
+    # ~~~~~~~~~~~~~~~~~~~~
     "pbs-init") #H: (url, username, email) initializes the publication system
       bgn_help_parsing ":PRJ-PBS-INIT" "$@"
       args_or_ask -a -h "$HH-only" URL_OF_ORIGIN "1/git_repo//%sp URL of the publication repository" "$@" 
@@ -114,9 +114,9 @@ RUN() {
       #require_ent_project_dir
       publish_version "$@"
       ;;
-      # ~~~~~~~~~~~~~~~~~~~~
-      #H:> FRONTEND:
-      # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    #H:> FRONTEND:
+    # ~~~~~~~~~~~~~~~~~~~~
     "fe-build" | "fb") #H: [--all|-a] builds and package the frontend
       require_develop_checked
       require_ent_project_dir
@@ -142,9 +142,9 @@ RUN() {
       require_ent_project_dir
       fe_list_widgets
       ;;
-      # ~~~~~~~~~~~~~~~~~~~~
-      #H:> BACKEND:
-      # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    #H:> BACKEND:
+    # ~~~~~~~~~~~~~~~~~~~~
     "be-build" | "bb") #H: (mvn-params) builds and packages the backend
       simple_help_handler "parse_be_arguments" "$@" && return 0
       
@@ -210,9 +210,22 @@ RUN() {
       require_ent_project_dir
       be_pod_action "describe"
       ;;
-      # ~~~~~~~~~~~~~~~~~~~~
-      #H:> EXTERNALS:
-      # ~~~~~~~~~~~~~~~~~~~~
+    # ~~~~~~~~~~~~~~~~~~~~
+    #H:> UTILS:
+    # ~~~~~~~~~~~~~~~~~~~~
+    "get-bundle-id"|"bid") #H: calulates and displays the bundle id
+      prj_print_bundle_id "$@"
+      ;;
+    "get-plugin-id"|"pid") #H: calulates and displays the plugin id
+      prj_print_plugin_id "$@"
+      ;;
+    "gen-secret"|"sec") #H: calulates and displays the plugin id
+
+      prj_gen_secret "$@"
+      ;;
+    # ~~~~~~~~~~~~~~~~~~~~
+    #H:> EXTERNALS:
+    # ~~~~~~~~~~~~~~~~~~~~
     "ext-keycloak" | "xk") #H: manage the tests keycloak instance
       require_ent_project_dir
       ext_keycloak "$@"
@@ -228,6 +241,73 @@ RUN() {
   done
 }
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+prj_gen_secret() {
+  bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
+  args_or_ask -h "$HH" -a SEC_NAME "2/ext_ic_id//%sp the bundle secret name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
+  args_or_ask -h "$HH" -n -- SAVE_TO '--save///%sp saves to the given file instead of printing' "$@"
+  args_or_ask -h "$HH" -F -- APPLY '--apply///%sp applies to the current kube instead of printing' "$@"
+  end_help_parsing
+
+  _nn SAVE_TO && assert_strict_file_name "SAVE_TO" "$SAVE_TO" fatal
+  
+  _nn BUNDLE_ID || {
+    _nn BUNDLE_NAME "$ENT_PRJ_NAME" || _FATAL "Unable to determine the project name"
+    _nn BUNDLE_PUB_REPO "$(get_bundle_repo_url)" || _FATAL "Unable to determine the publication repo url"
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_NAME" "$BUNDLE_PUB_REPO"
+  }
+  
+  ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO" "$APPLY"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+prj_print_plugin_id() {
+  local PLUGIN_NAME BUNDLE_PUB_REPO
+
+  bgn_help_parsing ":ENT-PRJ-GET-PLUGIN-ID" "$@"
+  args_or_ask -h "$HH" -a -n -- PLUGIN_NAME '1/ext_ic_id//%sp the plugin base name' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
+  end_help_parsing
+
+  require_ent_project_dir
+  require_pbs_initialized
+  
+  set_or_ask PLUGIN_NAME "$PLUGIN_NAME" "Plugin name?" "$(get_be_artifact_id)" "assert_ext_ic_id"
+
+  _nn BUNDLE_ID || {
+    _nn BUNDLE_NAME "$ENT_PRJ_NAME" || _FATAL "Unable to determine the project name"
+    _nn BUNDLE_PUB_REPO "$(get_bundle_repo_url)" || _FATAL "Unable to determine the publication repo url"
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_NAME" "$BUNDLE_PUB_REPO"
+  }
+  local RES
+  ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
+  echo "$RES"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+prj_print_bundle_id() {
+  local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
+
+  bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
+  args_or_ask -n -p -h "$HH" NAME '--name///name of the bundle project' "$@"
+  args_or_ask -n -p -h "$HH" REPOSITORY '--repository///url of the publication repository' "$@"
+  $HH_HELP_REQUEST && echo -e "\n> Notes:\n  - all arguments are optional\n"
+  end_help_parsing
+  
+  require_ent_project_dir
+  require_pbs_initialized
+  
+  _nn NAME "$ENT_PRJ_NAME" || _FATAL "Unable to determine the project name"
+  _nn REPOSITORY "$(get_bundle_repo_url)" || _FATAL "Unable to determine the publication repo url"
+
+  local RES
+  ecr.calculate-bundle-id RES "$NAME" "$REPOSITORY"
+  echo "$RES"
+}
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ext_keycloak() {
   cmd="$1"
@@ -367,6 +447,10 @@ fe_test_run() {
 
 be_test_run() {
   ./mvnw
+}
+
+get_be_artifact_id() {
+  grep "<artifactId>" pom.xml | head -1 | sed 's/^.*<artifactId>\(.*\)<\/artifactId>.*$/\1/'
 }
 
 # shellcheck disable=SC2155

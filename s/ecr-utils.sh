@@ -218,3 +218,89 @@ ecr.generate-custom-resource() {
     --repository "$REPOSITORY" \
     $OPT "$OPT_VALUE"
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Calculates the bundle id given:
+# $1: the receiver var
+# $2: the name of the bundle
+# $3: the bundle artifact repository url
+#
+# if $2 is not provided it is taken from the repository
+#
+ecr.calculate-bundle-id() {
+  local _tmp_RESVAR="$1"
+  local BUNDLE_NAME="$2"
+  local REPOSITORY="$3"
+  local _tmp
+  NONNULL BUNDLE_NAME REPOSITORY
+  _tmp="$(echo "$REPOSITORY" | _sha256sum)"
+  _tmp="${_tmp:0:8}-$BUNDLE_NAME"
+  [ "${#_tmp}" -gt 200 ] && {
+    _tmp="${_tmp:0:200}"
+  }
+  _set_var "$_tmp_RESVAR" "$_tmp"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Calculates the plugin id given:
+# $1: the receiver var
+# $2: the bundle deployment base name
+# $3: the plugin id
+#
+# if $2 is not provided it is taken from the repository
+#
+ecr.calculate-plugin-id() {
+  local _tmp_RESVAR="$1"
+  local PLUGIN_NAME="$2"
+  local BUNDLE_ID="$3"
+  local _tmp
+  NONNULL PLUGIN_NAME BUNDLE_ID
+  _tmp="pn-${BUNDLE_ID}-${PLUGIN_NAME}"
+  [ "${#_tmp}" -gt 200 ] && {
+    _tmp="$(echo "$PLUGIN_NAME" | _sha256sum)"
+    _tmp="${_tmp:0:8}"
+    _tmp="px-${_tmp}-${BUNDLE_ID}-$PLUGIN_NAME"
+    _tmp="${_tmp:0:200}"
+  }
+  _set_var "$_tmp_RESVAR" "$_tmp"
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Generates and prints the skeleton of a plugin secret given:
+# $1: the bundle id
+# $2: the secret name
+# $3: if "true" asks to interactively edit the secret before printing
+#
+ecr.generate-and-print-secret() {
+  local SEC_NAME="$1"
+  local BUNDLE_ID="$2"
+  local EDIT="$3"
+  local SAVE_TO="$4"
+  if [ "$EDIT" = "true" ]; then
+    if ! "$SYS_IS_STDIN_A_TTY" || ! "$SYS_IS_STDOUT_A_TTY"; then
+      _FATAL -s "Edit not allowed with non-tty stdin or stdout"
+    fi
+  fi
+  
+  (
+    tmp="$(mktemp).zip"
+    trap "rm \"$tmp\"" exit
+    {
+      echo "kind: Secret"
+      echo "apiVersion: v1"
+      echo "metadata:"
+      echo "  name: ${BUNDLE_ID}-${SEC_NAME}"
+      echo "stringData:"
+      echo "  key: value"
+      echo "type: Opaque"
+    } > "$tmp"
+    [ "$EDIT" = "true" ] && _edit "$tmp"
+    if _nn SAVE_TO; then
+      cat "$tmp" > "$SAVE_TO"
+    else
+      cat "$tmp"
+    fi
+    [ "$APPLY" = "true" ] && _kubectl apply -f "$tmp"
+  )
+}
