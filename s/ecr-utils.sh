@@ -285,6 +285,7 @@ ecr.generate-and-print-secret() {
   
   (
     tmp="$(mktemp).zip"
+    # shellcheck disable=SC2064
     trap "rm \"$tmp\"" exit
     {
       echo "kind: Secret"

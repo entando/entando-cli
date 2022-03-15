@@ -44,8 +44,8 @@
     ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
-  if [ $SYS_IS_STDOUT_A_TTY ]; then
-    if [[ -z "$ENTANDO_DEV_TTY" ]]; then
+  if [[ -z "$ENTANDO_DEV_TTY" ]]; then
+    if "$SYS_IS_STDIN_A_TTY"; then
       ENTANDO_DEV_TTY="$(tty)"
       # shellcheck disable=SC2034
       ENTANDO_TTY_QUALIFIER="${ENTANDO_DEV_TTY//\//_}"
@@ -155,9 +155,9 @@
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
         if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
-          $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
+          _trace "kubectl" $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
         else
-          KUBECONFIG="$DESIGNATED_KUBECONFIG" $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
         fi
       }
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then

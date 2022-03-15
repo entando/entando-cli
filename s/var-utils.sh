@@ -39,7 +39,7 @@ _set_or_print() {
   if [ "$1" != "--print" ]; then
     _set_var "$@"
   else
-    shift; _print_var "$@"
+    shift; echo "$@"
   fi
 }
 
@@ -193,6 +193,11 @@ assert_strict_file_name() {
 assert_semver() {
   _assert_regex_nn "$1" "$2" "^v?[0-9]+\.[0-9]+\.[0-9]+$" \
   "^v?[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9-]+$" "version" "$3"
+}
+
+assert_acceptable_version_tag() {
+  _assert_regex_nn "$1" "$2" "\\." "" "full domain" "$3" || return $?
+  _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "full domain" "$3"
 }
 
 assert_ver() {
@@ -350,10 +355,10 @@ map-list() {
         echo "${!name}"
       elif [ -z "$SEP" ]; then
         tmp="${name/${arr_var_prefix}/}"
-        echo ${tmp//_DASH_/-}
+        echo "${tmp//_DASH_/-}"
       else
         tmp="${name/${arr_var_prefix}/}${SEP}${!name}"
-        echo ${tmp//_DASH_/-}
+        echo "${tmp//_DASH_/-}"
       fi
     fi
   done

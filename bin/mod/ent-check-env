@@ -96,7 +96,7 @@ check-env.develop.minimal-tools-requirements() {
 
 
 check-env.runtime.quickstart.apply-fixes() {
-  !$NO_DNS_FIX && make_safe_resolv_conf
+  ! "$NO_DNS_FIX" && make_safe_resolv_conf
 }
 
 check-env.runtime.check-dns() {

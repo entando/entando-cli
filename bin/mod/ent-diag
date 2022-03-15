@@ -234,7 +234,7 @@ COLLECT.CRDs() {
       if ! "$TOSTDOUT"; then
         LOG_TITLE "Entando CRDs full dump"
         
-        if _jq_ok; then
+        if _pkg_ok "jq"; then
           ent kubectl get crd -o json \
               | _jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
         else

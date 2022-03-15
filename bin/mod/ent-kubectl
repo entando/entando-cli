@@ -190,7 +190,8 @@ auto_align_with_server() {
       
       # VERIFY checksum
       [[ -f "$KUBECTL_NAME.sha256" ]] && {
-          [ "$(<"$KUBECTL_NAME.sha256")" = "$(echo kubectl.tmp | _sha256sum)" ] || {
+          # shellcheck disable=SC2002
+          [ "$(<"$KUBECTL_NAME.sha256")" = "$(cat "kubectl.tmp" | _sha256sum)" ] || {
           rm "kubectl.tmp"
           FATAL "Checksum verification failed, operation interrupted"
         }

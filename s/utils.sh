@@ -246,9 +246,11 @@ FATAL() {
 # Fatals if a violation is found
 #
 NONNULL() {
+  # shellcheck disable=SC2124
+  local O="-S 1"; [ "$1" = "-s" ] && { O="-s"; shift; }
   for var_name in "$@"; do
     local var_value="${!var_name}"
-    [ -z "$var_value" ] && _FATAL -S 1 "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
+    [ -z "$var_value" ] && _FATAL $O "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
   done
 }
 
@@ -754,13 +756,16 @@ bgn_help_parsing() {
   HH_LATCHED_HELP_HEADING() { :; }
   case "$HH" in
     "--help")
+      # shellcheck disable=SC2034
       HH_HELP_REQUEST=true
       HH_LATCHED_HELP_HEADING() { show_help_option "$HH"; }
       ;;
     "--cmplt")
+      # shellcheck disable=SC2034
       HH_COMPLETION_REQUEST=true
       ;;
     *)
+      # shellcheck disable=SC2034
       HH_COMMAND=true
       ;;
   esac
@@ -1249,20 +1254,24 @@ _base64_d() {
 
 _pkg_get() {
   local VERBOSE=false;[ "$1" = "--verbose" ] && { VERBOSE=true;shift; }
-  local var=""
-  case "$1" in
+  local pkg="$1" ver="$2" var="" url=""
+  case "$pkg" in
     jq)
-      var="JQ_PATH"
-      _pkg_download_and_install "$var" "jq" "1.6" \
-        "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64" \
-        "" \
-        "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-osx-amd64" \
-        "" \
-        "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" \
-        ""
+      var="JQ_PATH";ver="${ver:-1.6}";url="https://github.com/stedolan/jq/releases/download/jq-$ver"
+      _pkg_download_and_install "$var" "jq" "$ver" \
+        "$url/jq-linux64" "jq-linux64" "jq-linux64" "" \
+        "$url/jq-osx-amd64" "jq-osx-amd64" "jq-osx-amd64" "" \
+        "$url/jq-win64.exe" "jq-win64.exe" "jq-win64.exe" "";
+      ;;
+    k9s)
+      var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver/"
+      _pkg_download_and_install "$var" "k9s" "$ver" \
+        "$url/k9s_Linux_x86_64.tar.gz" "k9s" "" \
+        "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
+        "$url/k9s_Windows_arm64.tar.gz" "k9" "";
       ;;
     *)
-      _FATAL "Unknown package \"$1\""
+      _FATAL -s "Unknown package \"$pkg\""
       ;;
   esac
   
@@ -1276,19 +1285,46 @@ _pkg_get() {
 }
 
 _jq() {
-  if [ -n "$JQ_PATH" ]; then
-    "$JQ_PATH" "$@"
+  _pkg_jq "$@"
+}
+
+_pkg_jq() {
+  local CMD; _pkg_get_path CMD "jq"
+  "$CMD" "$@"
+}
+
+_pkg_ok() {
+  local CMD; _pkg_get_path CMD "k9s"
+  test -n "$CMD"
+}
+
+_pkg_k9s() {
+  local CMD; _pkg_get_path CMD "k9s"
+  if [ -z "$1" ]; then
+    if _nn DESIGNATED_KUBECONFIG; then
+      "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
+    else
+      "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
+    fi
   else
-    jq "$@"
+    "$CMD" "$@"
   fi
 }
 
-_jq_ok() {
-  if [ -n "$JQ_PATH" ]; then
-    command -v "$JQ_PATH" > /dev/null
-  else
-    command -v jq > /dev/null
+_pkg_get_path() {
+  local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
+  local _tmp_PKGPATH="${2^^}_PATH"
+  _tmp_PKGPATH="${!_tmp_PKGPATH}"
+  if command -v "$_tmp_PKGPATH" &> /dev/null; then
+    _set_or_print "$1" "$_tmp_PKGPATH"
+    return 0
+  elif command -v "$PKG" &> /dev/null; then
+    ! $STRICT && {
+      _set_or_print "$1" "$(which "$PKG")"
+      return 0
+    }
   fi
+  _FATAL -s "Package \"$PKG\" not found" 1>&2
 }
 
 _column() {

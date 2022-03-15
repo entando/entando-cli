@@ -498,16 +498,16 @@ debug-print() {
 # $9: checksum url win64
 #
 _pkg_download_and_install() {
-  local CHECK=false;[ "$1" = "--check" ] && { CHECK=true;shift; }
   local _tmp_resvar="$1" _tmp_name="$2" _tmp_ver="$3"
   local COMMENT
   local RESFILE="$(mktemp /tmp/ent-resfile-XXXXXXXX)"
-  trap "rm \"$RESFILE\"" exit
+  # shellcheck disable=SC2064
+  trap "[[ \"$RESFILE\" = *\"/ent-resfile-\"* ]] && rm -rf \"$RESFILE\"" exit
   
   case "$SYS_OS_TYPE" in
-    "linux") local _tmp_url="$4" _tmp_chkurl="$5" EXT="";;
-    "darwin") local _tmp_url="$6" _tmp_chkurl="$7" EXT="";;
-    "windows") local _tmp_url="$8" _tmp_chkurl="$9" EXT=".exe";;
+    "linux") local _tmp_url="$4" _tmp_ext_fn="$5" _tmp_chkurl="$6" EXT="";;
+    "darwin") local _tmp_url="$7" _tmp_ext_fn="$8" _tmp_chkurl="$9" EXT="";;
+    "windows") local _tmp_url="${10}" _tmp_ext_fn="${11}" _tmp_chkurl="${12}" EXT=".exe";;
   esac
   
   (
@@ -521,9 +521,24 @@ _pkg_download_and_install() {
       
       # DOWNLOAD
       _log_i "Downloading $_tmp_name \"$_tmp_ver\""
-      
+
       RES=$(curl -Ls --write-out '%{http_code}' -o "~download.tmp" "$_tmp_url")
       [[ "$RES" != "200" ]] && FATAL "Unable to download $_tmp_name"
+
+      (
+        PRE() {
+          DD="$PWD"
+          TMPDIR="$(mktemp -d /tmp/ent-pkg-XXXXXXXXXXXXX)"
+          # shellcheck disable=SC2064
+          trap "[[ \"$TMPDIR\" = *\"/ent-pkg-\"* ]] && rm -rf \"$TMPDIR\"" exit
+        }
+        cd "$TMPDIR"
+        case "$_tmp_url" in
+          *".tar.gz") PRE; tar xfz ~download.tmp; mv "$_tmp_ext_fn" "$DD/~download.tmp";;
+          *".tar") PRE; tar xf ~download.tmp; mv "$_tmp_ext_fn" "$DD/~download.tmp";;
+          *".zip") PRE; unzip ~download.tmp; mv "$_tmp_ext_fn" "$DD/~download.tmp";;
+        esac
+      )
       
       if [ -n "$_tmp_chkurl" ]; then
         # DOWNLOAD checksum

@@ -115,8 +115,8 @@ RUN() {
       "jhipster"|"bundler")
         _ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
-      "bin") #H: helps dealing with the ent bin tools
-        ent-bin "$@"
+      "pkg") #H: helps dealing with the ent bin tools
+        ent-pkg "$@"
         ;;
       "")
         # shellcheck disable=SC1091
@@ -144,32 +144,57 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-ent-bin() {
-  bgn_help_parsing ":ENT-BIN" "$@"
-  args_or_ask -h "$HH" -a -n -- CMD '1///%sp command' "$@"
-  
+ent-pkg() {
+  bgn_help_parsing ":ENT-PKG" "$@"
+  CMD="$1"; shift;
   case "$CMD" in
     "list"|"ls") 
       end_help_parsing
+      # shellcheck disable=SC2010
       ls -l "$ENTANDO_BINS" | grep -v "^.*\.tmp$";;
-    "delete"|"rm")
-      args_or_ask -h "$HH" -a -n -- FILE '2///%sp file to delete' "$@"
-      end_help_parsing
-      NONNULL FILE
-      assert_strict_file_name "FILE" "$FILE" fatal
-      [ "$FILE" = "ent" ] && _FATAL -s "Denied"
-      file="$2"
-      rm "$ENTANDO_BINS/$file";;
     "get")
-      args_or_ask -h "$HH" -a -n -- BIN '2///%sp bin to get' "$@"
+      args_or_ask -h "$HH" -a -n -- PKG '1///%sp name of the package' "$@"
+      args_or_ask -h "$HH" -n -- VER '--version///%sp version of the package' "$@"
       end_help_parsing
-      NONNULL BIN
-      assert_strict_file_name "BIN" "$BIN" fatal
-      [ "$BIN" = "ent" ] && _FATAL -s "Denied"
-      _pkg_get --verbose "$BIN"
+      shift 1
+      end_help_parsing
+      NONNULL -s PKG
+      assert_strict_file_name "PKG" "$PKG" fatal-nst
+      _nn VER && assert_acceptable_version_tag "VER" "$VER" fatal-nst
+      [ "$PKG" = "ent" ] && _FATAL -s "Denied"
+      _pkg_get --verbose "$PKG" "$VER"
+      ;;
+    "which")
+      args_or_ask -h "$HH" -a -n -- PKG '2/strict_file_name//%sp name of the package' "$@"
+      end_help_parsing
+      shift 1
+      end_help_parsing
+      _pkg_get_path RES "$PKG"
+      echo "$RES"
+      ;;
+    "run")
+      args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
+      shift 1
+
+      if type -t "_pkg_$PKG" > /dev/null; then
+        "_pkg_$PKG" "$@"
+      else
+        _pkg_get_path RES "$PKG"
+        "$RES" "$@"
+      fi
+      ;;
+    "rm"|"delete")
+      args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
+      shift 1
+      _pkg_get_path RES "$PKG"
+      ask "Are you sure?" "n" && rm "$RES"
+      ;;
+    "--help")
+      args_or_ask -h "$HH" -a -n -- CMD '1///%sp command (ls|get|run|which|rm)' "$@"
+      end_help_parsing
       ;;
     *)
-      simple_cmplt_handler "ls rm get"
+      simple_cmplt_handler "ls get run which rm"
       [ -n "$CMD" ] && _FATAL "Unknown command \"$CMD\""
       ;;
   esac
@@ -271,7 +296,7 @@ cmplt() {
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
       "kubectl-cmd" "reset-kubectl-mode" "status"
-      "attach-kubeconfig" "detach-kubeconfig" "namespace" "appname" "bin"
+      "attach-kubeconfig" "detach-kubeconfig" "namespace" "appname" "pkg"
       "attach-kubectx" "detach-kubectx" "list-kubectx"
   )
 
