@@ -137,7 +137,7 @@ auto_align_with_server() {
   ver=$(
   _kubectl version --client=false --short \
     | grep "Server Version: v" | sed "s/Server Version: v/v/" \
-    | sed "s/\+.*//" | grep -E "v[0-9]*\.[0-9]*\.[0-9]*"
+    | grep -E "v[0-9]*\.[0-9]*\.[0-9]*"  | sed "s/.*\(v[0-9]*\.[0-9]*\.[0-9]*\).*/\1/"
   )
   
   [[ -z "$ver" ]] && FATAL "Unable to determine the server version number"
