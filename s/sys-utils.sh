@@ -523,7 +523,7 @@ _pkg_download_and_install() {
       _log_i "Downloading $_tmp_name \"$_tmp_ver\""
 
       RES=$(curl -Ls --write-out '%{http_code}' -o "~download.tmp" "$_tmp_url")
-      [[ "$RES" != "200" ]] && FATAL "Unable to download $_tmp_name"
+      [[ "$RES" != "200" ]] && FATAL "Unable to download $_tmp_name from \"$_tmp_url\""
 
       (
         PRE() {

@@ -133,12 +133,29 @@ kube.scale_namespace() {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 auto_align_with_server() {
-  local ver
-  ver=$(
-  _kubectl version --client=false --short \
-    | grep "Server Version: v" | sed "s/Server Version: v/v/" \
-    | grep -E "v[0-9]*\.[0-9]*\.[0-9]*"  | sed "s/.*\(v[0-9]*\.[0-9]*\.[0-9]*\).*/\1/"
-  )
+  if (_kubectl version --client &> /dev/null); then
+    _auto_align_with_server
+  else
+    _auto_align_with_server "$C_DEFAULT_KUBECT_VERSION" "default" &> /dev/null
+    (
+      ENT_KUBECTL_CMD="$ENTANDO_BINS/kubectl.default"
+      ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
+      _auto_align_with_server
+    )
+  fi
+}
+
+_auto_align_with_server() {
+  local ver="$1" local_name="$2"
+
+  _nn ver || {
+    ver=$(
+      _kubectl version --client=false --short 2> /dev/null \
+        | grep "Server Version: v" | sed "s/Server Version: v/v/" \
+        | grep -E "v[0-9]*\.[0-9]*\.[0-9]*"  | sed "s/.*\(v[0-9]*\.[0-9]*\.[0-9]*\).*/\1/"
+    )
+    local_name="$ver"
+  }
   
   [[ -z "$ver" ]] && FATAL "Unable to determine the server version number"
 
@@ -149,7 +166,7 @@ auto_align_with_server() {
     EXT=""
     [ "$SYS_OS_TYPE" == "windows" ] && EXT=".exe"
     COMMENT=" and checked"
-    KUBECTL_NAME="kubectl.$ver$EXT"
+    KUBECTL_NAME="kubectl.$local_name$EXT"
 
     if [ ! -f "$KUBECTL_NAME" ]; then
       _log_i "I don't have the kubectl for this server (\"$ver\"). I'll try to download it"
@@ -205,7 +222,7 @@ auto_align_with_server() {
       _log_i "I already have a good version for this server (\"$ver\")"
     fi
     
-    set_kubectl_command "$PWD/$KUBECTL_NAME"
+    [ "$local_name" != "default" ] && set_kubectl_command "$PWD/$KUBECTL_NAME"
     
     _log_i "Ent profile configuration updated (run \"ent status\" for details)"
   ) || exit "$?"

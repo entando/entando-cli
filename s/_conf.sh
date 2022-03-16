@@ -51,6 +51,8 @@ C_ENTANDO_LOGO_FILE="res/entando.png"
 C_WIN_VM_HOSTNAME_SUFFIX="mshome.net"
 C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 
+C_DEFAULT_KUBECT_VERSION="v1.23.4"
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
 XU_LOG_LEVEL=9

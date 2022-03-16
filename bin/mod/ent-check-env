@@ -87,7 +87,7 @@ check-env.develop.minimal-tools-requirements() {
   
   check_ver "_jq" "*.*.*" "--version" || {
     if ask "Should I try to install it?" "y"; then
-      _pkg_get "jq"
+      (_pkg_get "jq") || DEPENDENCY_ERROR "$FAIL_MSG"
     else
       DEPENDENCY_ERROR "$FAIL_MSG"
     fi
@@ -277,7 +277,7 @@ PARSE_ARGS() {
 
   FATAL_DEPENDENCY_ERROR() { 
     local msg="### Recommended dependency was not found and cannot be automatically installed."$'\n'
-    msg+="### Please install ${1:-it} manually"$'\n'
+    msg+="### Please install ${1:-it} manually or use --lenient to ignore this error"$'\n'
     echo $'\n'"$msg"$'\n'
     exit 99; 
   }

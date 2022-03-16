@@ -1259,9 +1259,9 @@ _pkg_get() {
     jq)
       var="JQ_PATH";ver="${ver:-1.6}";url="https://github.com/stedolan/jq/releases/download/jq-$ver"
       _pkg_download_and_install "$var" "jq" "$ver" \
-        "$url/jq-linux64" "jq-linux64" "jq-linux64" "" \
-        "$url/jq-osx-amd64" "jq-osx-amd64" "jq-osx-amd64" "" \
-        "$url/jq-win64.exe" "jq-win64.exe" "jq-win64.exe" "";
+        "$url/jq-linux64" "jq-linux64" "" \
+        "$url/jq-osx-amd64" "jq-osx-amd64" "" \
+        "$url/jq-win64.exe" "jq-win64.exe" "";
       ;;
     k9s)
       var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver/"
@@ -1301,7 +1301,10 @@ _pkg_ok() {
 _pkg_k9s() {
   local CMD; _pkg_get_path CMD "k9s"
   if [ -z "$1" ]; then
-    if _nn DESIGNATED_KUBECONFIG; then
+
+    if _nn DESIGNATED_KUBECTX; then
+      "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
+    elif _nn DESIGNATED_KUBECONFIG; then
       "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
     else
       "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
