@@ -150,7 +150,7 @@ _ent-jhipster() {
 #
 _mp_node_exec() {
   local CMD="${ENT_NODE_BINS_NATIVE}/${1}${ENT_NODE_CMDEXT}"; shift
-  SYS_CLI_PRE "$CMD" "$@"
+  SYS_CLI_PRE SYS_CLI_PRE "$CMD" "$@"
 }
 
 # Runs the ent private installation of the entando bundle tool
