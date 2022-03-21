@@ -520,7 +520,7 @@ RUN_DIRECT() {
   else
     determine_versioned_filename_6_3_0 MANIFEST_TEMPLATE_FILE "${DEPL_SPEC_YAML_FILE}.tpl" "$K8S_TEMPLATE"
   fi
-pwd
+
   if [ -f "dist/$MANIFEST_TEMPLATE_FILE" ]; then
     _log_i "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
   else

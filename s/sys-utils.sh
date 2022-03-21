@@ -522,21 +522,21 @@ _pkg_download_and_install() {
       # DOWNLOAD
       _log_i "Downloading $_tmp_name \"$_tmp_ver\""
 
-      RES=$(curl -Ls --write-out '%{http_code}' -o "~download.tmp" "$_tmp_url")
+      RES=$(curl -Ls --write-out '%{http_code}' -o ".download.tmp~" "$_tmp_url")
       [[ "$RES" != "200" ]] && FATAL "Unable to download $_tmp_name from \"$_tmp_url\""
-
+      
       (
         PRE() {
           DD="$PWD"
           TMPDIR="$(mktemp -d /tmp/ent-pkg-XXXXXXXXXXXXX)"
           # shellcheck disable=SC2064
           trap "[[ \"$TMPDIR\" = *\"/ent-pkg-\"* ]] && rm -rf \"$TMPDIR\"" exit
+          cd "$TMPDIR"
         }
-        cd "$TMPDIR"
         case "$_tmp_url" in
-          *".tar.gz") PRE; tar xfz ~download.tmp; mv "$_tmp_ext_fn" "$DD/~download.tmp";;
-          *".tar") PRE; tar xf ~download.tmp; mv "$_tmp_ext_fn" "$DD/~download.tmp";;
-          *".zip") PRE; unzip ~download.tmp; mv "$_tmp_ext_fn" "$DD/~download.tmp";;
+          *".tar.gz") PRE; tar xfz "$DD/.download.tmp~"; mv "$_tmp_ext_fn" "$DD/.download.tmp~";;
+          *".tar") PRE; tar xf "$DD/.download.tmp~"; mv "$_tmp_ext_fn" "$DD/.download.tmp~";;
+          *".zip") PRE; unzip "$DD/.download.tmp~"; mv "$_tmp_ext_fn" "$DD/.download.tmp~";;
         esac
       )
       
@@ -551,7 +551,7 @@ _pkg_download_and_install() {
           rm "$CMD_NAME.sha256"
           _log_w "Unable to download the $_tmp_name checksum file"
           ask "Should I proceed anyway?" || {
-            rm "~download.tmp"
+            rm ".download.tmp~"
             FATAL "Quitting"
           }
           _log_w "$_tmp_name checksum verification skipped by the user"
@@ -560,8 +560,8 @@ _pkg_download_and_install() {
 
         # VERIFY checksum
         [[ -f "$CMD_NAME.sha256" ]] && {
-            [ "$(<"$CMD_NAME.sha256")" = "$(echo ~download.tmp | _sha256sum)" ] || {
-            rm "~download.tmp"
+            [ "$(<"$CMD_NAME.sha256")" = "$(echo .download.tmp~ | _sha256sum)" ] || {
+            rm ".download.tmp~"
             FATAL "Checksum verification failed, operation interrupted"
           }
           COMMENT=" and checked"
@@ -569,7 +569,7 @@ _pkg_download_and_install() {
       fi
       
       # FINALIZE THE NAME
-      mv "~download.tmp" "$CMD_NAME"
+      mv ".download.tmp~" "$CMD_NAME"
       chmod +x "$CMD_NAME"
       _log_i "$_tmp_name \"$_tmp_ver\" downloaded$COMMENT"
     else

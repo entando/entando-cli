@@ -251,7 +251,7 @@
       elif [[ "$var" =~ "#H:-" ]]; then
         echo "$var" | _perl_sed 's/#H:-/ :  -/' | _align_by_sep ":" 22
       else
-        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/' | _align_by_sep ":" 22
+        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/ [\1]/' | _align_by_sep ":" 22
       fi
     done
 

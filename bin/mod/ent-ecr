@@ -70,11 +70,11 @@ RUN() {
     "generate-cr"|"gen-cr"|"cr") #H: shows the usage status of the bundle
       ecr-generate-custom-resource "$@"
       ;;
-    "get-bundle-id"|"bid") #H: calulates and displays the bundle id
+    "get-bundle-id"|"bid") #H: calculates and displays the bundle id
       shift
       _ecr-get-bundle-id "$@"
       ;;
-    "get-plugin-id"|"pid") #H: calulates and displays the plugin id
+    "get-plugin-id"|"pid") #H: calculates and displays the plugin id
       shift
       _ecr-get-plugin-id "$@"
       ;;
@@ -100,7 +100,6 @@ _ecr-gen-secret() {
   args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
   args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
   args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
-  args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
   args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
   args_or_ask -h "$HH" -n -- SAVE_TO '--save///%sp saves to the given file instead of printing' "$@"
   args_or_ask -h "$HH" -F -- APPLY '--apply///%sp applies to the current kube instead of printing' "$@"
