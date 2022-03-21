@@ -1268,7 +1268,7 @@ _pkg_get() {
       _pkg_download_and_install "$var" "k9s" "$ver" \
         "$url/k9s_Linux_x86_64.tar.gz" "k9s" "" \
         "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
-        "$url/k9s_Windows_arm64.tar.gz" "k9" "";
+        "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
       ;;
     *)
       _FATAL -s "Unknown package \"$pkg\""
@@ -1323,7 +1323,7 @@ _pkg_get_path() {
     return 0
   elif command -v "$PKG" &> /dev/null; then
     ! $STRICT && {
-      _set_or_print "$1" "$(which "$PKG")"
+      _set_or_print "$1" "$(command -v "$PKG")"
       return 0
     }
   fi

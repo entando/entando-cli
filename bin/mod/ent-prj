@@ -213,13 +213,13 @@ RUN() {
     # ~~~~~~~~~~~~~~~~~~~~
     #H:> UTILS:
     # ~~~~~~~~~~~~~~~~~~~~
-    "get-bundle-id"|"bid") #H: calulates and displays the bundle id
+    "get-bundle-id"|"bid") #H: calculates and displays the bundle id
       prj_print_bundle_id "$@"
       ;;
-    "get-plugin-id"|"pid") #H: calulates and displays the plugin id
+    "get-plugin-id"|"pid") #H: calculates and displays the plugin id
       prj_print_plugin_id "$@"
       ;;
-    "gen-secret"|"sec") #H: calulates and displays the plugin id
+    "gen-secret"|"sec") #H: generates and displays a plugin secret skeleton
 
       prj_gen_secret "$@"
       ;;

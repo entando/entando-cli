@@ -157,7 +157,6 @@ ent-pkg() {
       args_or_ask -h "$HH" -n -- VER '--version///%sp version of the package' "$@"
       end_help_parsing
       shift 1
-      end_help_parsing
       NONNULL -s PKG
       assert_strict_file_name "PKG" "$PKG" fatal-nst
       _nn VER && assert_acceptable_version_tag "VER" "$VER" fatal-nst
@@ -244,16 +243,17 @@ handle_config_command() {
   args_or_ask -h "$HH" -f -- '--default///selects the default ent configuration' "$@" && {
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_DEFAULT_CFG_FILE"
-    ENT_WORK_DIR="$ENTANDO_ENT_HOME/w/"
+    ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
     THIS_PROFILE=""
   }
 
   args_or_ask -h "$HH" -f -d -- '--print///print the configuration (default)' "$@" && {
     if [ -n "$THIS_PROFILE" ]; then
-      _log_i "Configuration of the profile \"$THIS_PROFILE\"" 1>&2
+      _log_i "Configuration of the profile \"$THIS_PROFILE\":" 1>&2
     else
-      _log_i "Default configuration of the current ent installation" 1>&2
+      _log_i "Default configuration of the current ent installation:" 1>&2
     fi
+    [ -f "$ENT_WORK_DIR/.cfg" ] || _FATAL -s "Configuration file \"$ENT_WORK_DIR/.cfg\" not found"
     cat "$ENT_WORK_DIR/.cfg"
   }
   

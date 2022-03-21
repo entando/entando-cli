@@ -19,7 +19,7 @@ jobs:
       - name: prepare
         run: bash -c "sudo apt update && sudo apt install shellcheck"
       - name: "shellcheck main"
-        run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" $(find bin -maxdepth 3 -type f) $(find s -maxdepth 2 -type f -not -name "*.zsh") hr/auto activate deactivate'
+        run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" $(find bin -maxdepth 3 -type f) $(find s -maxdepth 2 -type f -not -name "*.zsh" -not -name "*.cmd") hr/auto activate deactivate'
       - name: "shellcheck standalones"
         run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" activate && shellcheck --exclude "SC2181,SC2155,SC2119" deactivate'
   tests:
