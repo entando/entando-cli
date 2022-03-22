@@ -95,11 +95,11 @@ RUN() {
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 _ecr-gen-secret() {
+  local SEC_NAME BUNDLE_ID BUNDLE_NAME BUNDLE_PUB_REPO EDIT SAVE_TO APPLY
   bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
-  args_or_ask -h "$HH" -a -n -- SEC_NAME "1/ext_ic_id//%sp the bundle secret name" "$@"
+  args_or_ask -h "$HH" -a -- SEC_NAME "1/ext_ic_id//%sp the bundle secret name" "$@"
   args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
-  args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
-  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repo/url//%sp bundle publication repository URL' "$@"
   args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
   args_or_ask -h "$HH" -n -- SAVE_TO '--save///%sp saves to the given file instead of printing' "$@"
   args_or_ask -h "$HH" -F -- APPLY '--apply///%sp applies to the current kube instead of printing' "$@"
@@ -108,48 +108,58 @@ _ecr-gen-secret() {
   _nn SAVE_TO && assert_strict_file_name "SAVE_TO" "$SAVE_TO" fatal
   
   _nn BUNDLE_ID || {
-    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_NAME" "$BUNDLE_PUB_REPO"
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_PUB_REPO"
   }
   
-  ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO"
+  ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO" "$APPLY"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 _ecr-get-plugin-id() {
+  local PLUGIN_NAME AUTO_PLUGIN_NAME BUNDLE_ID BUNDLE_PUB_REPO VERBOSE
   bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
-  args_or_ask -h "$HH" -a -n -- PLUGIN_NAME '1/ext_ic_id//%sp the plugin base name' "$@"
+  args_or_ask -h "$HH" -a -n -- PLUGIN_NAME '1/url_path//%sp the plugin base name' "$@"
+  args_or_ask -h "$HH" -n -F -- AUTO_PLUGIN_NAME '--auto///%sp tries to derive part of the required information from the repo' "$@"
   args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
-  args_or_ask -h "$HH" -n -- BUNDLE_NAME "--bundle-name/ext_ic_id//%sp the bundle name" "$@"
-  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repository/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repo/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_VERSION '--version/url//%sp the version to consider when AUTO_PLUGIN_NAME is specified' "$@"
+  args_or_ask -h "$HH" -n -F -- VERBOSE '--verbose/url//%sp prints to the stderr additional info' "$@"
   end_help_parsing
+  if $AUTO_PLUGIN_NAME && [ -z "$PLUGIN_NAME" ]; then
+    _ecr_determined_bundle_plugin_name PLUGIN_NAME "$BUNDLE_PUB_REPO" "$BUNDLE_VERSION" 
+  fi
   _nn BUNDLE_ID || {
-    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_NAME" "$BUNDLE_PUB_REPO"
+    NONNULL -s BUNDLE_PUB_REPO
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_PUB_REPO"
   }
   local RES
+  NONNULL -s PLUGIN_NAME BUNDLE_ID
   ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 _ecr-get-bundle-id() {
+  local BUNDLE_PUB_REPO
   bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
-  args_or_ask -h "$HH" -a -n -- NAME "1/ext_ic_id//%sp the bundle name" "$@"
-  args_or_ask -h "$HH" -a -n -- URL '2/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -a -n -- BUNDLE_PUB_REPO '1/url//%sp bundle publication repository URL' "$@"
   end_help_parsing
   local RES
-  ecr.calculate-bundle-id RES "$NAME" "$URL"
+  NONNULL -s BUNDLE_PUB_REPO
+  ecr.calculate-bundle-id RES "$BUNDLE_PUB_REPO"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ecr-generate-custom-resource() {
-  local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
+  local BUNDLE_NAME BUNDLE_PUB_REPO THUMBNAIL_FILE THUMBNAIL_URL
 
   bgn_help_parsing ":ECR-CR" "$@"
-  args_or_ask -n -h "$HH" NAME '--name///name of the bundle project' "$@"
-  args_or_ask -n -h "$HH" REPOSITORY '--repository///url of the publication repository' "$@"
-  args_or_ask -n -h "$HH" THUMBNAIL_FILE "--thumbnail-file///pathname of the thumbnail" "$@"
-  args_or_ask -n -h "$HH" THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  args_or_ask -h "$HH" -n BUNDLE_NAME  '--name///name of the bundle project' "$@"
+  args_or_ask -h "$HH" -n BUNDLE_PUB_REPO "--repo///url of the bundle publication repository" "$@"
+  args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  NONNULL -s BUNDLE_NAME BUNDLE_PUB_REPO
   end_help_parsing
-  
-  ecr.generate-custom-resource "$NAME" "$REPOSITORY" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
+  ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

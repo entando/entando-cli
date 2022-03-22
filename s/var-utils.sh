@@ -170,6 +170,11 @@ assert_git_repo() {
     '^(git|https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "git-url" "$3"
 }
 
+assert_url_path() {
+  _assert_regex_nn "$1" "$2" \
+    '[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "utl-path" "$3"
+}
+
 assert_email() {
   _assert_regex_nn "$1" "$2" '^[^.]+.*$' "" "email" "$3" || return $?
   _assert_regex_nn "$1" "$2" \

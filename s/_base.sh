@@ -142,6 +142,7 @@ mkdir -p "$ENT_OPTS"
 . s/ecr-utils.sh
 . s/attach-utils.sh
 . s/node-utils.sh
+. s/kube-utils.sh
 
 DESIGNATED_VM=""
 DESIGNATED_VM_NAMESPACE=""

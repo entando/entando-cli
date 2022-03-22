@@ -229,12 +229,12 @@ ecr.generate-custom-resource() {
 #
 ecr.calculate-bundle-id() {
   local _tmp_RESVAR="$1"
-  local BUNDLE_NAME="$2"
-  local REPOSITORY="$3"
+  local REPOSITORY="$2"
   local _tmp
-  NONNULL BUNDLE_NAME REPOSITORY
-  _tmp="$(echo "$REPOSITORY" | _sha256sum)"
-  _tmp="${_tmp:0:8}-$BUNDLE_NAME"
+  NONNULL REPOSITORY
+  [ "$VERBOSE" == "true" ] && _pp REPOSITORY 1>&2
+  _tmp="$(echo -n "$REPOSITORY" | _perl_sed 's|^[^:]*://||' | _sha256sum)"
+  _tmp="${_tmp:0:8}"
   [ "${#_tmp}" -gt 200 ] && {
     _tmp="${_tmp:0:200}"
   }
@@ -256,15 +256,38 @@ ecr.calculate-plugin-id() {
   local _tmp
   NONNULL PLUGIN_NAME BUNDLE_ID
   _tmp="pn-${BUNDLE_ID}-${PLUGIN_NAME}"
-  [ "${#_tmp}" -gt 200 ] && {
-    _tmp="$(echo "$PLUGIN_NAME" | _sha256sum)"
-    _tmp="${_tmp:0:8}"
-    _tmp="px-${_tmp}-${BUNDLE_ID}-$PLUGIN_NAME"
-    _tmp="${_tmp:0:200}"
-  }
+  _tmp="$(echo -n "$PLUGIN_NAME" | _sha256sum)"
+  _tmp="${_tmp:0:8}"
+  _tmp="pn-${BUNDLE_ID}-${_tmp}-$(kube.utils.url_path_to_identifier "$PLUGIN_NAME")"
+  [ "${#_tmp}" -gt 200 ] && _FATAL -s "Resulting PLUGIN_ID exceeded the max length of 200 chars (+$((${#_tmp}-200)))"
   _set_var "$_tmp_RESVAR" "$_tmp"
 }
 
+#-----------------------------------------------------------------------------------------------------------------------
+_ecr_determined_bundle_plugin_name() {
+    local _tmp_RES="$(
+    local BUNDLE_PUB_REPO="$2" BUNDLE_VERSION="$3"
+
+    if [ "$BUNDLE_PUB_REPO" != "." ]; then
+      local TMPDIR="$(mktemp -d)"
+      # shellcheck disable=SC2064
+      trap "rm -rf \"$TMPDIR\"" exit
+      cd "$TMPDIR"
+      git clone "$BUNDLE_PUB_REPO" tmpclone &>/dev/null || _FATAL -s "Unable to clone the given repository" 1>&2
+      cd tmpclone
+      if _nn BUNDLE_VERSION; then
+        git checkout "$BUNDLE_VERSION" &>/dev/null || _FATAL -s "Unable clone the given version" 1>&2
+      fi
+    else
+      cd bundle
+    fi
+    RES="$(ls plugins/*  | head -1)"
+    RES=$(cat "$RES" | grep "image:[[:space:]]*" | sed 's/image:[[:space:]]\([^:]*\).*/\1/')
+    echo "$RES"
+  )"
+  _nn _tmp_RES || exit 1
+  _set_var "$1" "$_tmp_RES"
+}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Generates and prints the skeleton of a plugin secret given:
@@ -277,6 +300,7 @@ ecr.generate-and-print-secret() {
   local BUNDLE_ID="$2"
   local EDIT="$3"
   local SAVE_TO="$4"
+  local APPLY="$5"
   if [ "$EDIT" = "true" ]; then
     if ! "$SYS_IS_STDIN_A_TTY" || ! "$SYS_IS_STDOUT_A_TTY"; then
       _FATAL -s "Edit not allowed with non-tty stdin or stdout"

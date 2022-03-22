@@ -57,6 +57,7 @@ node.install-node() {
     __mk_disdir --mark "$ENT_NODE_DIR"
     date > "$ENT_NODE_DIR/.entando-finalized"
     
+    save_cfg_value "ENT_NODE_VER" ""
     save_cfg_value "ENT_NODE_VER" "$ENT_NODE_VER" "$ENT_DEFAULT_CFG_FILE"
     
     true
@@ -64,6 +65,7 @@ node.install-node() {
 
   reload_cfg "$ENT_DEFAULT_CFG_FILE"
   reload_cfg
+  
   node.activate_environment
   
   __exist -f "$ENT_NODE_BIN_NATIVE"
