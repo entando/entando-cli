@@ -167,7 +167,7 @@ ent-attach-vm() {
   true;
 }
 
-handle-edit-manifest() {
+qs-edit-manifest() {
   if [ "$1" = "true" ]; then
     mock-log "## Run edit-manifest of file \"$2\""
     _edit "$2"
@@ -205,4 +205,62 @@ ent-set-kubectl-cmd() {
   new-mock-call-id
   mock-log "## Setting kubectl command to \"$1\""
   ent kubectl ent-set-cmd "sudo k3s kubectl"
+}
+
+QS.VM.SETUP-HOST-DNS-WITH-HOSTMAME-IF-REQUESTED() {
+  $ENTANDO_AUTO_HOSTNAME && {
+    if prepare_for_privileged_commands; then
+      _log_i "> Creating the hostname DNS \"$ENTANDO_VM_NAME\" on the hosts file"
+      ent-host setup-vm-hostname "$ENTANDO_VM_NAME"
+    else
+      _log_w "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
+      _log_w "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
+    fi
+  }
+}
+
+QS.VM.ON-VM.RUN-ENT-CHECK-ENV() {
+  _log_i "> Checking the environment on the VM"
+  if ! $ENTANDO_NO_CHECK; then
+    local YES_OPT=""
+    if $ENTANDO_OPT_YES_FOR_ALL; then
+      YES_OPT="--yes"
+    fi
+
+    local OPT_DNS=""
+    if $WITH_HOSTNAME; then
+      OPT_DNS+="--no-dns-fix "
+    fi
+
+    multipass exec "$ENTANDO_VM_NAME" -- bash -c "
+      cd \
+      && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
+      && ent which \
+      && $VM_VAR ent check-env runtime \
+        ${YES_OPT:+"$YES_OPT"} \
+        ${OPT_DNS:+"$OPT_DNS"}"
+  fi
+}
+
+QS.VM.REGISTER-VM() {
+  _log_i "> Registering the VM"
+  map-set REMOTES "$ENTANDO_VM_NAME" "$ENTANDO_NAMESPACE/$ENTANDO_APPNAME/$ENTANDO_RELEASE"
+  
+  ! $ENTANDO_NO_AUTO_ATTACH && {
+    ent-attach-vm "$ENTANDO_VM_NAME"
+    save_cfg_value "DESIGNATED_VM_NAMESPACE" "$ENTANDO_NAMESPACE"
+    save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
+  }
+}
+
+QS.VM.ON-VM.START-QUICKSTART() {
+  multipass exec "$ENTANDO_VM_NAME" -- bash -c "
+    cd \
+    && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
+    && ent quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\" \
+         --in-quickstart-vm \
+         --release=\"$ENTANDO_RELEASE\" \
+         --cli-version=\"$ENTANDO_CLI_VERSION\" \
+        ${OPT_OVERRIDE:+"$OPT_OVERRIDE"} \
+    "
 }
