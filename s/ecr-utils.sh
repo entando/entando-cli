@@ -272,16 +272,17 @@ _ecr_determined_bundle_plugin_name() {
       local TMPDIR="$(mktemp -d)"
       # shellcheck disable=SC2064
       trap "rm -rf \"$TMPDIR\"" exit
-      cd "$TMPDIR"
-      git clone "$BUNDLE_PUB_REPO" tmpclone &>/dev/null || _FATAL -s "Unable to clone the given repository" 1>&2
-      cd tmpclone
+      cd "$TMPDIR" || _FATAL "Unable to enter workdir" 1>&2
+      git clone "$BUNDLE_PUB_REPO" tmpclone &>/dev/null || _FATAL "Unable to clone the given repository" 1>&2
+      cd tmpclone || _FATAL "Unable to enter clonedir" 1>&2
       if _nn BUNDLE_VERSION; then
-        git checkout "$BUNDLE_VERSION" &>/dev/null || _FATAL -s "Unable clone the given version" 1>&2
+        git checkout "$BUNDLE_VERSION" &>/dev/null || _FATAL "Unable clone the given version" 1>&2
       fi
     else
-      cd bundle
+      cd bundle || _FATAL "Unable to enter bundle dir" 1>&2
     fi
-    RES="$(ls plugins/*  | head -1)"
+    RES="$(find plugins -maxdepth 1 -type f | head -1)"
+    # shellcheck disable=SC2002
     RES=$(cat "$RES" | grep "image:[[:space:]]*" | sed 's/image:[[:space:]]\([^:]*\).*/\1/')
     echo "$RES"
   )"
