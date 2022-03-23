@@ -392,6 +392,7 @@ profile_link_context() {
     kubectx-detach
   else
     kubectx-select RES "$kube_context" && {
+      # shellcheck disable=SC2031
       kubectx-attach "$RES"
     }
   fi
