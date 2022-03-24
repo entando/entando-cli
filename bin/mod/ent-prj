@@ -277,7 +277,7 @@ prj_print_plugin_id() {
   require_pbs_initialized
 
   if $AUTO_PLUGIN_NAME && [ -z "$PLUGIN_NAME" ]; then
-    _ecr_determined_bundle_plugin_name PLUGIN_NAME "." "" 
+    _ecr_determine_bundle_plugin_name PLUGIN_NAME "." "" 
   fi
 
   _nn BUNDLE_ID || {

@@ -125,7 +125,8 @@ _ecr-get-plugin-id() {
   args_or_ask -h "$HH" -n -F -- VERBOSE '--verbose/url//%sp prints to the stderr additional info' "$@"
   end_help_parsing
   if $AUTO_PLUGIN_NAME && [ -z "$PLUGIN_NAME" ]; then
-    _ecr_determined_bundle_plugin_name PLUGIN_NAME "$BUNDLE_PUB_REPO" "$BUNDLE_VERSION" 
+    # shellcheck disable=SC2031
+    _ecr_determine_bundle_plugin_name PLUGIN_NAME "$BUNDLE_PUB_REPO" "$BUNDLE_VERSION" 
   fi
   _nn BUNDLE_ID || {
     NONNULL -s BUNDLE_PUB_REPO
