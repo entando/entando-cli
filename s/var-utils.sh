@@ -167,7 +167,9 @@ assert_url() {
 
 assert_git_repo() {
   _assert_regex_nn "$1" "$2" \
-    '^(git|https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "git-url" "$3"
+    '^(git|ssh|https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' \
+    '^git@[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' \
+    "git-url" "$3"
 }
 
 assert_url_path() {

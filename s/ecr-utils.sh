@@ -264,7 +264,7 @@ ecr.calculate-plugin-id() {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-_ecr_determined_bundle_plugin_name() {
+_ecr_determine_bundle_plugin_name() {
     local _tmp_RES="$(
     local BUNDLE_PUB_REPO="$2" BUNDLE_VERSION="$3"
 
