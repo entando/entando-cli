@@ -214,7 +214,7 @@ ecr.generate-custom-resource() {
 
   _ent-bundler from-git \
     --dry-run \
-    --name "$NAME" \
+    ${NAME:+--name "$NAME"} \
     --repository "$REPOSITORY" \
     $OPT "$OPT_VALUE"
 }

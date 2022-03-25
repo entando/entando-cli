@@ -82,6 +82,10 @@ RUN() {
       shift
       _ecr-gen-secret "$@"
       ;;
+    "deploy") #H: generates the CR and deploys it to the current profile
+      require_develop_checked
+      _ecr-deploy "$@"
+      ;;
     "--help"|"")
       args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
       args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
@@ -93,6 +97,21 @@ RUN() {
   esac
 }
 
+_ecr-deploy() {
+  local BUNDLE_NAME BUNDLE_PUB_REPO THUMBNAIL_FILE THUMBNAIL_URL
+
+  bgn_help_parsing ":ECR-DEPLOY" "$@"
+  args_or_ask -h "$HH" -n BUNDLE_NAME  '--name///name of the bundle project' "$@"
+  args_or_ask -h "$HH" -n BUNDLE_PUB_REPO "--repo///url of the bundle publication repository" "$@"
+  args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  NONNULL -s BUNDLE_PUB_REPO
+  end_help_parsing
+
+  ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" \
+    | _kubectl apply -f -
+}
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 _ecr-gen-secret() {
   local SEC_NAME BUNDLE_ID BUNDLE_NAME BUNDLE_PUB_REPO EDIT SAVE_TO APPLY
@@ -158,8 +177,9 @@ ecr-generate-custom-resource() {
   args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
-  NONNULL -s BUNDLE_NAME BUNDLE_PUB_REPO
+  NONNULL -s BUNDLE_PUB_REPO
   end_help_parsing
+  
   ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1301,7 +1301,6 @@ _pkg_ok() {
 _pkg_k9s() {
   local CMD; _pkg_get_path CMD "k9s"
   if [ -z "$1" ]; then
-
     if _nn DESIGNATED_KUBECTX; then
       "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
     elif _nn DESIGNATED_KUBECONFIG; then
