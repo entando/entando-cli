@@ -773,7 +773,7 @@ bgn_help_parsing() {
 }
 
 before_printing_help() {
-  HH_LATCHED_HELP_HEADING
+  [[ "$(type -t HH_LATCHED_HELP_HEADING)" == "function" ]] && HH_LATCHED_HELP_HEADING
   HH_LATCHED_HELP_HEADING() { :; }
 }
 
