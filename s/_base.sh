@@ -335,7 +335,9 @@ kubectl_mode() {
 
 check_kubectl() { 
   if [ "$WARN_KUBECTL" != "false" ]; then
-    local VER="$(_kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs)"
+    local VER="$(
+      KUBECTL_SKIP_SUDO=true _kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs
+    )"
     if [ -n "$VER" ]; then
       if check_ver_ge "$VER" "1.22.0" 2>/dev/null; then
         _log_w "this version of kubectl is not yet supported, replace it with a version < 1.22" \

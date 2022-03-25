@@ -8,430 +8,49 @@ cd "$DIR/../.." || {
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && echo "Helper for installing Entando instances locally" && exit 0
 
-# shellcheck disable=SC2120
-debug_trace_vars() {
-  if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
-    _pp \
-      ENTANDO_RELEASE ENTANDO_RELEASES_STRUCTURE_V_6_3_2 ENTANDO_CLI_VERSION \
-      DESIGNATED_PROFILE DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
-      ENTANDO_NAMESPACE ENTANDO_APPNAME \
-      ENTANDO_STANDARD_QUICKSTART ENTANDO_PRE_EXISTING K8S_TEMPLATE \
-      AUTO_ADD_ADDR ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME \
-      ENTANDO_DEBUG WITH_VM ENTANDO_OPT_YES_FOR_ALL ENTANDO_INTERACTIVE \
-      JUST_SET_CFG \
-      ENTANDO_VM_NAME ENTANDO_VM_CPU ENTANDO_VM_MEM ENTANDO_VM_DISK ENTANDO_VM_REUSE \
-      ENTANDO_AUTO_HOSTNAME ENTANDO_CONFIGMAP_OVERRIDE_FILE ENTANDO_COCOO_VERSION_OVERRIDE EDIT_MANIFEST \
-      ENT_KUBECTL_CMD
-  fi
-}
-
 #-----------------------------------------------------------------------------------------------------------------------
 . s/_base.sh
+. s/quickstart-helper.sh
 
-HH="$(parse_help_option "$@")"
-show_help_option "$HH"
+QS.SET_DEFAULTS "$@"
+QS.PARSE_ARGS "$@"
+QS.PARSE_UNDOCUMENTED_ARGS "$@"
+QS.BASIC_ARGS_VALIDATION "$@"
+QS.DECLARE_BASIC_HELPERS_FUNCTIONS "$@"
 
-args_or_ask -h "$HH" -n -F "ENTANDO_PRE_EXISTING" \
-  "--pre-existing///Assumes a pre-existing kubernetes and namespace, so doesn't create cluster resources and namespace" "$@"
+QS.DETERMINE_FILE_STRUCTURE "$@"
+QS.LOAD_QS_PROFILE "$@"
 
-ENT_KUBECTL_CMD=""
-
-args_or_ask -h "$HH" -n "PROFILE" "--profile///Forces the quickstart to use the profile" "$@"
-
-if [ -z "$HH" ]; then
-  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  if ! $ENTANDO_PRE_EXISTING && [ -z "$ENT_KUBECTL_CMD" ]; then
-    echo "~ STARTING QUICKSTART"
-    ENTANDO_STANDARD_QUICKSTART=true
-  else
-    echo "~ STARTING NON-STANDARD QUICKSTART"
-    ENTANDO_STANDARD_QUICKSTART=false
-  fi
-  echo "~ NAME OF THIS HOST: $(hostname)"
-  echo "~ ARGUMENTS: $*"
-  echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-fi
+QS.TRY_SETUP_HOSTNAME_MODE "$@"
+QS.TRY_SETUP_AUTO_HOSTNAME_MODE "$@"
+QS.TRY_SETUP_SIMPLE_MODE "$@"
+QS.TRY_SETUP_CUSTOM_MODE "$@"
+QS.FINALIZE_MODE "$@"
 
 #-----------------------------------------------------------------------------------------------------------------------
-
-ENTANDO_INTERACTIVE="true"
-EDIT_MANIFEST=false
-ENTANDO_VM_REUSE=""
-args_or_ask -h "$HH" -n -a "ENTANDO_NAMESPACE" "1/ext_id//The namespace" "$@"
-args_or_ask -h "$HH" -n -a "ENTANDO_APPNAME" "2/ext_id//The application name" "$@"
-args_or_ask -h "$HH" -n -p "ENTANDO_RELEASE" "--release//$C_QUICKSTART_DEFAULT_RELEASE/the version tag of the release" "$@"
-args_or_ask -h "$HH" -n -p "ENTANDO_CLI_VERSION" "--cli-version///the version tag of CLI" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_DEBUG" "--debug/num/0/if set to 1 shows debug information" "$@"
-args_or_ask -h "$HH" -n -F "WITH_VM" "--with-vm///starts in a VM instead of natively" "$@"
-args_or_ask -h "$HH" -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
-args_or_ask -h "$HH" -n -p -F "ENTANDO_INTERACTIVE" "--interactive///Explicitly tell to execute or not in interactive mode" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_VM_NAME" "--vm-name//$ENTANDO_NAMESPACE/The name of the VM (defaults to the namespace name)" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_VM_CPU" "--vm-cpu///Number of CPUs" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_VM_MEM" "--vm-mem/giga//VM memory, ex: 5G" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_VM_DISK" "--vm-disk/giga//Disk space: ex: 15G" "$@"
-args_or_ask -h "$HH" -n -p -F "ENTANDO_VM_REUSE" "--vm-reuse///Allows the quickstart to reuse an existing VM" "$@"
-args_or_ask -h "$HH" -n -F "ENTANDO_AUTO_HOSTNAME" "--auto-hostname///Automatically registers the VM hostname into the \"hosts\" file of the VM's host system" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_COCOO_VERSION_OVERRIDE" \
-  "--override-cocoo-version///Overrides the version of the controller coordinator with the supplied version" "$@"
-args_or_ask -h "$HH" -n "ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
-  "--override-configmap///Overrides the configmap with the supplied file content" "$@"
-args_or_ask -h "$HH" -n -p -F "ENTANDO_STANDARD_QUICKSTART" \
-  "--standard///Forces the standard behaviour in case of special kubectl setup or pre-existing k8s targets" "$@"
-args_or_ask -h "$HH" -n "K8S_TEMPLATE" "--use-template///Forces the use of a specific manifest template type" "$@"
-args_or_ask -h "$HH" -n -p -F "EDIT_MANIFEST" \
-  "--edit-manifest///Allows the user to manually customize the manifest yaml file" "$@"
-args_or_ask -h "$HH" -n -p "EDIT_MANIFEST" \
-  "--edit-manifest-with///Allows the user to manually customize the manifest yaml file" "$@"
-args_or_ask -h "$HH" -n "OVERRIDE_DB_TYPE" \
-  "--override-db-type///Forces the use of the given DB type" "$@"
-
-[ -n "$HH" ] && echo "" && exit 0
-
-[[ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" && ! -f "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ]] &&
-  FATAL "Unable to find override file \"$ENTANDO_CONFIGMAP_OVERRIDE_FILE\""
-
-[ -z "$ENTANDO_NAMESPACE" ] && FATAL "Please provide the namespace"
-[ -z "$ENTANDO_APPNAME" ] && FATAL "Please provide the appname"
-
-[ -z "$ENTANDO_VM_CPU" ] && ENTANDO_VM_CPU="4"
-[ -z "$ENTANDO_VM_MEM" ] && ENTANDO_VM_MEM="5G"
-[ -z "$ENTANDO_VM_DISK" ] && ENTANDO_VM_DISK="15G"
-
-args_or_ask -n -F "ENTANDO_NO_CHECK" "--no-check" "$@"
-args_or_ask -n -F "ENTANDO_NO_AUTO_ATTACH" "--no-auto-attach" "$@"
-args_or_ask -n -F "JUST_SET_CFG" "--config" "$@"
-args_or_ask -n -F "IN_QUICKSTART_VM" "--in-quickstart-vm///Tells quickstart the it's being run in a VM designed to run it" "$@"
-args_or_ask -n -F "ENTANDO_MOCK_TEST_RUN" "--use-mocks///enables the mocks" "$@"
-
-ent-attach-vm() { ent attach-vm "$@"; }
-ent-check-env() { bash bin/mod/ent-check-env "$@"; }
-ent-app-info() { ent app-info "$@"; }
-ent-host() { ent host "$@"; }
-handle-edit-manifest() {
-  if [ "$1" = "true" ]; then
-    _edit "$2"
-  elif [[ "$1" != "false" && "$1" != "" ]]; then
-    "$1" "$2"
-  fi
-}
-sourced-ent-profile-use() {
-  # shellcheck disable=SC1091
-  . ent profile use "$@"
-}
-ent-profile-new() {
-  ent profile new "$@"
-}
-
-ent-profile-delete() {
-  ent profile delete "$@"
-}
-
-ent-set-kubectl-cmd() {
-  ent kubectl ent-set-cmd "sudo k3s kubectl"
-}
-
-ent-kubectl() {
-  ent kubectl "$@"
-}
-
-$ENTANDO_MOCK_TEST_RUN && {
-  . s/quickstart-mocks.sh
-}
-
-! $ENTANDO_INTERACTIVE && {
-  ENTANDO_OPT_YES_FOR_ALL=true
-  [[ -n "$EDIT_MANIFEST" && "$EDIT_MANIFEST" != "false" ]] &&
-    FATAL "It's impossible to satisfy \"--edit-manifest\" or \"--edit-manifest-with\" due to non-interactive session"
-}
-
-args_or_ask -f -- "--destroy" "$@" && {
-  reload_cfg
-  prepare_for_privileged_commands
-  ask "Should I destroy namespace \"$ENTANDO_NAMESPACE\" and contained app \"$ENTANDO_APPNAME\" ?" && {
-    ent-kubectl delete namespace "$ENTANDO_NAMESPACE"
-  }
-  exit
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
-
-[ -n "$PROFILE" ] && {
-  # shellcheck disable=SC1091
-  sourced-ent-profile-use "$PROFILE" 2> /dev/null && {
-    _log_i "Ent profile \"$PROFILE\" already exists, I will reuse it"
-  }
-}
-
-if [ "$ENTANDO_RELEASE" != "$C_QUICKSTART_DEFAULT_RELEASE" ]; then
-  assert_ver "ENTANDO_RELEASE" "$ENTANDO_RELEASE" || FATAL "Please provide a valid release tag"
-fi
-
-# determines the structure and conventions of the entando-releases repository
-
-if check_ver_ge "$ENTANDO_RELEASE" "6.3.2"; then
-   ENTANDO_RELEASES_STRUCTURE_V_6_3_2=true
-else
-   ENTANDO_RELEASES_STRUCTURE_V_6_3_2=false
-fi
-
-if "$ENTANDO_PRE_EXISTING"; then
-  $WITH_VM && FATAL "Flag \"--pre-existing\" is incompatible with \"--with-vm\""
-  $IN_QUICKSTART_VM && FATAL "Flag \"--pre-existing\" is incompatible with \"--in-quickstart-vm\""
-fi
-
-WITH_HOSTNAME=false
-WITH_SINGLE_HOSTNAME=false
-FOUND=false
-
-! $JUST_SET_CFG && {
-  # HOSTNAME MODE ----
-  if args_or_ask -n -p "ADDR" "--hostname/fdn?" "$@" ||
-     args_or_ask -n -p "ADDR" "--hostname/dn?" "$@"; then
-    if [ -n "$ADDR" ]; then
-      FOUND=true
-    else
-      if $OS_WIN && $WITH_VM && [ -n "$ENTANDO_VM_NAME" ]; then
-        # OS_WIN: derive the hostname from the
-        ADDR="$ENTANDO_VM_NAME.$C_WIN_VM_HOSTNAME_SUFFIX"
-        _log_i "Assuming hostname name: \"$ADDR\""
-        assert_fdn "HOSTNAME" "$ADDR"
-        FOUND=true
-      else
-        FATAL "Please provide an hostname"
-      fi
-    fi
-
-    WITH_HOSTNAME=true
-    WITH_SINGLE_HOSTNAME=true
-    if $WITH_VM; then
-      VM_OPT="--hostname=\"$ADDR\""
-    fi
-  fi
-
-  # AUTO HOSTNAME MODE ----
-  if $ENTANDO_AUTO_HOSTNAME; then
-    if ! $WITH_HOSTNAME; then
-      _log_i "Checking if user is admin (skippable with CTRL+C)"
-      if ! $ENTANDO_INTERACTIVE; then
-        ENTANDO_AUTO_HOSTNAME=false
-        _log_i "Non-interactive mode, requested auto-hostname not granted"
-      elif prepare_for_privileged_commands; then
-        ENTANDO_AUTO_HOSTNAME=true
-        _log_i "User is an admin, requested auto-hostname granted"
-      else
-        _log_i "User admin check failed, requested auto-hostname not granted"
-      fi
-    fi
-  fi
-
-  $ENTANDO_AUTO_HOSTNAME && {
-    $WITH_HOSTNAME && FATAL "--hostname is not compatible with --auto-hostname"
-
-    if $WITH_VM; then
-      VM_OPT="--auto-hostname"
-      WITH_HOSTNAME=true
-      WITH_SINGLE_HOSTNAME=true
-      FOUND=true
-    else
-      ADDR="$ENTANDO_VM_NAME.$C_AUTO_VM_HOSTNAME_SUFFIX"
-      _log_i "Assuming hostname name: \"$ADDR\""
-      assert_fdn "HOSTNAME" "$ADDR"
-      FOUND=true
-      WITH_HOSTNAME=true
-      WITH_SINGLE_HOSTNAME=true
-    fi
-  }
-
-  #-----------------------------------------------------------------------------------------------------------------------
-
-  # SIMPLE MODE ----
-  ! $WITH_HOSTNAME && args_or_ask -n -p "ADDR" "--simple/ip?" "$@" && {
-    FOUND=true
-    AUTO_ADD_ADDR=false
-    if $WITH_VM; then
-      if [ -n "$ADDR" ]; then
-        VM_OPT="--simple=\"$ADDR\""
-      else
-        VM_OPT="--simple"
-      fi
-    else
-      [[ -z "$ADDR" ]] && ADDR="$(hostname -I | awk '{print $1}')"
-    fi
-  }
-
-  # CUSTOM MODE: IP ----
-  args_or_ask -n -p "ADDR" "--custom/ip?" "$@" && {
-    FOUND=true
-    AUTO_ADD_ADDR=true
-    [[ -z "$ADDR" ]] && {
-      FATAL "Please provide the custom ip address"
-    }
-    VM_OPT="--custom=\"$ADDR\""
-  }
-  # CUSTOM MODE: FQDN ----
-  ! $FOUND && args_or_ask -n -p "ADDR" "--custom/fdn" "$@" && {
-    FOUND=true
-    AUTO_ADD_ADDR=false
-    WITH_HOSTNAME=true
-    WITH_SINGLE_HOSTNAME=false
-    VM_OPT="--custom=\"$ADDR\""
-  }
-}
-
-! $FOUND && {
-  echo -e "Please provide a valid address mode option:" 1>&2
-  echo "  --simple=[ADDR]    => standard installation with an existing ip" 1>&2
-  echo "  --hostname=[FQDN]  => standard installation with an existing fully qualified domain name" 1>&2
-  echo "  --auto-hostname    => standard installation with an full qualified domain name generated and stored in the hosts file" 1>&2
-  echo "  --custom=[ADDR]    => automatically adds an IP on the OS (only netplan)" 1>&2
-  echo "" 1>&2
-  echo "NOTE: if \"ADDR\" is not provided one is automatically determined" 1>&2
-  echo "" 1>&2
-  exit 1
-}
 
 save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
 save_cfg_value "ENTANDO_APPNAME" "$ENTANDO_APPNAME"
-
-if $WITH_HOSTNAME; then
-  save_cfg_value "ENTANDO_SUFFIX" "$ADDR"
-else
-  save_cfg_value "ENTANDO_SUFFIX" "$ADDR.nip.io"
-fi
-
-$JUST_SET_CFG && echo "Config has been written" && exit 0
+save_cfg_value "ENTANDO_SUFFIX" "$ENTANDO_SUFFIX"
 
 #-----------------------------------------------------------------------------------------------------------------------
 # WITH-VM
 
 RUN_WITH_VM() {
-  _log_i "> Preflight checks"
-  if multipass info "$ENTANDO_VM_NAME" &>/dev/null; then
-    local err_msg="A VM named \"$ENTANDO_VM_NAME\" already exists"
+  QS.VM.PROBE-VM
+  QS.VM.CREATE-QS-PROFILE
 
-    if [ -z "${ENTANDO_VM_REUSE}" ]; then
-      _log_w "$err_msg"
-      ! $ENTANDO_INTERACTIVE && FATAL "$err_msg"
-      
-      multipass info "$ENTANDO_VM_NAME"
-      ask "Should I try reusing it?" || {
-        EXIT_UE "$err_msg"
-      }
-    elif $ENTANDO_VM_REUSE; then
-      _log_i "$err_msg and you choose to reuse it"
-    else
-      _log_w "${err_msg}"
-      multipass info "$ENTANDO_VM_NAME"
-      FATAL "$err_msg"
-    fi
-    multipass start "$ENTANDO_VM_NAME" || FATAL "VM can't be reused"
-    LAUNCH_NEW_VM=false
-  else
-    LAUNCH_NEW_VM=true
-  fi
-  
-  if ! $ENTANDO_NO_AUTO_ATTACH && [ -z "$PROFILE" ]; then
-    ent-profile-delete "qs-$ENTANDO_VM_NAME" --yes
-    ent-profile-new "qs-$ENTANDO_VM_NAME" \
-      "$ENTANDO_APPNAME" \
-      "$ENTANDO_NAMESPACE" \
-      --auto-use=false \
-    ;
-    # shellcheck disable=SC1091
-    sourced-ent-profile-use "qs-$ENTANDO_VM_NAME"
-  fi
+  QS.VM.LAUNCH-VM
+  QS.VM.REGISTER-VM
 
-  [ "$ENTANDO_DEBUG" -gt 0 ] && VM_OPT+=" --debug=$ENTANDO_DEBUG"
-  $ENTANDO_MOCK_TEST_RUN && VM_OPT+=" --use-mocks"
+  QS.VM.SEND-NECESSARY-FILES-TO-VM
+  QS.VM.ON-VM.INSTALL-ENT
 
-  $ENTANDO_OPT_YES_FOR_ALL && VM_OPT+=" --yes"
-  ! $ENTANDO_INTERACTIVE && {
-    VM_OPT+=" --interactive=false"
-    VM_VAR="ENTANDO_OPT_YES_FOR_ALL=true"
-  }
+  QS.VM.DETERMINE-EXECUTION-ARGUMENTS
+  QS.VM.SETUP-HOST-DNS-WITH-HOSTMAME-IF-REQUESTED
 
-  #~ LAUNCH OR REUSE VM
-  if $LAUNCH_NEW_VM; then
-    _log_i "> Generating the base VM"
-    multipass launch --name "$ENTANDO_VM_NAME" --cpus "$ENTANDO_VM_CPU" --mem "$ENTANDO_VM_MEM" --disk "$ENTANDO_VM_DISK"
-  else
-    _log_i "Trying to reuse the exiting base VM"
-  fi
-
-  #~ PREPARES OVERRIDES
-  [ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ] && {
-    multipass copy-files "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" "$ENTANDO_VM_NAME:/tmp/configmap-override-file"
-    OPT_OVERRIDE+=" --override-configmap='/tmp/configmap-override-file'"
-  }
-
-  [ -n "$ENTANDO_COCOO_VERSION_OVERRIDE" ] && {
-    OPT_OVERRIDE+=" --override-cocoo-version=$ENTANDO_COCOO_VERSION_OVERRIDE"
-  }
-
-  case "$EDIT_MANIFEST" in
-  true) OPT_OVERRIDE+=" --edit-manifest" ;;
-  "") ;;
-  *) OPT_OVERRIDE+=" --edit-manifest-with='$EDIT_MANIFEST'" ;;
-  esac
-
-  #~ INSTALL ENT IN THE VM
-  _log_i "> Installing Ent on the VM"
-  multipass exec "$ENTANDO_VM_NAME" -- bash -c "
-    bash <(curl \"https://raw.githubusercontent.com/entando/entando-cli/$ENTANDO_CLI_VERSION/auto-install\") \
-      --release=\"$ENTANDO_RELEASE\" --cli-version=\"$ENTANDO_CLI_VERSION\"
-    "
-  #~ HANDLE AUTO-HOSTNAME
-  $ENTANDO_AUTO_HOSTNAME && {
-    if prepare_for_privileged_commands; then
-      _log_i "> Creating the hostname DNS \"$ENTANDO_VM_NAME\" on the hosts file"
-      ent-host setup-vm-hostname "$ENTANDO_VM_NAME"
-    else
-      _log_w "> Unable to setup the hostname DNS \"$ENTANDO_AUTO_HOSTNAME\" on the hosts file"
-      _log_w "> Please run \"ent host setup-vm-hostname \"$ENTANDO_VM_NAME\" manually"
-    fi
-  }
-
-  #~ RUN THE CHECK-ENV in the VM
-  _log_i "> Checking the environment on the VM"
-  if ! $ENTANDO_NO_CHECK; then
-    local YES_OPT=""
-    if $ENTANDO_OPT_YES_FOR_ALL; then
-      YES_OPT="--yes"
-    fi
-
-    local OPT_DNS=""
-    if $WITH_HOSTNAME; then
-      OPT_DNS+="--no-dns-fix "
-    fi
-
-    multipass exec "$ENTANDO_VM_NAME" -- bash -c "
-      cd \
-      && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
-      && ent which \
-      && $VM_VAR ent check-env runtime \
-        ${YES_OPT:+"$YES_OPT"} \
-        ${OPT_DNS:+"$OPT_DNS"}"
-  fi
-
-  #~ RUN THE QUICKSTART in the VM
-  map-set REMOTES "$ENTANDO_VM_NAME" "$ENTANDO_NAMESPACE/$ENTANDO_APPNAME/$ENTANDO_RELEASE"
-
-  _log_i "> Registering the VM"
-  ! $ENTANDO_NO_AUTO_ATTACH && {
-    ent-attach-vm "$ENTANDO_VM_NAME"
-    save_cfg_value "DESIGNATED_VM_NAMESPACE" "$ENTANDO_NAMESPACE"
-    save_cfg_value "ENTANDO_NAMESPACE" "$ENTANDO_NAMESPACE"
-  }
-
-  multipass exec "$ENTANDO_VM_NAME" -- bash -c "
-    cd \
-    && source \".entando/ent/$ENTANDO_RELEASE/cli/$ENTANDO_CLI_VERSION/activate\" \
-    && ent quickstart $VM_OPT \"$ENTANDO_NAMESPACE\" \"$ENTANDO_APPNAME\" \
-         --in-quickstart-vm \
-         --release=\"$ENTANDO_RELEASE\" \
-         --cli-version=\"$ENTANDO_CLI_VERSION\" \
-        ${OPT_OVERRIDE:+"$OPT_OVERRIDE"} \
-    "
+  QS.VM.ON-VM.RUN-ENT-CHECK-ENV
+  QS.VM.ON-VM.START-QUICKSTART
 
   exit 0
 }
@@ -439,195 +58,41 @@ RUN_WITH_VM() {
 #-----------------------------------------------------------------------------------------------------------------------
 # DIRECT
 
-# shellcheck disable=SC2120
 RUN_DIRECT() {
   _log_i "> Checking environment"
 
-  # -- CHECK-ENV
+  QS.CHECKOUT-RELEASE
+  QS.CREATE-QS-PROFILE
+  QS.RUN-ENT-CHECK-ENV
+  QS.REFRESH-ENVIRONMENT
 
-  ! $JUST_SET_CFG && ! $ENTANDO_NO_CHECK && {
-    ent-profile-delete "qs-localhost" --yes
-    ent-profile-new "qs-localhost" \
-      "$ENTANDO_APPNAME" \
-      "$ENTANDO_NAMESPACE" \
-      --auto-use=false \
-    ;
-    sourced-ent-profile-use "qs-localhost"
-    kubectl_mode --reset-mem --reset-cfg
-    if $ENTANDO_STANDARD_QUICKSTART; then
-      ent-set-kubectl-cmd "sudo k3s kubectl"
-    fi
-
-    local YES_OPT=""
-    if $ENTANDO_OPT_YES_FOR_ALL; then
-      YES_OPT="--yes"
-    fi
-
-    if $ENTANDO_STANDARD_QUICKSTART; then
-      if $WITH_HOSTNAME; then
-        ent-check-env runtime --no-dns-fix ${YES_OPT:+"$YES_OPT"}
-      else
-        ent-check-env runtime ${YES_OPT:+"$YES_OPT"}
-      fi
-    fi
-  }
-
-  # -- ENVIRONMENT REFRESH and adjustments
-
-  # shellcheck disable=SC1090
-  [ -f ~/.bashrc ] && . ~/.bashrc
-  [ -z "$ENT_KUBECTL_CMD" ] && {
-    DESIGNATED_KUBECONFIG=""
-  }
-  
-  setup_kubectl
-  
-  # -- NETWORKING CHECKS
-
-  if ! $WITH_HOSTNAME; then
-    $AUTO_ADD_ADDR && {
-      net_is_address_present "$ADDR" || {
-        netplan_add_custom_ip "$ADDR/24"
-        sudo netplan generate
-        sudo netplan apply
-        sleep 1
-      }
-    }
-
-    net_is_address_present "$ADDR" || {
-      FATAL "The designated ip address is not present on the system"
-    }
-
-    FQADDR="$ADDR.nip.io"
-    SINGLE_HOSTNAME="~"
-
-    _log_d "> Using ip address: $ADDR"
-  else
-    FQADDR="$ADDR"
-    if $WITH_SINGLE_HOSTNAME; then
-      SINGLE_HOSTNAME="$FQADDR"
-    else
-      SINGLE_HOSTNAME="~"
-    fi
-
-    _log_d "> Using domain: $ADDR"
-  fi
-
-  # -- GENERATES THE YAML TGT_FILE FILE
-  local MANIFEST_TEMPLATE_FILE
-  if $ENTANDO_RELEASES_STRUCTURE_V_6_3_2; then
-    determine_versioned_filename_6_3_2 MANIFEST_TEMPLATE_FILE "${DEPL_SPEC_YAML_FILE}.tpl" "$K8S_TEMPLATE"
-  else
-    determine_versioned_filename_6_3_0 MANIFEST_TEMPLATE_FILE "${DEPL_SPEC_YAML_FILE}.tpl" "$K8S_TEMPLATE"
-  fi
-
-  if [ -f "dist/$MANIFEST_TEMPLATE_FILE" ]; then
-    _log_i "> Selecting manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
-  else
-    FATAL "Unable to find manifest template file \"dist/$MANIFEST_TEMPLATE_FILE\""
-  fi
-
-  _log_i "> Generating the kubernetes specification file \"w/$DEPL_SPEC_YAML_FILE\" for the deployment"
-
-  # shellcheck disable=SC2002
-  cat "dist/$MANIFEST_TEMPLATE_FILE" |
-    _perl_sed "s/PLACEHOLDER_ENTANDO_NAMESPACE/$ENTANDO_NAMESPACE/" |
-    _perl_sed "s/PLACEHOLDER_ENTANDO_APPNAME/$ENTANDO_APPNAME/" |
-    _perl_sed "s/PLACEHOLDER_ENTANDO_SINGLE_HOSTNAME/$SINGLE_HOSTNAME/" |
-    _perl_sed "s/PLACEHOLDER_ENTANDO_DOMAIN_SUFFIX/$FQADDR/" \
-      >"w/$DEPL_SPEC_YAML_FILE"
-
-  [ -n "$OVERRIDE_DB_TYPE" ] && {
-    _sed_in_place "s/dbms: .*/dbms: $OVERRIDE_DB_TYPE/g" "w/$DEPL_SPEC_YAML_FILE"
-  }
-
-  _log_i "File \"w/$DEPL_SPEC_YAML_FILE\" generated"
-
-  $ENTANDO_STANDARD_QUICKSTART && {
-    ask "Should I register the Cluster Level Resources?" && {
-      local CLUSTER_RESOURCES
-      if $ENTANDO_RELEASES_STRUCTURE_V_6_3_2; then
-        determine_versioned_filename_6_3_2 CLUSTER_RESOURCES "cluster-resources.yaml" "$K8S_TEMPLATE"
-      else
-        determine_versioned_filename_6_3_0 CLUSTER_RESOURCES "crd" "$K8S_TEMPLATE"
-      fi
-      
-      ent-kubectl apply -f "dist/$CLUSTER_RESOURCES"
-    }
-  }
-
-  # -- APPLIES OVERRIDES
-
-  if [ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE$ENTANDO_COCOO_VERSION_OVERRIDE" ]; then
-    local TGT_FILE="w/$DEPL_SPEC_YAML_FILE"
-    local TMP_FILE="w/$DEPL_SPEC_YAML_FILE.tmp"
-
-    # ConfigMap override
-    [ -n "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" ] && {
-      _log_i "Applying the ConfigMap override"
-      s/entando-quickstart-yaml-helper.sh set-configmap \
-        "$TGT_FILE" \
-        "$ENTANDO_CONFIGMAP_OVERRIDE_FILE" \
-        >"$TMP_FILE"
-    }
-    mv "$TMP_FILE" "$TGT_FILE"
-    # CoCoo override
-    [ -n "$ENTANDO_COCOO_VERSION_OVERRIDE" ] && {
-      _log_i "Applying the Controller Coordinator override"
-      s/entando-quickstart-yaml-helper.sh set-cocoo-version \
-        "$TGT_FILE" \
-        "$ENTANDO_COCOO_VERSION_OVERRIDE" \
-        >"$TMP_FILE"
-    }
-    mv "$TMP_FILE" "$TGT_FILE"
-  fi
-
-  handle-edit-manifest "$EDIT_MANIFEST" "w/$DEPL_SPEC_YAML_FILE"
+  QS.NET-SETUP-ANALYSIS
+  QS.MANIFEST.GENERATE-FILE
+  QS.MANIFEST.APPLY-OVERRIDES
+  QS.HANDLE-EDIT-MANIFEST-REQUEST
 
   # -- DEPLOYMENT
-  ask "Should I start the deployment?" && {
-    $ENTANDO_STANDARD_QUICKSTART && {
-      ent-kubectl create namespace "$ENTANDO_NAMESPACE"
-    }
-    _sed_in_place "s/ingressHostName: ~//g" "w/$DEPL_SPEC_YAML_FILE"
-    ent-kubectl create -f "w/$DEPL_SPEC_YAML_FILE" -n "$ENTANDO_NAMESPACE"
-  }
-
-  # -- POST-DEPLOYMENT
-
-  # shellcheck disable=SC2015
-  ask "Should I start the monitor?" && {
-    export ENTANDO_ENT_KUBECTL_CMD="$ENT_KUBECTL_CMD"
-    ent-app-info watch || true
-  } || {
-    echo -e "\n~~~\nUse the command:\n  - ent app-info.sh watch\nto check the status of the app"
-  }
+  QS.INSTALL-CLUSTER-LEVEL-RESOURCES
+  QS.CREATE-NAMESPACE "$@"
+  QS.START-DEPLOYMENT || EXIT_UE "User interrupted"
+  QS.WATCH-DEPLOYMENT
+  
+  exit 0
 }
 
-determine_versioned_filename_6_3_0() {
-  local dst_var="$1"
-  local base_template_name="$2"
-  local template_variant="$3"
-  _set_var "$dst_var" "${base_template_name}${template_variant:+".$template_variant"}"
-}
-
-determine_versioned_filename_6_3_2() {
-  local dst_var="$1"
-  local base_template_name="$2"
-  local template_variant="$3"
-
-  if [ -n "$template_variant" ]; then
-    local k8s_version_tag="${template_variant:+".$template_variant"}"
-  else
-    local k8s_version_tag="ge-1-1-6"
-  fi
-  _set_var "$dst_var" "${k8s_version_tag}/namespace-scoped-deployment/${base_template_name}"
-}
 #-----------------------------------------------------------------------------------------------------------------------
 debug_trace_vars
 
+ENTANDO_RELEASE_BASE_DIR="$(mktemp -d)"
+# shellcheck disable=SC2064
+trap "rm -rf \"$ENTANDO_RELEASE_BASE_DIR\"" exit
+
 if $WITH_VM; then
-  RUN_WITH_VM
+  RUN_WITH_VM "$@"
 else
-  RUN_DIRECT
+  mkdir -p "$ENTANDO_RELEASE_BASE_DIR/w"
+  cd "$ENTANDO_RELEASE_BASE_DIR"
+  RUN_DIRECT "$@"
 fi
+
+

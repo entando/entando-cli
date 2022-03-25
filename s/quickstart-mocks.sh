@@ -167,7 +167,7 @@ ent-attach-vm() {
   true;
 }
 
-handle-edit-manifest() {
+qs-edit-manifest() {
   if [ "$1" = "true" ]; then
     mock-log "## Run edit-manifest of file \"$2\""
     _edit "$2"

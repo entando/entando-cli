@@ -1321,17 +1321,17 @@ _pkg_get_path() {
   if command -v "$_tmp_PKGPATH" &> /dev/null; then
     _set_or_print "$1" "$_tmp_PKGPATH"
     return 0
-  elif command -v "$PKG" &> /dev/null; then
+  elif command -v "$2" &> /dev/null; then
     ! $STRICT && {
-      _set_or_print "$1" "$(command -v "$PKG")"
+      _set_or_print "$1" "$(command -v "$2")"
       return 0
     }
   fi
-  _FATAL -s "Package \"$PKG\" not found" 1>&2
+  _FATAL -s "Package \"$2\" not found" 1>&2
 }
 
 _column() {
-  if command -v column 2>/dev/null; then
+  if command -v column &>/dev/null; then
     column "$@"
   else
     cat -
