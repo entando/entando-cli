@@ -157,7 +157,9 @@ _mp_node_exec() {
 
 # Runs the ent private installation of the entando bundle tool
 _ent-bundler() {
+  require_develop_checked
   node.activate_environment
+
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
       "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" --version
@@ -165,14 +167,12 @@ _ent-bundler() {
       "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" --version
     fi
   else
-    require_develop_checked
-    node.activate_environment
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
         SYS_CLI_PRE "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
       else
-        "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" | _strip_colors
+        SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
       fi
     else
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
