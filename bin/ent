@@ -118,6 +118,9 @@ RUN() {
       "pkg") #H: helps dealing with the ent bin tools
         ent-pkg "$@"
         ;;
+      "use") #H: shortcut to "ent pro use"
+        _ent pro use "$@"
+        ;;
       "")
         # shellcheck disable=SC1091
         _source_ent help
@@ -333,12 +336,15 @@ if (
       ENTANDO_ENT_TMPVAR_0002bb75="$?"
       ;;
     "profile"|"P"|"pro")
-      if [ "$2" = "use" ]; then
-        shift 2
-        ENTANDO_ENT_ACTIVATION_MODE="$ENTANDO_ENT_ACTIVATION_MODE" "$ENTANDO_ENT_HOME/bin/mod/ent-profile" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" use "$@"
-      else
+      case "$2" in
+      "use"|"tmp")
+        shift 1
+        ENTANDO_ENT_ACTIVATION_MODE="$ENTANDO_ENT_ACTIVATION_MODE" "$ENTANDO_ENT_HOME/bin/mod/ent-profile" --for-sourced-execution "$ENTANDO_ENT_TMPFILE_0002bb75" "$@"
+        ;;
+      *)
         rm "$ENTANDO_ENT_TMPFILE_0002bb75"
-      fi
+        ;;
+      esac
       ;;
     "help")
       shift

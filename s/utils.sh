@@ -868,6 +868,8 @@ print_current_profile_info() {
   if $VERBOSE; then
     _log_i "Current profile info:"
     echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
+    echo " - PROFILE HOME:      ${DESIGNATED_PROFILE_HOME}"
+    _nn PROFILE_ORIGIN && echo " - PROFILE ORIGIN:    ${PROFILE_ORIGIN}"
   else
     if [ -n "$THIS_PROFILE" ]; then
       _log_i "Currently using profile \"$THIS_PROFILE\"" 1>&2
