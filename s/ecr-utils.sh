@@ -7,11 +7,12 @@
 # $2: the received of the authentication token to use for the action
 #
 ecr-prepare-action() {
+  local VERBOSE=true; [ "$1" == "-s" ] && { VERBOSE=false; shift; }
   local var_url="$1"
   shift
   local var_token="$1"
   shift
-  print_current_profile_info
+  $VERBOSE && print_current_profile_info
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress ignored url_scheme
   app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
@@ -329,4 +330,31 @@ ecr.generate-and-print-secret() {
     fi
     [ "$APPLY" = "true" ] && _kubectl apply -f "$tmp"
   )
+}
+
+# Installs a bundle given its id
+#
+# $1: the bundle id
+# $2: the version to install
+# $3: the conflict strategy
+#
+ecr.install-bundle() {
+  local BUNDLE_NAME="$1"; shift
+  local VERSION_TO_INSTALL="${1:-latest}"
+  local CONFLICT_STRATEGY="${2}"
+  local INGRESS_URL TOKEN
+  ecr-prepare-action INGRESS_URL TOKEN
+  local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
+
+  if [ -n "$CONFLICT_STRATEGY" ]; then
+    assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
+    DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
+  fi
+  DATA+="}"
+
+  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
+    return $?
+  _log_i "Installation of bundle \"$BUNDLE_NAME\" started"
+
+  ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
 }

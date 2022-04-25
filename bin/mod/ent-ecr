@@ -52,7 +52,10 @@ RUN() {
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
-    "install-status") #H: shows the uninstall status of the bundle
+    "install") #H: shows the install status of the bundle
+      ent-ecr-install "$@"
+      ;;
+    "install-status") #H: shows the install status of the bundle
       end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
@@ -186,5 +189,15 @@ ecr-generate-custom-resource() {
   ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ent-ecr-install() {
+  local VERSION_TO_INSTALL CONFLICT_STRATEGY
+  args_or_ask -n ${HH:+"$HH"} VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
+  args_or_ask -n ${HH:+"$HH"} CONFLICT_STRATEGY \
+  '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+  args_or_ask -n ${HH:+"$HH"} BUNDLE_NAME '--name///bundle name' "$@"
+  [ -n "$HH" ] && return 0
+  _nn BUNDLE_NAME || FATAL "Please provide the bundle name"
+  ecr.install-bundle "$BUNDLE_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
+}
 
 RUN "$@"
