@@ -320,6 +320,10 @@ PARSE_ARGS() {
 }
 
 ########################################################################################################################
+[[ "$1" == "--help" && "$2" == "--short" ]] && {
+  echo "Checks the environment for required dependencies and settings"
+  exit 0
+}
 
 PARSE_ARGS "$@"
 RUN
