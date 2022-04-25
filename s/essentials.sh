@@ -155,6 +155,7 @@
       ENTANDO_KUBECTL_MODE="COMMAND"
       
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
+        # shellcheck disable=SC2001
         ENTANDO_KUBECTL_BASE="$(sed "s/^sudo //" <<<"$ENTANDO_KUBECTL")"
         KUBECTL_CMD_SUDO=true
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }

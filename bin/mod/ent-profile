@@ -306,7 +306,6 @@ _reset_tmp_profile() {
 }
 
 _create_and_use_tmp_clone() {
-  local curr_cfg_file="$CFG_FILE"
   local new_profile_name="_entando_tmp_profile"
   local new_profile_dir="$(_determine_profile_dir)/$new_profile_name"
   local new_cfg_file="$new_profile_dir/w/.cfg"
