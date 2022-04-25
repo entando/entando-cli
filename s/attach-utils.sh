@@ -9,7 +9,7 @@ managed-vm-attach() {
     echo "> Parameters:"
   }
 
-  args_or_ask_from_list REMOTES -m -a ${HH:+"$HH"} VM_NAME 1 "any" \
+  args_or_ask_from_list REMOTES -m -a -h "$HH" VM_NAME 1 "any" \
     "remotes" "%sp VM to which ent kubectl should attach" "$@"
 
   [ -n "$HH" ] && return 0
@@ -45,7 +45,7 @@ managed-vm-detach() {
 
 kubeconfig-attach() {
   local KUBECONFIG
-  args_or_ask ${HH:+"$HH"} -a -- KUBECONFIG '1///%sp kubeconfig file' "$@"
+  args_or_ask -h "$HH" -a -- KUBECONFIG '1///%sp kubeconfig file' "$@"
   #kubectl_mode --reset-cfg
   save_cfg_value "DESIGNATED_KUBECONFIG" "$KUBECONFIG"
 }
@@ -90,7 +90,7 @@ kubectx-list() {
   local filter
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a -- filter '1///filter' "$@"
+  args_or_ask -h "$HH" -n -a -- filter '1///filter' "$@"
   [ -n "$HH" ] && exit 0
 
   if [ -n "$filter" ]; then

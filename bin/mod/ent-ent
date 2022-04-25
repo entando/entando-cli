@@ -9,7 +9,7 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an the local ents" && exit 0
+  echo -e "Helper for managing the local ent installations" && exit 0
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
@@ -25,9 +25,9 @@ ent_activate() {
   local LIST
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a "ENT" "1///The ent to activate" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F "LIST" "--list///Lists the locally available ents" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F "DEFSET" "--set-default///Sets the selected ent as default" "$@"
+  args_or_ask -h "$HH" -n -a "ENT" "1///The ent to activate" "$@"
+  args_or_ask -h "$HH" -n -F "LIST" "--list///Lists the locally available ents" "$@"
+  args_or_ask -h "$HH" -n -F "DEFSET" "--set-default///Sets the selected ent as default" "$@"
 
   [ -n "$HH" ] && {
     if $FOR_SOURCED_EXECUTION; then
@@ -36,9 +36,12 @@ ent_activate() {
       exit 0
     fi
   }
-
-  if ! $DEFSET && ! $FOR_SOURCED_EXECUTION; then
-    FATAL "You need to source-execute me"
+  
+  #if ! $DEFSET && ! $FOR_SOURCED_EXECUTION; then
+  #  FATAL "You need to source-execute me"
+  #fi
+  if ! $FOR_SOURCED_EXECUTION; then
+    DEFSET=true
   fi
 
   # shellcheck disable=SC2035
@@ -50,7 +53,7 @@ ent_activate() {
       exit 0
     }
     map-from-stdin "ENTS" $'\n\r' < <(cd "$ENTANDO_HOME/ent" && ls -d *)
-    args_or_ask_from_list ENTS -m -e -a ${HH:+"$HH"} ENT 1 "any" \
+    args_or_ask_from_list ENTS -m -e -a -h "$HH" ENT 1 "any" \
       "ent installation" "Select the ent to activate" "$@"
   }
 
@@ -63,12 +66,21 @@ ent_activate() {
 
   if $FOR_SOURCED_EXECUTION; then
     echo ". $ENTANDO_HOME/activate-$ENT --force 1> /dev/null" > "$COMMAND_FILE"
-    # shellcheck disable=SC2016
-    echo 'echo Version "$ENTANDO_ENT_HOME" activated' >> "$COMMAND_FILE"
+    # shellcheck disable=SC2034
+    ENTANDO_ENT_HOME_FORCE="$ENTANDO_ENT_HOME"
+    # shellcheck disable=SC2086
+    echo 'echo Version "'$ENT'" activated' >> "$COMMAND_FILE"
     true
   else
-    ! $FOR_SOURCED_EXECUTION && _log_i 0 "However, it couldn't be activated on this tty because the command was not sourced"
-    true
+    if [ "$ENTANDO_ENT_ACTIVATION_MODE" == "PROXY" ]; then
+      # shellcheck disable=SC1090
+      . "$ENTANDO_HOME/activate-$ENT" --force 1> /dev/null
+      echo "Version \"$ENT\" activated"
+    else
+      ! $FOR_SOURCED_EXECUTION && {
+        _log_i "However, it was not activated on this shell because the command was not sourced"
+      }
+    fi
   fi
 }
 
@@ -77,14 +89,14 @@ ent_set_default_ent() {
   chmod u=rwx "$ENTANDO_HOME/activate" 2>/dev/null
   cp -P "$ENTANDO_HOME/activate-$ENT" "$ENTANDO_HOME/activate"
   chmod u=rx "$ENTANDO_HOME/activate" 2>/dev/null
-  _log_i 0 "Ent \"$ENT\" is now the global default ent"
+  _log_i "Ent \"$ENT\" is now the global default ent"
 }
 
 ent_set_profile_default_ent() {
   if [ -n "$DESIGNATED_PROFILE" ]; then
     ENT="$1"
     save_cfg_value "ENT_APP_DEFAULT_ENT" "$ENT"
-    _log_i 0 "Ent \"$ENT\" is now the default ent for the profile \"$DESIGNATED_PROFILE\""
+    _log_i "Ent \"$ENT\" is now the default ent for the profile \"$DESIGNATED_PROFILE\""
   fi
 }
 

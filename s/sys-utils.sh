@@ -52,18 +52,28 @@ check_ver() {
     VER="$1"
     mode+=",quiet"
   else
-    [[ ! "$mode" =~ "quiet" ]] && _log_i 3 "Checking $1.."
+    [[ ! "$mode" =~ "quiet" ]] && _log_i "Checking $1.."
     
-    [[ "$mode" =~ "literal" ]] &&
-      VER=$(eval "$1 $3") ||
-      VER=$(eval "$1 $3 2>/dev/null")
+    if command -V "$1" &> /dev/null; then
+      if [[ "$2" == "-" ]]; then
+        return 0
+      else
+        if [[ "$mode" =~ "literal" ]]; then
+          VER=$(eval "$1 $3")
+        else
+          VER=$(eval "$1 $3 2>/dev/null")
+        fi
+      fi
+    else
+      VER=""
+    fi
       
     if [ $? -ne 0 ] || [ -z "$VER" ]; then
       if [[ ! "$mode" =~ "quiet" ]]; then
         if [ -z "$err_desc" ]; then
-          _log_i 2 "Program \"$1\" is not available"
+          _log_i "Program \"$1\" is not available"
         else
-          _log_i 2 "$err_desc"
+          _log_i "$err_desc"
         fi
       fi
       return 1
@@ -91,10 +101,10 @@ check_ver() {
     return 0
   ) && {
     check_ver_res="$VER"
-    [[ "$mode" =~ "verbose" ]] && _log_i 3 "\tfound: $check_ver_res => OK"
+    [[ "$mode" =~ "verbose" ]] && _log_i "\tfound: $check_ver_res => OK"
     return 0
   } || {
-    [[ ! "$mode" =~ "quiet" ]] && _log_i 2 "Version \"$2\" of program \"$1\" is not available (found: $VER)"
+    [[ ! "$mode" =~ "quiet" ]] && _log_i "Version \"$2\" of program \"$1\" is not available (found: $VER)"
     return 1
   }
 }
@@ -223,12 +233,13 @@ $OS_WIN && {
 
 function ent-init-project-dir() {
   [ -f "$C_ENT_PRJ_FILE" ] && {
-    _log_w 0 "The project seems to be already initialized"
+    _log_w "The project seems to be already initialized"
     ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
-  #_ent-npm--import-module-to-current-dir "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
-  #  | grep -v 'No description\|No repository field.\|No license field.'
+  _ent-npm init --yes
+  _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  rm -rf package.json package-lock.json
   generate_ent_project_file
 }
 
@@ -258,7 +269,7 @@ win_convert_existing_path_to_posix_path() {
 win_convert_existing_posix_path_to_win_path() {
   (
     __cd "$1"
-    RES="$(cmd.exe /C "echo %cd%" | sed 's/\\/\\\\/g')"
+    RES="$("$ENTANDO_ENT_HOME/s/currdir.cmd" | sed 's/\\/\\\\/g')"
     [[ -z "$RES" ]] && _FATAL "Error converting \"$1\" to windows path"
     if [[ "$1" =~ ^.*/$ ]]; then
       echo "$RES\\\\"
@@ -291,7 +302,7 @@ git_clone_repo() {
     ERRC="FATAL"
   fi
   if [[ "$OPT" =~ "LOGW" ]]; then
-    ERRC="_log_w 0"
+    ERRC="_log_w"
   fi
   if [[ "$OPT" =~ "FORCE" ]]; then
     FORCE=true
@@ -316,17 +327,22 @@ git_clone_repo() {
   if cd "$FLD"; then
     (
       git fetch --tags --force
-      git tag | grep "^$TAG\$" >/dev/null || local OP="origin/"
-      if ! git checkout -b "$TAG" "${OP}$TAG" 1>/dev/null; then
-        $ERRC "> Unable to checkout the tag or branch of $DSC \"$TAG\""
+      # shellcheck disable=SC2143
+      if [ -z "$(git tag | grep -F "$TAG" | grep "^$TAG\$" 2>/dev/null)" ]; then
+        $ERRC "> Unable to find the tag or branch \"$TAG\" of package \"$DSC\""
+        exit 91
+      fi
+      if ! git checkout -b "$TAG" "$TAG" 1>/dev/null; then
+        $ERRC "> Unable to checkout tag or branch \"$TAG\" of package \"$DSC\""
         exit 92
       fi
-    ) || return $?
+    )
 
-    if [ $? ]; then
+    if [ "$?" == 0 ]; then
       ! $ENTER && {
         cd - >/dev/null || $ERRC "Unable to return back to the original path"
       }
+      return 0
     else
       cd - >/dev/null && {
         rm -rf "./${FLD:?}" 2>/dev/null
@@ -380,7 +396,7 @@ import_ent_config() {
       cp "../$src/w/.cfg" "w/.cfg" && exit 0
       exit 1
     else
-      _log_e 0 "Unable to import the cfg from $src"
+      _log_e "Unable to import the cfg from $src"
       exit 99
     fi
   )
@@ -403,7 +419,7 @@ import_ent_library() {
         exit 1
       fi
     fi
-    _log_e 0 "Unable to import the cfg from $src"
+    _log_e "Unable to import the cfg from $src"
     exit 99
   )
 }
@@ -416,12 +432,12 @@ import_ent_installation() {
     # shellcheck disable=SC2154
     VER_TO_IMPORT="$select_one_res_alt"
     import_ent_config "$VER_TO_IMPORT" && {
-      _log_i 0 "done"
+      _log_i "done"
 
       ask "Should I try to import the library?" && {
-        _log_i 0 "This may take a while"
+        _log_i "This may take a while"
         import_ent_library "$VER_TO_IMPORT" "copy" && {
-          _log_i 0 "done."
+          _log_i "done."
         }
       }
     }
@@ -430,5 +446,152 @@ import_ent_installation() {
 
 _strip_colors() {
   perl -pe 's/\e\[[0-9;]*m(?:\e\[K)?//g'
+}
+
+_trace() {
+  local trace_id="$1"; shift
+  # shellcheck disable=SC2076
+  [[ " $CTRACE " =~ " $trace_id " ]] && debug-print "$*"
+  "$@"
+}
+
+print_hr() {
+  if "$SYS_IS_STDIN_A_TTY"; then
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
+  else
+    printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
+  fi
+}
+
+debug-print() {
+  if $SYS_IS_STDOUT_A_TTY; then
+    B() { echo -e '\033[101;37m'; }
+    E() { echo -e '\033[0;39m'; }
+  else
+    B() { true; }
+    E() { true; }
+  fi  
+  
+  {    
+    if [ "$1" == "--title" ]; then
+      echo -e "$(B)### DEBUG ### $2"
+      shift 2
+    else
+      echo -en "$(B) ### DEBUG ### "
+    fi
+
+    echo -e "$*$(E)"
+  }>&2
+}
+
+# Installs a command given its package name and version
+#
+# Params:
+# $1: config var to store the result
+# $2: name of the package to install
+# $3: version of the package to install
+# $4: download url linux64
+# $5: checksum url linux64
+# $6: download url darwin64
+# $7: checksum url darwin64
+# $8: download url win64
+# $9: checksum url win64
+#
+_pkg_download_and_install() {
+  local _tmp_resvar="$1" _tmp_name="$2" _tmp_ver="$3"
+  local COMMENT
+  local RESFILE="$(mktemp /tmp/ent-resfile-XXXXXXXX)"
+  # shellcheck disable=SC2064
+  trap "[[ \"$RESFILE\" = *\"/ent-resfile-\"* ]] && rm -rf \"$RESFILE\"" exit
+  
+  case "$SYS_OS_TYPE" in
+    "linux") local _tmp_url="$4" _tmp_ext_fn="$5" _tmp_chkurl="$6" EXT="";;
+    "darwin") local _tmp_url="$7" _tmp_ext_fn="$8" _tmp_chkurl="$9" EXT="";;
+    "windows") local _tmp_url="${10}" _tmp_ext_fn="${11}" _tmp_chkurl="${12}" EXT=".exe";;
+  esac
+  
+  (
+    mkdir -p "$ENTANDO_BINS"
+    __cd "$ENTANDO_BINS"
+    
+    local CMD_NAME="$_tmp_name.$_tmp_ver$EXT"
+    
+    if [ ! -f "$CMD_NAME" ]; then
+      _log_i "I don't have the package (\"$_tmp_ver\"). I'll try to download it"
+      
+      # DOWNLOAD
+      _log_i "Downloading $_tmp_name \"$_tmp_ver\""
+
+      RES=$(curl -Ls --write-out '%{http_code}' -o ".download.tmp~" "$_tmp_url")
+      [[ "$RES" != "200" ]] && FATAL "Unable to download $_tmp_name from \"$_tmp_url\""
+      
+      (
+        PRE() {
+          DD="$PWD"
+          TMPDIR="$(mktemp -d /tmp/ent-pkg-XXXXXXXXXXXXX)"
+          # shellcheck disable=SC2064
+          trap "[[ \"$TMPDIR\" = *\"/ent-pkg-\"* ]] && rm -rf \"$TMPDIR\"" exit
+          cd "$TMPDIR"
+        }
+        case "$_tmp_url" in
+          *".tar.gz") PRE; tar xfz "$DD/.download.tmp~"; mv "$_tmp_ext_fn" "$DD/.download.tmp~";;
+          *".tar") PRE; tar xf "$DD/.download.tmp~"; mv "$_tmp_ext_fn" "$DD/.download.tmp~";;
+          *".zip") PRE; unzip "$DD/.download.tmp~"; mv "$_tmp_ext_fn" "$DD/.download.tmp~";;
+        esac
+      )
+      
+      if [ -n "$_tmp_chkurl" ]; then
+        # DOWNLOAD checksum
+        _log_i "Downloading $_tmp_name \"$_tmp_ver\" checksum"
+        
+        RES=$(curl -Ls --write-out '%{http_code}' -o "$CMD_NAME.sha256" "$_tmp_chkurl")
+        
+        [[ "$RES" != "200" ]] && {
+          #~
+          rm "$CMD_NAME.sha256"
+          _log_w "Unable to download the $_tmp_name checksum file"
+          ask "Should I proceed anyway?" || {
+            rm ".download.tmp~"
+            FATAL "Quitting"
+          }
+          _log_w "$_tmp_name checksum verification skipped by the user"
+          COMMENT=" but not checked"
+        }
+
+        # VERIFY checksum
+        [[ -f "$CMD_NAME.sha256" ]] && {
+            [ "$(<"$CMD_NAME.sha256")" = "$(echo .download.tmp~ | _sha256sum)" ] || {
+            rm ".download.tmp~"
+            FATAL "Checksum verification failed, operation interrupted"
+          }
+          COMMENT=" and checked"
+        }
+      fi
+      
+      # FINALIZE THE NAME
+      mv ".download.tmp~" "$CMD_NAME"
+      chmod +x "$CMD_NAME"
+      _log_i "$_tmp_name \"$_tmp_ver\" downloaded$COMMENT"
+    else
+      _log_i "I already have this version of $_tmp_name"
+    fi
+    
+    echo "$PWD/$CMD_NAME" > "$RESFILE"
+  ) || exit "$?"
+  
+  _set_var "$_tmp_resvar" "$(cat "$RESFILE")"
+}
+
+#  Checks for the presence of a command
+#
+# Params:
+# $1: the command
+#
+# Options:
+# [-m] if provided failing finding the command is fatal
+#
+_pkg_is_command_available() {
+  local MANDATORY=false;[ "$1" = "-m" ] && { MANDATORY=true; shift; }
+  command -v "$1" >/dev/null || { "$MANDATORY" && _FATAL "Unable to find required command \"$1\""; }
 }
 return 0

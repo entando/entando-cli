@@ -15,6 +15,14 @@ _set_var() {
   return 0
 }
 
+
+_coalesce_vars() {
+  read -r -d '' "$1" <<< "$2"; [ -n "${!1}" ] && return 0
+  read -r -d '' "$1" <<< "$3"; [ -n "${!1}" ] && return 0
+  read -r -d '' "$1" <<< "$4"; [ -n "${!1}" ] && return 0
+  read -r -d '' "$1" <<< "$5"; [ -n "${!1}" ] && return 0
+}
+
 _print_var() {
   if [ -n "$ZSH_VERSION" ]; then
     echo "${(P)1}"
@@ -22,6 +30,19 @@ _print_var() {
     echo "${!1}"
   fi
 }
+
+# Set of prints a value according with $1 that can be:
+# - --print           the value is printed
+# - <anything-else>   the value is assigned to the var name in $1
+#
+_set_or_print() {
+  if [ "$1" != "--print" ]; then
+    _set_var "$@"
+  else
+    shift; echo "$@"
+  fi
+}
+
 
 # set variable with nonnull value
 # - $1: variable to set
@@ -35,6 +56,15 @@ _set_nn() {
 set_var() {
   _set_var "$@"
   return 0
+}
+
+# Tests for non-null a variable given in $1
+# If test fails and $2 is also provided the variable is set with $2
+#
+_nn() {
+  test -n "${!1}" && return 0
+  test -n "${2}" && _set_var "${1}" "${2}"
+  test -n "${!1}"
 }
 
 # set variable with nonnull identifier
@@ -71,14 +101,14 @@ set_nn_ip() { assert_ip "$1" "$2" && _set_nn "$@"; }
 
 assert_nn() {
   local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
-  [ -z "$2" ] && [ "$3" != "silent" ] && _log_e 0 "${pre}Value $1 cannot be null" && exit 3
+  [ -z "$2" ] && [ "$3" != "silent" ] && _log_e "${pre}Value $1 cannot be null" && exit 3
   return 0
 }
 
 assert_lit() {
   local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
   local desc && [ -n "$3" ] && desc=" for $3"
-  [ "$1" != "$2" ] && _log_e 0 "${pre}Expected literal \"$1\" found \"$2\"$desc" && exit 3
+  [ "$1" != "$2" ] && _log_e "${pre}Expected literal \"$1\" found \"$2\"$desc" && exit 3
   return 0
 }
 
@@ -135,6 +165,18 @@ assert_url() {
   _assert_regex_nn "$1" "$2" '^(https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "url" "$3"
 }
 
+assert_git_repo() {
+  _assert_regex_nn "$1" "$2" \
+    '^(git|ssh|https?|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' \
+    '^git@[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' \
+    "git-url" "$3"
+}
+
+assert_url_path() {
+  _assert_regex_nn "$1" "$2" \
+    '[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "" "utl-path" "$3"
+}
+
 assert_email() {
   _assert_regex_nn "$1" "$2" '^[^.]+.*$' "" "email" "$3" || return $?
   _assert_regex_nn "$1" "$2" \
@@ -149,9 +191,20 @@ assert_fdn() {
   _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "full domain" "$3"
 }
 
+assert_strict_file_name() {
+  _assert_regex_nn --neg "$1" "$2" '^[.]$' "" "strict file name" "$3"
+  _assert_regex_nn --neg "$1" "$2" '^[.][.]' "" "strict file name" "$3"
+  _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "strict file name" "$3"
+}
+
 assert_semver() {
   _assert_regex_nn "$1" "$2" "^v?[0-9]+\.[0-9]+\.[0-9]+$" \
   "^v?[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9-]+$" "version" "$3"
+}
+
+assert_acceptable_version_tag() {
+  _assert_regex_nn "$1" "$2" "\\." "" "full domain" "$3" || return $?
+  _assert_regex_nn "$1" "$2" "^([a-z0-9._-])+$" "" "full domain" "$3"
 }
 
 assert_ver() {
@@ -173,13 +226,19 @@ assert_giga() {
 # - $4  alternative regex
 # - $5  var type description
 # - $6  if "silent" prints no error
+#
+# Options:
+# --neg negates the regex comparison result
+#
 _assert_regex_nn() {
+  local CMPRES=0;[ "$1" = "--neg" ] && { CMPRES=1;shift; }
   [ "$7" != "" ] && FATAL "[_assert_regex_nn] Internal Error: Invalid function call "
   assert_nn "$1" "$2" "$6"
   local FATAL=false; [ "$6" = "fatal" ] && FATAL=true
   (
     LC_COLLATE=C
-    if [[ "$2" =~ $3 ]]; then
+    [[ "$2" =~ $3 ]]
+    if [ "$?" = "$CMPRES" ]; then
       return 0
     else
       if [[ -n "$4" && "$2" =~ $4 ]]; then
@@ -190,7 +249,7 @@ _assert_regex_nn() {
         FATAL "${pre}Value of $1 ($2) is not a valid $5"
       elif [ "$6" != "silent" ]; then
         local pre && [ -n "$XCLP_RUN_CONTEXT" ] && pre="In context \"$XCLP_RUN_CONTEXT\""
-        _log_e 0 "${pre}Value of $1 ($2) is not a valid $5"
+        _log_e "${pre}Value of $1 ($2) is not a valid $5"
       fi
       return 1
     fi
@@ -221,21 +280,21 @@ SET_KV() {
 # MAP MANAGEMENT FUNCTIONS
 
 map-clear() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
       unset "${name}"
     fi
   done
 }
 
 map-count() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
   local i=0
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
       i=$((i + 1))
     fi
   done
@@ -245,28 +304,29 @@ map-count() {
 }
 
 map-set() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
-  local name="$1"
+  local name="${1//-/_DASH_}"
   local address="$2"
-  _set_var "${arr_var_name}${name}" "$address"
+  _set_var "${arr_var_prefix}${name}" "$address"
 }
 
 map-get() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local MAP_NAME="$1"
+  local arr_var_prefix="__AA_ENTANDO_${MAP_NAME}__"
   shift
   local name
 
   if [ "$1" = "--first" ]; then
     shift
     local dst_var_name="$1"
-    name="$(map-list REMOTES | head -n 1)"
+    name="$(map-list "${MAP_NAME}" | head -n 1)"
   else
     local dst_var_name="$1"
     name="$2"
   fi
   local tmp
-  tmp="${arr_var_name}${name}"
+  tmp="${arr_var_prefix}${name//-/_DASH_}"
   value="${!tmp}"
   _set_var "$dst_var_name" "$value"
   [ -n "$value" ] && return 0
@@ -274,40 +334,50 @@ map-get() {
 }
 
 map-del() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
-  local name="$1"
-  unset "${arr_var_name}${name}"
+  local name="${1//-/_DASH_}"
+  unset "${arr_var_prefix}${name}"
 }
 
+# Lists the elements of a map
+#
+# prints by default only the keys or just the values with "-v" or both if $2 is provided
+#
+# $1 the map name
+# $2 the key/value separator
+#
+# Options:
+# -v  prints only the values
+#
 # shellcheck disable=SC2120
 map-list() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   shift
   local SEP="$1"
   local tmp
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
-      if [ "$SEP" == "-k" ]; then
-        tmp="${name}"
-        echo "${!tmp}"
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
+      if [ "$SEP" == "-v" ]; then
+        echo "${!name}"
       elif [ -z "$SEP" ]; then
-        echo "${name/${arr_var_name}/}"
+        tmp="${name/${arr_var_prefix}/}"
+        echo "${tmp//_DASH_/-}"
       else
-        tmp="${name}"
-        echo "${name/${arr_var_name}/}${SEP}${!tmp}"
+        tmp="${name/${arr_var_prefix}/}${SEP}${!name}"
+        echo "${tmp//_DASH_/-}"
       fi
     fi
   done
 }
 
 map-get-keys() {
-  local arr_var_name="__AA_ENTANDO_${1}__"
+  local arr_var_prefix="__AA_ENTANDO_${1}__"
   local dst_var_name="$2"
   shift
   local i=0
   for name in ${!__AA_ENTANDO_*}; do
-    if [[ "$name" =~ ^${arr_var_name}.* ]]; then
+    if [[ "$name" =~ ^${arr_var_prefix}.* ]]; then
       _set_var "dst_var_name[$i]" "$line"
     fi
   done

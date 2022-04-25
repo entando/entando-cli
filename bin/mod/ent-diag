@@ -1,7 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC2129
 
-[ "$1" = "--help" ] && echo -e "Runs some diagnostic and collects the related info in a tgz file" && exit 0
+[ "$1" = "--help" ] && echo -e "Runs diagnostics and aggregates the related info in a .tgz file" && exit 0
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
@@ -12,12 +12,12 @@ cd "$DIR/../.." || {
 . s/_base.sh
 
 HH="$(parse_help_option "$@")"; show_help_option "$HH"
-args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
-args_or_ask ${HH:+"$HH"} -n -F LOCALINFO '--localinfo///%sp the information of the localhost' "$@"
-args_or_ask ${HH:+"$HH"} -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
-args_or_ask ${HH:+"$HH"} -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
-args_or_ask ${HH:+"$HH"} -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
-args_or_ask ${HH:+"$HH"} -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
+args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+args_or_ask -h "$HH" -n -F LOCALINFO '--localinfo///%sp the information of the localhost' "$@"
+args_or_ask -h "$HH" -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
+args_or_ask -h "$HH" -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
+args_or_ask -h "$HH" -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
+args_or_ask -h "$HH" -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
 
 if ! "$TOSTDOUT"; then
   SUMMARY_FILE="summary.txt"
@@ -234,9 +234,9 @@ COLLECT.CRDs() {
       if ! "$TOSTDOUT"; then
         LOG_TITLE "Entando CRDs full dump"
         
-        if command -v "jq" >/dev/null; then
+        if _pkg_ok "jq"; then
           ent kubectl get crd -o json \
-              | jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
+              | _jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
         else
           _log "The CRD json dump was not collected, install \"jq\" for enabling this function" | _comment 
         fi

@@ -61,13 +61,13 @@ $WATCH && {
 
 _kubectl-pre-sudo -m
 
-_log_i 1 "NODES:"
+_log_i "NODES:"
 _kubectl get nodes
 
-_log_i 1 "PODS:"
+_log_i "PODS:"
 _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
 
-_log_i 1 "Application Ingress path:"
+_log_i "Application Ingress path:"
 
 app-get-main-ingresses ENTANDO_URL_SCHEME svc_ingress ignored ignored
 # shellcheck disable=SC2154

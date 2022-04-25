@@ -51,6 +51,8 @@ C_ENTANDO_LOGO_FILE="res/entando.png"
 C_WIN_VM_HOSTNAME_SUFFIX="mshome.net"
 C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 
+C_DEFAULT_KUBECT_VERSION="v1.23.4"
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
 XU_LOG_LEVEL=9
@@ -79,3 +81,24 @@ ENTANDO_STANDARD_IMAGES=(
   [ -f w/_env ] && . w/_env
   [ -f _env ] && . _env
 }
+
+# READS THE ACTUAL VALUES AND OVERRIDES THE ONES COMING FROM THE MANIFEST
+
+TMP_CLI_VERSION="$(
+  cd "$ENTANDO_ENT_HOME" &> /dev/null || exit 1
+  git describe --exact-match --tags 2>/dev/null
+)"
+
+ENTANDO_MANIFEST_CLI_VERSION="${ENTANDO_CLI_VERSION:-"$TMP_CLI_VERSION"}"
+ENTANDO_CLI_VERSION="${TMP_CLI_VERSION:-"$ENTANDO_MANIFEST_CLI_VERSION"}"
+
+
+ENTANDO_MANIFEST_RELEASE="$ENTANDO_RELEASE"
+TMP_CLI_VERSION="$(
+  cd "$ENTANDO_ENT_HOME/dist" &> /dev/null || exit 1
+  # shellcheck disable=SC1090
+  git describe --tags "$(git rev-list --tags --max-count=1)"
+)"
+
+ENTANDO_MANIFEST_RELEASE="${ENTANDO_RELEASE:-"$TMP_CLI_VERSION"}"
+ENTANDO_RELEASE="${TMP_CLI_VERSION:-"$ENTANDO_MANIFEST_RELEASE"}"

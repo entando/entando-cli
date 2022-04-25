@@ -11,7 +11,7 @@ node.reset_environment() {
   NODE_PATH=""            # the node base path standard variable
 }
 
-node.install() {
+node.install-node() {
   (
     # shellcheck disable=SC2030
     ENT_NODE_VER="$1"
@@ -30,6 +30,12 @@ node.install() {
       EXT "${C_DEF_ARCHIVE_FORMAT}" \
     ;
     
+    if [ -d "$ENT_NODE_DIR" ]; then
+      if [ ! -f "$ENT_NODE_DIR/.entando-finalized" ]; then
+        __rm_disdir "$ENT_NODE_DIR"
+      fi
+    fi
+  
     if [ ! -d "$ENT_NODE_DIR" ]; then
       rm -rf "./node-$ENT_NODE_VER-linux-x64"
       if [ "$SYS_OS_TYPE" = "windows" ]; then
@@ -45,17 +51,21 @@ node.install() {
       fi
       mv "node-$ENT_NODE_VER-${pathseg_os}-${SYS_CPU_ARCH/x86-64/x64}" "$ENT_NODE_DIR"
     else
-      _log_i 0 "ENT node dir \"$ENT_NODE_DIR\" is already present and so it will be reused"
+      _log_i "The ENT node installation \"$ENT_NODE_DIR\" is already present and so it will be reused"
     fi
     __exist -d "$ENT_NODE_DIR"
     __mk_disdir --mark "$ENT_NODE_DIR"
+    date > "$ENT_NODE_DIR/.entando-finalized"
     
-    save_cfg_value "ENT_NODE_VER" "$ENT_NODE_VER"
+    save_cfg_value "ENT_NODE_VER" ""
+    save_cfg_value "ENT_NODE_VER" "$ENT_NODE_VER" "$ENT_DEFAULT_CFG_FILE"
     
     true
   ) || exit "$?"
 
+  reload_cfg "$ENT_DEFAULT_CFG_FILE"
   reload_cfg
+  
   node.activate_environment
   
   __exist -f "$ENT_NODE_BIN_NATIVE"
@@ -89,7 +99,7 @@ node.activate_environment() {
       ;;
   esac
   
-  ENT_NODE_ENTANDO="${ENT_OPTS}/entando"
+  ENT_OPTS_ENTANDO="${ENT_OPTS}/entando"
   PATH="$ENT_NODE_BINS:$PATH"
 }
 
@@ -120,13 +130,13 @@ _ent-npm() {
   fi
 }
 
-# Run the ent private installation of jhipster
+# Runs the ent private installation of jhipster
 _ent-jhipster() {
-  require_develop_checked
   node.activate_environment
-  if [ "$1" == "--ent-get-version" ]; then
+  if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
     _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
   else
+    require_develop_checked
     [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
       ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
         ent-init-project-dir
@@ -145,9 +155,11 @@ _mp_node_exec() {
   SYS_CLI_PRE "$CMD" "$@"
 }
 
-# Run the ent private installation of the entando bundle tool
+# Runs the ent private installation of the entando bundle tool
 _ent-bundler() {
+  require_develop_checked
   node.activate_environment
+
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
       "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" --version
@@ -155,14 +167,12 @@ _ent-bundler() {
       "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" --version
     fi
   else
-    require_develop_checked
-    node.activate_environment
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
         SYS_CLI_PRE "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
       else
-        "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" | _strip_colors
+        SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
       fi
     else
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then

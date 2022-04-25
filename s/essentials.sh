@@ -27,9 +27,13 @@
   ENTANDO_KUBECTL_AUTO_DETECTED=""
   DESIGNATED_KUBECONFIG=""
   KUBECTL_ONCE_OPTIONS=""
+  KUBECTL_CMD_SUDO=false
+  KUBECTL_SKIP_SUDO=false
   # shellcheck disable=SC2034
   FORCE_URL_SCHEME=""
   C_DEF_ARCHIVE_FORMAT=""
+  # shellcheck disable=SC2034
+  CTRACE=""
 
   # shellcheck disable=SC2034
   case "$(perl -MConfig -e 'print $Config{longsize}*8 . "\n";')" in
@@ -42,8 +46,8 @@
     ENT_KUBECTL_CMD=$(grep ENT_KUBECTL_CMD "$ENT_WORK_DIR/.cfg" | sed "s/ENT_KUBECTL_CMD=//")
   fi
 
-  if [ $SYS_IS_STDOUT_A_TTY ]; then
-    if [[ -z "$ENTANDO_DEV_TTY" ]]; then
+  if [[ -z "$ENTANDO_DEV_TTY" ]]; then
+    if "$SYS_IS_STDIN_A_TTY"; then
       ENTANDO_DEV_TTY="$(tty)"
       # shellcheck disable=SC2034
       ENTANDO_TTY_QUALIFIER="${ENTANDO_DEV_TTY//\//_}"
@@ -149,26 +153,39 @@
     
     if [ -n "$ENTANDO_KUBECTL" ]; then
       ENTANDO_KUBECTL_MODE="COMMAND"
-      _kubectl() {
-        kubectl_update_once_options "$@"
-        # shellcheck disable=SC2086
-        if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
-          $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
-        else
-          KUBECONFIG="$DESIGNATED_KUBECONFIG" $ENTANDO_KUBECTL $KUBECTL_ONCE_OPTIONS "$@"
-        fi
-      }
+      
       if echo "$ENTANDO_KUBECTL" | grep -q "^sudo "; then
+        # shellcheck disable=SC2001
+        ENTANDO_KUBECTL_BASE="$(sed "s/^sudo //" <<<"$ENTANDO_KUBECTL")"
+        KUBECTL_CMD_SUDO=true
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       else
+        ENTANDO_KUBECTL_BASE="$ENTANDO_KUBECTL"
+        KUBECTL_CMD_SUDO=false
         _kubectl-pre-sudo() { :; }
       fi
+
+      _kubectl() {
+        kubectl_update_once_options "$@"
+        local CMD
+        if "$KUBECTL_CMD_SUDO" && ! "$KUBECTL_SKIP_SUDO"; then
+          CMD="sudo $ENTANDO_KUBECTL_BASE"
+        else
+          CMD="$ENTANDO_KUBECTL_BASE"
+        fi
+        # shellcheck disable=SC2086
+        if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
+          _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
+        else
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
+        fi
+      }
     elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
       ENTANDO_KUBECTL_MODE="CONFIG"
       _kubectl() {
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
-        KUBECONFIG="$DESIGNATED_KUBECONFIG" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+        KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
       }
       _kubectl-pre-sudo() { :; }
     else
@@ -180,7 +197,7 @@
         _kubectl() {
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
-          kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
         }
         _kubectl-pre-sudo() { :; }
       else
@@ -189,9 +206,9 @@
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           if $ENT_KUBECTL_NO_AUTO_SUDO; then
-            kubectl $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
           else
-            sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
           fi
         }
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
@@ -249,7 +266,7 @@
       elif [[ "$var" =~ "#H:-" ]]; then
         echo "$var" | _perl_sed 's/#H:-/ :  -/' | _align_by_sep ":" 22
       else
-        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/[\1]/' | _align_by_sep ":" 22
+        echo "$var" | _perl_sed 's/[[:space:]]*(.*)\)[[:space:]]*#''H:(.*)/  - \1: \2/' | _perl_sed 's/"//g' | _perl_sed 's/\|[[:space:]]*([^:]*)/ [\1]/' | _align_by_sep ":" 22
       fi
     done
 

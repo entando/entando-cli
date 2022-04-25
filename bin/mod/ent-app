@@ -9,7 +9,7 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an EntandoApp" && exit 0
+  echo -e "Helper for managing an Entando App" && exit 0
 }
 
 [ "$1" = "--cmplt" ] && {
@@ -31,8 +31,8 @@ RUN() {
 
   
   show_help_option "$HH" ":main"
-  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
 
   show_help_option "$HH" "$CMD"
   case "$CMD" in
@@ -48,8 +48,8 @@ RUN() {
   "status") #H: prints status information about the current EntandoApp
     local WATCH
     determine_namespace ENTANDO_NAMESPACE "$@"
-    args_or_ask ${HH:+"$HH"} -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F WATCH "--watch///" "$@"
+    args_or_ask -h "$HH" -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
+    args_or_ask -h "$HH" -n -F WATCH "--watch///" "$@"
 
     [ -n "$HH" ] && exit 0
 
@@ -79,7 +79,7 @@ print_configmap() {
 
 print_operator_configmap() {
   CHECK=true
-  args_or_ask ${HH:+"$HH"} -f -- "--no-check///suppress the check of the application version" "$@" && {
+  args_or_ask -h "$HH" -f -- "--no-check///suppress the check of the application version" "$@" && {
     CHECK=false;
   }
   [ -n "$HH" ] && exit 0
@@ -89,7 +89,7 @@ print_operator_configmap() {
     app-get-main-ingresses ignore ignore ignore ignore
     if ! check_ver_ge "6.3.0" "$ENTANDO_LATEST_DETECTED_APPVER"; then
       {
-        _log_w 0 "This EntandoApp version doesn't seem to support the configmap \"entando-operator-config\""
+        _log_w "This EntandoApp version doesn't seem to support the configmap \"entando-operator-config\""
         ask "Should I proceed anyway?" "Y" || FATAL "Quitting"
       } 1>&2
     fi
@@ -99,20 +99,19 @@ print_operator_configmap() {
 }
 
 print_images() {
-
   [ -n "$HH" ] && exit 0
   
   # shellcheck disable=SC2021 disable=SC2155
   local RES=$(
-    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get pods -o jsonpath="{..image}" |
-      \tr -s '[[:space:]]' $'\n' | \sort -u
+    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} get pods -o json \
+      | _jq ".items[] | [ .metadata.name, [ .spec.containers[] | .name, .image ] ] | flatten | join(\"|\")" -r \
+      | \tr -s '|' $'\t'
   )
   [ -z "$RES" ] && FATAL "Unable fetch the images list"
 
-  echo "$RES"
+  echo "$RES" | _column -t | \sort -u
   echo ""
   echo "$RES" | _sha256sum
 }
 
 RUN "$@"
-

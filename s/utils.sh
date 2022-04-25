@@ -96,7 +96,7 @@ reload_cfg() {
       sanitized="${sanitized/\\n/}"
       eval "$var"="$sanitized"
     else
-      _log_e 0 "Skipped illegal var name $var"
+      _log_e "Skipped illegal var name $var"
     fi
   done <<<"$(cat "$config_file")"
   return 0
@@ -228,12 +228,12 @@ _FATAL() {
   if [ "$1" != "-s" ]; then
     SKIP=1;[ "$1" = "-S" ] && { SKIP="$((SKIP+$2))"; shift 2; }
     [ "$1" = "-99" ] && shift && rv=99
-    CALL_TRACE_LOGGER() { _log_e 0 "$*" 1>&2; }
+    CALL_TRACE_LOGGER() { _log_e "$*" 1>&2; }
     print_calltrace "$SKIP" 5 "" CALL_TRACE_LOGGER "$@" 1>&2
   else
     shift
     [ "$1" = "-99" ] && shift && rv=99
-    _log_e 0 "$@" 1>&2
+    _log_e "$@" 1>&2
   fi
   exit "$rv"
 }
@@ -246,9 +246,11 @@ FATAL() {
 # Fatals if a violation is found
 #
 NONNULL() {
+  # shellcheck disable=SC2124
+  local O="-S 1"; [ "$1" = "-s" ] && { O="-s"; shift; }
   for var_name in "$@"; do
     local var_value="${!var_name}"
-    [ -z "$var_value" ] && _FATAL -S 1 "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
+    [ -z "$var_value" ] && _FATAL $O "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
   done
 }
 
@@ -256,7 +258,7 @@ NONNULL() {
 #
 EXIT_UE() {
   echo -e "---"
-  [ "$1" != "" ] && _log_w 0 "$@"
+  [ "$1" != "" ] && _log_w "$@"
   xu_set_status "USER-ERROR"
   exit 1
 }
@@ -264,7 +266,7 @@ EXIT_UE() {
 # converts a snake case identifier to camel case
 snake_to_camel() {
   local res="$(echo "$2" | _perl_sed 's/[ _-]([a-z])/\U\1/gi;s/^([A-Z])/\l\1/')"
-  _set_var "$1" "$res"
+  _set_or_print "$1" "$res"
 }
 
 # converts a snake case identifier to camel case
@@ -275,7 +277,7 @@ camel_to_snake() {
   else
     local res="$(echo "$2" | _perl_sed 's/([A-Z]{1,})/_\L\1/g;s/^_//')"
   fi
-  _set_var "$1" "$res"
+  _set_or_print "$1" "$res"
 }
 
 # Returns the index of the given argument value
@@ -362,14 +364,6 @@ print_entando_banner() {
   } > /dev/stderr
 }
 
-print_hr() {
-  if "$SYS_IS_STDIN_A_TTY"; then
-    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | _perl_sed "s/ /${1:-~}/g"
-  else
-    printf '%*s\n' "${COLUMNS}" '' | _perl_sed "s/ /${1:-~}/g"
-  fi
-}
-
 # requires that the system environment was checked for development mode
 #
 require_develop_checked() {
@@ -454,6 +448,7 @@ select_one() {
 # - -F    like "-f" but also sets the give var with true or false
 # - -a    looks for the positional arg of given index (that doesn't start with dash)
 # - -p    only set the var is a value was found
+# - -s    assumes space separator
 #
 # Example:
 # - args_or_ask  "NAME" "name/id//Enter the name" "$@"
@@ -480,6 +475,8 @@ args_or_ask() {
     local val_name="$1"
     local val_msg="$2"
     $PRINT_HELP && {
+      before_printing_help
+      
       if [ -n "$ENT_HELP_SECTION_TITLE" ]; then
         echo "$ENT_HELP_SECTION_TITLE"
         ENT_HELP_SECTION_TITLE=""
@@ -508,9 +505,17 @@ args_or_ask() {
       -p) PRESERVE=true;shift;;
       -s) SPACE_SEP=true;shift;;
       -d) IS_DEFAULT=true;shift;;
-      --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
       --help) PRINT_HELP=true;NEVER_ASK=true;shift;;
+      --help-only) PRINT_HELP=true;JUST_PRINT_HELP=true;shift;;
       --cmplt) PRINT_COMPLETION_CODE=true;NEVER_ASK=true;shift;;
+      -h)
+        case "$2" in
+          "--help") PRINT_HELP=true;NEVER_ASK=true;;
+          "--help-only") PRINT_HELP=true;JUST_PRINT_HELP=true;;
+          "--cmplt") PRINT_COMPLETION_CODE=true;NEVER_ASK=true;;
+        esac
+        shift 2
+        ;;
       --)
         shift
         break
@@ -534,7 +539,11 @@ args_or_ask() {
     elif $ARG; then
       :
     else
-      echo "${val_name}="
+      if $SPACE_SEP || $FLAG || $FLAGANDVAR; then
+        echo "${val_name}"
+      else
+        echo "${val_name}="
+      fi
     fi
     
     $JUST_PRINT_HELP && return 1
@@ -549,7 +558,7 @@ args_or_ask() {
 
   # user provided value
   if $ARG; then                                                                     # POSITIONAL VALUE
-    assert_num "the index of position argument" "$val_name" || _FATAL "Internal Error"
+    assert_num "the index of positional argument" "$val_name" || _FATAL "Internal Error"
     index_of_arg -p -n "$val_name" "[^-]" "$@"
     found_at="$?"
     val_name="Argument #$((val_name))"
@@ -682,32 +691,31 @@ args_or_ask() {
   fi
 }
 
-simple_shell_completion_handler() {
-  if [ "$1" = "--cmplt" ]; then
-    shift
-    for a in "$@"; do echo "$a"; done
-    return 0
-  fi
+simple_cmplt_handler() {
+  [ "$HH" == "--cmplt" ] && { echo "$@" | tr ' ' $'\n'; exit 0; }
+}
+
+simple_help_handler() {
+  [ -z "$HH" ] && { HH="$(parse_help_option "$@")"; }
+  [ "$HH" == "--help" ] && show_help_option "$HH";
+  "$@"
+  [ -n "$HH" ] && return 0
   return 1
 }
 
 parse_help_option() {
   # shellcheck disable=SC2124
-  local ARG="${!#}"
-  local HH
-
-  case "$ARG" in
-    "--help") HH="--help" ;;
-    "--cmplt") HH="--cmplt" ;;
+  case "${!#}" in
+    "--help") echo "--help";;
+    "--cmplt") echo "--cmplt";;
+    *) echo ""
   esac
-
-  echo "$HH"
 }
 
 show_help_option() {
   case "$1" in
-    --help)
-      echo ""
+    "--help")
+      _nn ENT_MODULE_FILE && print_ent_module_help "$ENT_MODULE_FILE" "$2"
       if [ -n "$2" ]; then
         if [ "$2" = ":main" ]; then
           ENT_HELP_SECTION_TITLE="> Main arguments:"
@@ -718,9 +726,62 @@ show_help_option() {
         ENT_HELP_SECTION_TITLE="> Arguments:"
       fi
       ;;
-    --cmplt) echo "--help" ;;
+    "--cmplt") echo "--help" ;;
   esac
 }
+
+# declates the begin of the help and completion parsing phase, given:
+# $1: the location on disk (ARG0) of the script for which the help is generated, or :<TITLE> if it's a sub-command
+# $2: the command line parameters
+#
+# Implictly calls print_ent_module_help if help is requested
+#
+# Affects 3 global vars:
+# HH                     set with the help/completion command ("--help", "--cmplt", "")
+# HH_COMPLETION_REQUEST  set to true if it's the completion was requested
+# HH_HELP_REQUEST        set to true if it's the help was requested
+#
+# Returns 0 if help or completion was requested
+#
+bgn_help_parsing() {
+  if [ "${1:0:1}" != ":" ]; then
+    ENT_MODULE_FILE="$1"
+  else
+    ENT_MODULE_FILE=""
+  fi
+  shift
+  HH="$(parse_help_option "$@")"
+  HH_COMPLETION_REQUEST=false;HH_HELP_REQUEST=false;HH_COMMAND=false;
+
+  HH_LATCHED_HELP_HEADING() { :; }
+  case "$HH" in
+    "--help")
+      # shellcheck disable=SC2034
+      HH_HELP_REQUEST=true
+      HH_LATCHED_HELP_HEADING() { show_help_option "$HH"; }
+      ;;
+    "--cmplt")
+      # shellcheck disable=SC2034
+      HH_COMPLETION_REQUEST=true
+      ;;
+    *)
+      # shellcheck disable=SC2034
+      HH_COMMAND=true
+      ;;
+  esac
+  test -n "$HH"
+}
+
+before_printing_help() {
+  [[ "$(type -t HH_LATCHED_HELP_HEADING)" == "function" ]] && HH_LATCHED_HELP_HEADING
+  HH_LATCHED_HELP_HEADING() { :; }
+}
+
+end_help_parsing() {
+  test -n "$HH" && exit 0
+  HH=""
+}
+
 
 # Takes a value from the arguments or interactively from a provided array or map-reference
 # A map reference the name of a map manipulated using the map-* functions
@@ -743,7 +804,7 @@ args_or_ask_from_list() {
       "-m") IS_MAPREF=true;shift;;
       "-e") EXACT=true;shift;;
       "-a") PRE="$1";shift;;
-      "--help") HH="$1";shift;;
+      "-h") HH="$2";shift 2;;
       *) break ;;
     esac
   done
@@ -755,7 +816,7 @@ args_or_ask_from_list() {
 
   local TMP
 
-  args_or_ask "$PRE" -n -p ${HH:+"$HH"} "TMP" "$arg_code_or_num/$type//$msg" "$@"
+  args_or_ask "$PRE" -n -p -h "$HH" "TMP" "$arg_code_or_num/$type//$msg" "$@"
 
   [ -z "$HH" ] && {
     if [ -z "$TMP" ]; then
@@ -770,7 +831,7 @@ args_or_ask_from_list() {
       else
         # shellcheck disable=SC2207
         if $IS_MAPREF; then
-          TITLES=($(map-list "${src_list}" -k))
+          TITLES=($(map-list "${src_list}" -v))
         else
           TITLES=("${src_list[@]}")
         fi
@@ -805,13 +866,15 @@ stdin_to_arr() {
 print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if $VERBOSE; then
-    _log_i 0 "Current profile info:"
+    _log_i "Current profile info:"
     echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
+    echo " - PROFILE HOME:      ${DESIGNATED_PROFILE_HOME}"
+    _nn PROFILE_ORIGIN && echo " - PROFILE ORIGIN:    ${PROFILE_ORIGIN}"
   else
     if [ -n "$THIS_PROFILE" ]; then
-      _log_i 0 "Currently using profile \"$THIS_PROFILE\"" 1>&2
+      _log_i "Currently using profile \"$THIS_PROFILE\"" 1>&2
     else
-      _log_i 0 "Currently not using any profile" 1>&2
+      _log_i "Currently not using any profile" 1>&2
     fi
   fi
   
@@ -1009,7 +1072,7 @@ keycloak-query-connection-data() {
   
   if [[ "$?" = "0" && -n "$tmp" ]]; then
     # EXTERNAL KEYCLOAK CONFIGURATION
-    _log_d 3 "external-sso-secret found"
+    _log_d "external-sso-secret found"
     _tmp_auth_url="$(echo "$tmp" | cut -d':' -f3)"
     _tmp_auth_url=$(_base64_d <<< "$_tmp_auth_url")
     _tmp_realm="$(echo "$tmp" | cut -d':' -f4)"
@@ -1058,7 +1121,7 @@ keycloak-get-token() {
   # Finds the KEYCLOAK ENDPOINT
   local TOKEN_ENDPOINT
   TOKEN_ENDPOINT="$(curl --insecure -sL "${auth_url}/realms/${realm}/.well-known/openid-configuration" \
-    | jq -r ".token_endpoint")"
+    | _jq -r ".token_endpoint")"
   
   local TOKEN
   TOKEN="$(curl --insecure -sL "$TOKEN_ENDPOINT" \
@@ -1066,195 +1129,11 @@ keycloak-get-token() {
     -H "Accept-Language: en_US" \
     -u "$client_id:$client_secret" \
     -d "grant_type=client_credentials" \
-    | jq -r '.access_token')"
+    | _jq -r '.access_token')"
 
   [[ -z "$TOKEN" || "$TOKEN" == "null" ]] && FATAL "Unable to extract the access token"
 
   _set_var "$res_var" "$TOKEN"
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
-# Runs general operation to prepare running actions against the ECR
-# $1: the received of the url to use for the action
-# $2: the received of the authentication token to use for the action
-ecr-prepare-action() {
-  local var_url="$1"
-  shift
-  local var_token="$1"
-  shift
-  print_current_profile_info
-  # shellcheck disable=SC2034
-  local main_ingress ecr_ingress ignored url_scheme
-  app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
-  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
-  [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
-  if [ -n "$url_scheme" ]; then
-    main_ingress="$url_scheme://$main_ingress"
-  else
-    case "$FORCE_URL_SCHEME" in
-      "http")
-        http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
-        ;;
-      *)
-        http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
-        ;;
-    esac
-  fi
-  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
-  http-get-url-scheme url_scheme "$main_ingress"
-  save_cfg_value LATEST_URL_SCHEME "$url_scheme"
-  local token
-  keycloak-get-token token "$url_scheme"
-  _set_var "$var_url" "$url_scheme://$ecr_ingress"
-  _set_var "$var_token" "$token"
-}
-
-# Runs an ECR action for a bundle given:
-# $1: the received of the of the http status
-# $2: the http verb
-# $3: the action
-# $4: the ingress url
-# $5: the authentication token
-# $6: the bundle id
-#
-# returns:
-# - the http status in $1
-# - the http operation output in stdout
-#
-ecr-bundle-action() {
-  local DEBUG=false; [ "$1" == "--debug" ] && DEBUG=true && shift
-  local res_var="$1";shift
-  local verb="$1";shift
-  local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
-  local bundle_id="$1";shift
-  local raw_data="$1";shift
-  
-  local url
-  path-concat url "${ingress}" ""
-  url+="components"
-  
-  local http_status OUT
-
-  [ -n "$bundle_id" ] && url+="/$bundle_id"
-  [ -n "$action" ] && url+="/$action"
-
-  local OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-  
-  # shellcheck disable=SC2155
-  if "$DEBUG"; then
-      local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-      local STATUS="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-      curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
-        -H 'Accept: */*' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer $token" \
-        -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
-        1> "$STATUS" 2> "$ERR"
-      
-      # shellcheck disable=SC2155 disable=SC2034
-      {
-        local T_STATUS="$(cat "$STATUS")"
-        local T_OUT="$(cat "$OUT")"
-        local T_ERR="$(cat "$ERR")"
-        _pp T_STATUS T_OUT T_ERR
-      } > /dev/tty
-      
-    rm "$STATUS" "$ERR" "$OUT"
-    return
-  else
-    http_status=$(
-      curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
-        -H 'Accept: */*' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer $token" \
-        -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
-        2> /dev/null
-    )
-  fi
-  
-  if [ "$res_var" != "%" ]; then
-    if [ "$res_var" != "" ]; then
-      _set_var "$res_var" "$http_status"
-    fi
-  else
-    if [ "$http_status" -ge 300 ]; then
-      echo "%$http_status"
-      return 1
-    fi
-  fi
-  
-  if [ -s "$OUT" ]; then
-    cat "$OUT"
-  else
-    if [ "$res_var" = "%" ]; then
-      echo "%$http_status"
-    fi
-  fi
-  rm "$OUT"
-}
-
-# Runs an ECR action for a bundle given:
-# $1: the received of the of the http status
-# $2: the http verb
-ecr-watch-installation-result() {
-  local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
-  local bundle_id="$1";shift
-  local http_res
-
-  local start_time end_time elapsed
-  start_time="$(date -u +%s)"
-
-  echo ""
-
-  while true; do
-    http_res=$(
-      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
-    )
-    
-    if [ "${http_res:0:1}" != '%' ]; then
-      http_res=$(
-        echo "$http_res" | jq -r ".payload.status" 2> /dev/null
-      )
-  
-      end_time="$(date -u +%s)"
-      elapsed="$((end_time - start_time))"
-      printf "\r                                  \r"
-      printf "%4ds STATUS: %s.." "$elapsed" "$http_res"
-    fi
-
-    case "$http_res" in
-      "INSTALL_IN_PROGRESS" | "INSTALL_CREATED" | "UNINSTALL_IN_PROGRESS" | "UNINSTALL_CREATED") ;;
-      "INSTALL_COMPLETED")
-        echo -e "\nTerminated."
-        return 0
-        ;;
-      "UNINSTALL_COMPLETED")
-        echo -e "\nTerminated."
-        return 0
-        ;;
-      "INSTALL_ROLLBACK") ;;
-      "INSTALL_ERROR")
-        echo -e "\nTerminated."
-        return 1
-        ;;
-      %*)
-        echo -e "\nTerminated \"$http_res\""
-        return 2
-        ;;
-      *)
-        echo ""
-        FATAL "Unknown status \"$http_res\""
-        return 99
-        ;;
-    esac
-    sleep 3
-  done
 }
 
 # Implements a mechanism restrict and preserve in the current tty the profile to use 
@@ -1272,7 +1151,7 @@ handle_forced_profile() {
   local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   if [[ "$1" =~ --profile=.* ]]; then
-    args_or_ask -n ${HH:+"$HH"} "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
+    args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
     _set_var "$phv" "$ENTANDO_PROFILES/$ENTANDO_USE_PROFILE"
   fi
@@ -1374,3 +1253,89 @@ _base64_e() {
 _base64_d() {
   perl -e "use MIME::Base64; print decode_base64(<>);" 
 }
+
+_pkg_get() {
+  local VERBOSE=false;[ "$1" = "--verbose" ] && { VERBOSE=true;shift; }
+  local pkg="$1" ver="$2" var="" url=""
+  case "$pkg" in
+    jq)
+      var="JQ_PATH";ver="${ver:-1.6}";url="https://github.com/stedolan/jq/releases/download/jq-$ver"
+      _pkg_download_and_install "$var" "jq" "$ver" \
+        "$url/jq-linux64" "jq-linux64" "" \
+        "$url/jq-osx-amd64" "jq-osx-amd64" "" \
+        "$url/jq-win64.exe" "jq-win64.exe" "";
+      ;;
+    k9s)
+      var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver/"
+      _pkg_download_and_install "$var" "k9s" "$ver" \
+        "$url/k9s_Linux_x86_64.tar.gz" "k9s" "" \
+        "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
+        "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
+      ;;
+    *)
+      _FATAL -s "Unknown package \"$pkg\""
+      ;;
+  esac
+  
+  [ -n "$var" ] && {
+    $VERBOSE && {
+      _log_i "Config var: ${var}"
+      _log_i "Location: ${!var}"
+    }
+    save_cfg_value "$var" "${!var}" "$ENT_DEFAULT_CFG_FILE"
+  }
+}
+
+_jq() {
+  _pkg_jq "$@"
+}
+
+_pkg_jq() {
+  local CMD; _pkg_get_path CMD "jq"
+  "$CMD" "$@"
+}
+
+_pkg_ok() {
+  local CMD; _pkg_get_path CMD "k9s"
+  test -n "$CMD"
+}
+
+_pkg_k9s() {
+  local CMD; _pkg_get_path CMD "k9s"
+  if [ -z "$1" ]; then
+    if _nn DESIGNATED_KUBECTX; then
+      "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
+    elif _nn DESIGNATED_KUBECONFIG; then
+      "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
+    else
+      "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
+    fi
+  else
+    "$CMD" "$@"
+  fi
+}
+
+_pkg_get_path() {
+  local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
+  local _tmp_PKGPATH="${2^^}_PATH"
+  _tmp_PKGPATH="${!_tmp_PKGPATH}"
+  if command -v "$_tmp_PKGPATH" &> /dev/null; then
+    _set_or_print "$1" "$_tmp_PKGPATH"
+    return 0
+  elif command -v "$2" &> /dev/null; then
+    ! $STRICT && {
+      _set_or_print "$1" "$(command -v "$2")"
+      return 0
+    }
+  fi
+  _FATAL -s "Package \"$2\" not found" 1>&2
+}
+
+_column() {
+  if command -v column &>/dev/null; then
+    column "$@"
+  else
+    cat -
+  fi
+}
+

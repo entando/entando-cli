@@ -31,58 +31,59 @@ RUN() {
   HH="$(parse_help_option "$@")"
 
   show_help_option "$HH" ":main"
-  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
   
   [[ -n "$HH" ]] && {
     print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   }
 
   show_help_option "$HH" "$CMD"
-
+  
   case "$CMD" in
   "use") #H: selects the profile that ent should use
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "USE_NO_PROFILE" "--none///Assumes the global profile" "$@"
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+    args_or_ask -h "$HH" -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+    args_or_ask -h "$HH" -n -F "USE_NO_PROFILE" "--none///Assumes the global profile" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
 
     if [ -z "$COMMAND_FILE" ]; then
       local V="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER"
       [ -n "${!V}" ] && {
-        local MSG="On this TTY normal \"ent profile\" commands will be overridden"
-        MSG+=" by the TTY local setup (see \"ent status\");"
-        MSG+=" you can switch the another app or free the tty by issuing another sourced ent-profile."
-        _log_e 0 "$MSG"
-        FATAL "TTY_APP_LOCKED"
+        local MSG="This SHELL SESSION is currently bound to a specific profile, "
+        MSG+="in order to use another profile during this session you need to source-run this command"
+        _log_e "$MSG"
+        FATAL "TTY_PRO_LOCKED"
       }
     fi
 
     shift
     kubectl_mode --reset-mem
+    THIS_PROFILE="" PROFILE_ORIGIN=""
     use_profile "$@"
+    fix_profile
     ;;
   "print-first-use-readme") #H: prints the first-use readme
     print_first_use_readme
     ;;
-  "new") #H: created a new profile
+  "new") #H: creates a new profile
     shift
     new_profile "$@"
     ;;
-  "set") #H: created a new profile
+  "set") #H: sets appname and namespace of the current profile
     shift
     setup_curr_profile "$@"
     ;;
-  "delete") #H: delete the given profile
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+  "delete") #H: deletes the given profile
+    args_or_ask -h "$HH" -n -F "AUTO_YES" "--yes///Assumes yes for all yes-no questions" "$@"
+    args_or_ask -h "$HH" -n -F "AUTO_NO" "--no///Assumes no for all yes-no questions" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     delete_profile "$@"
     ;;
   "list") #H: prints a list of the available profiles
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
     [ -n "$HH" ] && exit 0
     shift
     list_profiles "$@"
@@ -91,11 +92,35 @@ RUN() {
     shift
     profile_link_context "$1"
     ;;
+  "tmp") #H: creates and activates a tty-bound temporary profile which is the clone of the current one
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as based app dir" "$@"
+    args_or_ask -h "$HH" -F -- PRESERVE_PROFILE "-p///Preserves the old temporary profile" "$@"
+    [ -n "$HH" ] && exit 0
+    
+    PROFILE_ORIGIN="$THIS_PROFILE"
+
+    if [ -z "$COMMAND_FILE" ]; then
+      FATAL "You need to source-execute me"
+    fi
+
+    if [ "$THIS_PROFILE" = "_entando_tmp_profile" ]; then
+      FATAL "You are already using the temporary profile"
+    fi
+
+    _create_and_use_tmp_clone
+    activate_designated_workdir --temporary
+    _activate_command_in_source_mode "$DESIGNATED_PROFILE" "$DESIGNATED_PROFILE_HOME"
+
+    save_cfg_value PROFILE_ORIGIN "$PROFILE_ORIGIN"
+
+    _log_i "Temporary profile activated for this shell"
+    print_current_profile_info -v
+    ;;
   "")
-    args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///Uses the local dir as base  profile dir" "$@"
+    args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///Uses the local dir as base for the profile dir" "$@"
     [ -n "$HH" ] && exit 0
     print_current_profile_info
-    _log_i 2 "The available profiles are:"
+    _log_i "The available profiles are:"
     list_profiles "$@"
     ;;
   esac
@@ -103,13 +128,20 @@ RUN() {
 
 setup_curr_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask ${HH:+"$HH"} ENTANDO_APPNAME "--appname/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@" && {
+  args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@" && {
     save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME"
   }
-  args_or_ask ${HH:+"$HH"} ENTANDO_NAMESPACE "--namespace/ext_ic_id/$PROFILE/%sp default namespace" "$@" && {
+  args_or_ask -h "$HH" ENTANDO_NAMESPACE "--namespace/ext_ic_id/$PROFILE/%sp default namespace" "$@" && {
     save_cfg_value ENTANDO_NAMESPACE "$ENTANDO_NAMESPACE"
   }
   [ -n "$HH" ] && exit 0
+}
+
+fix_profile() {
+  if [ -z "$THIS_PROFILE" ]; then
+    THIS_PROFILE="$DESIGNATED_PROFILE"
+    save_cfg_value THIS_PROFILE "$DESIGNATED_PROFILE" "$CFG_FILE"
+  fi
 }
 
 use_profile() {
@@ -124,7 +156,7 @@ use_profile() {
   fi
 
   $USE_NO_PROFILE && profile="--none"
-  args_or_ask ${HH:+"$HH"} -a -p -n -- "profile" '1///%sp profile (or --none)' "$@"
+  args_or_ask -h "$HH" -a -p -n -- "profile" '1///%sp profile (or --none)' "$@"
 
   DESIGNATED_PROFILE=""
   # shellcheck disable=SC2034
@@ -159,7 +191,7 @@ use_profile() {
       local app_dir="$apps_base_dir/$tmp_profile"
 
       if [ ! -d "$app_dir" ]; then
-        _log_w 0 "Application profile \"$tmp_profile\" not found"
+        _log_w "Application profile \"$tmp_profile\" not found"
         $AUTO_NO && EXIT_UE "Auto Interrupted due to auto-no"
         $AUTO_YES || ask "Should I create it?" || EXIT_UE "User interrupted"
         new_profile "$tmp_profile"
@@ -167,15 +199,7 @@ use_profile() {
 
       # shellcheck disable=SC2030
       if [ -n "$COMMAND_FILE" ]; then
-        # shellcheck disable=SC2016
-        {
-          echo "export ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${tmp_profile}\""
-          echo "export ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${app_dir}\""
-          echo 'if [ "$1" = "--full" ]; then'
-          echo "  DESIGNATED_PROFILE=\"${tmp_profile}\""
-          echo "  DESIGNATED_PROFILE_HOME=\"${app_dir}\""
-          echo 'fi'
-        } >>"$COMMAND_FILE"
+        _activate_command_in_source_mode "${tmp_profile}" "${app_dir}"
       else
         save_cfg_value "DESIGNATED_PROFILE" "${tmp_profile}" "$ENTANDO_GLOBAL_CFG"
         save_cfg_value "DESIGNATED_PROFILE_HOME" "${app_dir}" "$ENTANDO_GLOBAL_CFG"
@@ -206,11 +230,24 @@ use_profile() {
   fi
 }
 
+_activate_command_in_source_mode() {
+  # shellcheck disable=SC2016
+  {
+    local profile_name="$1" profile_dir="$2"
+    echo "export ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${profile_name}\""
+    echo "export ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${profile_dir}\""
+    echo 'if [ "$1" = "--full" ]; then'
+    echo "  DESIGNATED_PROFILE=\"${profile_name}\""
+    echo "  DESIGNATED_PROFILE_HOME=\"${profile_dir}\""
+    echo 'fi'
+  } >>"$COMMAND_FILE"
+}
+
 _list_profiles() {
   local filter
   HH="$(parse_help_option "$@")"
   show_help_option "$HH"
-  args_or_ask ${HH:+"$HH"} -n -a -- filter '1///filter' "$@"
+  args_or_ask -h "$HH" -n -a -- filter '1///filter' "$@"
   [ -n "$HH" ] && exit 0
 
   if [ -n "$filter" ]; then
@@ -248,16 +285,49 @@ select_profile() {
 parse_basic_profile_args() {
   local from="$1"
   shift
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@"
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
+  args_or_ask -h "$HH" -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@"
+  args_or_ask -h "$HH" -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
+}
+
+_determine_profile_dir() {
+  if [ "$USE_CURRENT_DIR" = "true" ]; then
+    echo "$ENTANDO_CALLER_PWD/.ent/profiles"
+  else
+    echo "$ENTANDO_PROFILES"
+  fi
+}
+
+_reset_tmp_profile() {
+  if [ "$(basename "$1")" = "_entando_tmp_profile" ]; then
+    rm -rf "$1"
+  else
+    _FATAL "Internal Error: Directory deletion validation failed"
+  fi
+}
+
+_create_and_use_tmp_clone() {
+  local new_profile_name="_entando_tmp_profile"
+  local new_profile_dir="$(_determine_profile_dir)/$new_profile_name"
+  local new_cfg_file="$new_profile_dir/w/.cfg"
+
+  if ! $PRESERVE_PROFILE; then
+    _reset_tmp_profile "$new_profile_dir"
+    cp -R "$DESIGNATED_PROFILE_HOME" "$new_profile_dir"
+    chmod 700 "$new_profile_dir/w"
+    _log_i "Temporary profile generated"
+  fi
+
+  THIS_PROFILE="$new_profile_name"
+  save_cfg_value THIS_PROFILE "$new_profile_name" "$new_cfg_file"
+  set_curr_profile "$new_profile_name" "$new_profile_dir"
 }
 
 new_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask ${HH:+"$HH"} -a PROFILE "1/ext_ic_id//%sp profile name" "$@"
-  args_or_ask ${HH:+"$HH"} -n -F AUTO_USE \
+  args_or_ask -h "$HH" -a PROFILE "1/ext_ic_id//%sp profile name" "$@"
+  args_or_ask -h "$HH" -n -F AUTO_USE \
     "--and-use//true/%sp if true (default) automatically switches to the new profile" "$@"
-  args_or_ask ${HH:+"$HH"} -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
+  args_or_ask -h "$HH" -F USE_CURRENT_DIR "-l///%sp uses the local dir as based app dir" "$@"
   parse_basic_profile_args 2 "$@"
   [ -n "$HH" ] && exit 0
   # ~~~~~~~~~~~~~~
@@ -273,7 +343,7 @@ new_profile() {
   mkdir -p "${app_dir}/w"
   chmod 700 "$ENTANDO_ENT_HOME/w"
   find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
-  _log_i 0 "Application profile \"$PROFILE\" created"
+  _log_i "Application profile \"$PROFILE\" created"
 
   local cfg_file="$app_dir/w/.cfg"
   save_cfg_value THIS_PROFILE "$PROFILE" "$cfg_file"
@@ -282,7 +352,7 @@ new_profile() {
 
   if $AUTO_USE; then
     set_curr_profile "$PROFILE" "$app_dir"
-    _log_i 0 "Application profile \"$PROFILE\" activated"
+    _log_i "Application profile \"$PROFILE\" activated"
     activate_designated_workdir
     print_first_use_readme
   else
@@ -336,17 +406,17 @@ delete_profile() {
   __cd "$apps_base_dir"
   # shellcheck disable=SC2035
   map-from-stdin "profile" $'\n\r' < <(ls -d * 2>/dev/null)
-  args_or_ask_from_list "profile" -m -a ${HH:+"$HH"} PROFILE 1 "any" \
+  args_or_ask_from_list "profile" -m -a -h "$HH" PROFILE 1 "any" \
     "profile" "Select the profile" "$@"
   [ ! -d "$PROFILE" ] && FATAL "Unable to select given profile: not found"
   [ ! -d "$PROFILE/w" ] && FATAL "Invalid profile dir"
 
   (
-    _log_w 0 "Application profile \"$PROFILE\" found"
+    _log_w "Application profile \"$PROFILE\" found"
     $AUTO_YES || ask "Should I really delete it?" || EXIT_UE "User interrupted"
 
     rm -rf "$PROFILE"
-    _log_i 0 "Application profile \"$PROFILE\" deleted"
+    _log_i "Application profile \"$PROFILE\" deleted"
 
     save_cfg_value "DESIGNATED_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
     save_cfg_value "DESIGNATED_PROFILE_HOME" "" "$ENTANDO_GLOBAL_CFG"
@@ -379,12 +449,12 @@ list_profiles() {
 
 profile_link_context() {
   local kube_context use_def
-  if args_or_ask ${HH:+"$HH"} -F -n -- use_def '--default///selects the default kubectx' "$@"; then
+  if args_or_ask -h "$HH" -F -n -- use_def '--default///selects the default kubectx' "$@"; then
     args_or_ask -n -a -- kube_context '1///' "$@" && {
       FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
     }
   else
-    args_or_ask ${HH:+"$HH"} -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
+    args_or_ask -h "$HH" -n -a -- kube_context '1///%spkubernetes context pattern (or --default)' "$@"
   fi
   [ -n "$HH" ] && exit 0
 
@@ -392,6 +462,7 @@ profile_link_context() {
     kubectx-detach
   else
     kubectx-select RES "$kube_context" && {
+      # shellcheck disable=SC2031
       kubectx-attach "$RES"
     }
   fi

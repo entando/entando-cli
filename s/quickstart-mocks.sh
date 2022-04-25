@@ -10,15 +10,7 @@ MOCK_CALL_NUM=0
 MOCK_CALL_ID=""
 
 mock-log() {
-  if $SYS_IS_STDOUT_A_TTY; then
-    B() { echo -e '\033[101;37m'; }
-    E() { echo -e '\033[0;39m'; }
-  else
-    B() { true; }
-    E() { true; }
-  fi
-
-  echo -e "$(B)######## MOCK: [$MOCK_CALL_ID]\n$1$(E)" 1>&2
+  debug-print --title "$(B)######## MOCK: [$MOCK_CALL_ID]" "$1"
   echo -e "######## MOCK: [$MOCK_CALL_ID]\n$1" >> "$TEST_WORKDIR/mock.log"
   print_hr 1>&2
 }
@@ -175,7 +167,7 @@ ent-attach-vm() {
   true;
 }
 
-handle-edit-manifest() {
+qs-edit-manifest() {
   if [ "$1" = "true" ]; then
     mock-log "## Run edit-manifest of file \"$2\""
     _edit "$2"

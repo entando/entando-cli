@@ -126,7 +126,9 @@ $SYS_OS_UNKNOWN && {
   chmod 700 "$ENTANDO_ENT_HOME/w"
   find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
 }
+
 . s/_conf.sh
+
 mkdir -p "$ENTANDO_PROFILES"
 mkdir -p "$ENTANDO_BINS"
 mkdir -p "$ENT_OPTS"
@@ -136,9 +138,11 @@ mkdir -p "$ENT_OPTS"
 
 . s/utils.sh
 . s/var-utils.sh
-. s/attach-utils.sh
 . s/logger.sh
+. s/ecr-utils.sh
+. s/attach-utils.sh
 . s/node-utils.sh
+. s/kube-utils.sh
 
 DESIGNATED_VM=""
 DESIGNATED_VM_NAMESPACE=""
@@ -167,6 +171,7 @@ activate_ent_default_workdir() {
   if [[ -z "$DESIGNATED_PROFILE" || "$DESIGNATED_PROFILE" = "-" ]]; then
     # shellcheck disable=SC2034
     THIS_PROFILE=""
+    PROFILE_ORIGIN=""
     DESIGNATED_PROFILE_HOME=""
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
     # shellcheck disable=SC2034
@@ -187,7 +192,7 @@ activate_application_workdir() {
       CFG_FILE="$ENT_WORK_DIR/.cfg"
       return 0
     else
-      _log_e 0 \
+      _log_e \
         "Unable to load the profile \"$DESIGNATED_PROFILE\", falling back to the default profile"
       DESIGNATED_PROFILE_HOME=""
       DESIGNATED_PROFILE=""
@@ -218,8 +223,7 @@ set_curr_profile() {
   [ -z "$1" ] && _FATAL "Illegal profile name detected"
   DESIGNATED_PROFILE="$1"
   DESIGNATED_PROFILE_HOME="$2"
-  [ -z "$DESIGNATED_PROFILE_HOME" ] &&
-    DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
+  [ -z "$DESIGNATED_PROFILE_HOME" ] && DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
   save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
   save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
 }
@@ -331,10 +335,12 @@ kubectl_mode() {
 
 check_kubectl() { 
   if [ "$WARN_KUBECTL" != "false" ]; then
-    local VER="$(_kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs)"
+    local VER="$(
+      KUBECTL_SKIP_SUDO=true _kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs
+    )"
     if [ -n "$VER" ]; then
       if check_ver_ge "$VER" "1.22.0" 2>/dev/null; then
-        _log_w 0 "this version of kubectl is not yet supported, replace it with a version < 1.22" \
+        _log_w "this version of kubectl is not yet supported, replace it with a version < 1.22" \
                  "or try running \"ent auto-align-kubectl\" against a kubernetes server." \
                  "To suppress this message execute \"ent config --set WARN_KUBECTL false\"" \
                  > /dev/stderr
@@ -349,7 +355,7 @@ print_ent_general_status() {
   setup_kubectl
   kubectl_update_once_options ""
   #print_hr
-  #_log_i 0 "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
   #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
   echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
   if [ -z "$DESIGNATED_KUBECONFIG" ]; then
@@ -381,7 +387,7 @@ print_ent_general_status() {
     | xargs -I {} echo " - TTY SESSION {}"
   )
   if [ -n "$TTY_ENV" ]; then
-    _log_i 0 "TTY environment ($ENTANDO_DEV_TTY):"
+    _log_i "TTY environment ($ENTANDO_DEV_TTY):"
     echo -n "$TTY_ENV"
     echo ""
     print_hr
@@ -395,10 +401,10 @@ determine_namespace() {
 
   HH="$(parse_help_option "$@")"
 
-  if args_or_ask ${HH:+"$HH"} -n ns "--namespace/ext_ic_id//" "$@" ||
-    args_or_ask ${HH:+"$HH"} -n -s ns "-n/ext_ic_id//" "$@"; then
-    if args_or_ask ${HH:+"$HH"} -n -f "--all-namespaces///" "$@" ||
-      args_or_ask ${HH:+"$HH"}-n -f dummy "-A///" "$@"; then
+  if args_or_ask -h "$HH" -n ns "--namespace/ext_ic_id//" "$@" ||
+    args_or_ask -h "$HH" -n -s ns "-n/ext_ic_id//" "$@"; then
+    if args_or_ask -h "$HH" -n -f "--all-namespaces///" "$@" ||
+      args_or_ask -h "$HH"-n -f dummy "-A///" "$@"; then
       ns="*"
     fi
     _set_var "$var_name" "$ns"

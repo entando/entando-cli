@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #H::
-#H:: Helps dealing with the entando component repository
+#H:: Helper for managing the ECR
 #H::
 #H:: Syntax:
 #H::  - ent ecr {command} ...
@@ -9,7 +9,7 @@
 #H:: Commands:
 
 [[ "$1" == "--help" && "$2" == "--short" ]] && {
-  echo -e "Helps managing an the Entando ECR" && exit 0
+  echo -e "Helper for managing the ECR" && exit 0
 }
 
 [ "$1" = "--cmplt" ] && {
@@ -27,27 +27,11 @@ cd "$DIR/../.." || {
 . s/_base.sh
 
 RUN() {
-  HH="$(parse_help_option "$@")"
-
-  show_help_option "$HH" ":main"
-  args_or_ask ${HH:+"$HH"} -a -n -- "CMD" '1///%sp command' "$@"
-
-  [[ -n "$HH" || -z "$CMD" ]] && {
-    print_ent_module_help "${BASH_SOURCE[0]}" "$2"
-    exit 0
-  }
-
-  args_or_ask ${HH:+"$HH"} -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
-
-  [[ -n "$HH" && -z "$CMD" ]] && exit
-
-  show_help_option "$HH" "\"$CMD\""
-  local INGRESS_URL TOKEN
-
-  shift
-  case "$CMD" in
+  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
+  case "$1" in
     "list") #H: shows the list of bundles
-      if args_or_ask ${HH:+"$HH"} -n -f "--debug///" "$@"; then
+      end_help_parsing
+      if args_or_ask -h "$HH" -n -f "--debug///" "$@"; then
         app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
         _pp ENTANDO_LATEST_DETECTED_APPVER url_scheme main_ingress ecr_ingress ignored
         ecr-prepare-action INGRESS_URL TOKEN
@@ -56,7 +40,7 @@ RUN() {
       else
         ecr-prepare-action INGRESS_URL TOKEN
         ecr-bundle-action "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 2>/dev/null \
-        | jq -r ".payload[] | [ \
+        | _jq -r ".payload[] | [ \
             .code, \
             .lastJob.status // \"(not-installed)\", \
             .lastJob.componentVersion \
@@ -64,26 +48,156 @@ RUN() {
       fi
       ;;
     "uninstall") #H: uninstalls a bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
-    "install-status") #H: shows the uninstall status of the bundle
+    "install") #H: shows the install status of the bundle
+      ent-ecr-install "$@"
+      ;;
+    "install-status") #H: shows the install status of the bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
       ;;
     "uninstall-status") #H: shows the uninstall status of the bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$@"
       ;;
     "usage-status") #H: shows the usage status of the bundle
+      end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
+    "generate-cr"|"gen-cr"|"cr") #H: shows the usage status of the bundle
+      ecr-generate-custom-resource "$@"
+      ;;
+    "get-bundle-id"|"bid") #H: calculates and displays the bundle id
+      shift
+      _ecr-get-bundle-id "$@"
+      ;;
+    "get-plugin-id"|"pid") #H: calculates and displays the plugin id
+      shift
+      _ecr-get-plugin-id "$@"
+      ;;
+    "gen-secret"|"sec") #H: generates and displays a plugin secret skeleton
+      shift
+      _ecr-gen-secret "$@"
+      ;;
+    "deploy") #H: generates the CR and deploys it to the current profile
+      require_develop_checked
+      _ecr-deploy "$@"
+      ;;
+    "--help"|"")
+      args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
+      args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+      end_help_parsing
+      ;;
     *)
-      [ -n "$HH" ] && exit 0
-      FATAL "Unknown command \"$CMD\""
+      FATAL "Unknown command \"$1\""
       ;;
   esac
+}
+
+_ecr-deploy() {
+  local BUNDLE_NAME BUNDLE_PUB_REPO THUMBNAIL_FILE THUMBNAIL_URL
+
+  bgn_help_parsing ":ECR-DEPLOY" "$@"
+  args_or_ask -h "$HH" -n BUNDLE_NAME  '--name///name of the bundle project' "$@"
+  args_or_ask -h "$HH" -n BUNDLE_PUB_REPO "--repo///url of the bundle publication repository" "$@"
+  args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  NONNULL -s BUNDLE_PUB_REPO
+  end_help_parsing
+
+  (
+    export SYS_IS_STDOUT_A_TTY=false
+    ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" \
+      | _kubectl apply -f -
+  )
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_ecr-gen-secret() {
+  local SEC_NAME BUNDLE_ID BUNDLE_NAME BUNDLE_PUB_REPO EDIT SAVE_TO APPLY
+  bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
+  args_or_ask -h "$HH" -a -- SEC_NAME "1/ext_ic_id//%sp the bundle secret name" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repo/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -F -- EDIT '--edit///%sp edit before printing' "$@"
+  args_or_ask -h "$HH" -n -- SAVE_TO '--save///%sp saves to the given file instead of printing' "$@"
+  args_or_ask -h "$HH" -F -- APPLY '--apply///%sp applies to the current kube instead of printing' "$@"
+  end_help_parsing
+  
+  _nn SAVE_TO && assert_strict_file_name "SAVE_TO" "$SAVE_TO" fatal
+  
+  _nn BUNDLE_ID || {
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_PUB_REPO"
+  }
+  
+  ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO" "$APPLY"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_ecr-get-plugin-id() {
+  local PLUGIN_NAME AUTO_PLUGIN_NAME BUNDLE_ID BUNDLE_PUB_REPO VERBOSE
+  bgn_help_parsing ":ENT-ECR-GET-PLUGIN-ID" "$@"
+  args_or_ask -h "$HH" -a -n -- PLUGIN_NAME '1/url_path//%sp the plugin base name' "$@"
+  args_or_ask -h "$HH" -n -F -- AUTO_PLUGIN_NAME '--auto///%sp tries to derive part of the required information from the repo' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_ID "--bundle-id/ext_ic_id//%sp the bundle id" "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_PUB_REPO '--repo/url//%sp bundle publication repository URL' "$@"
+  args_or_ask -h "$HH" -n -- BUNDLE_VERSION '--version/url//%sp the version to consider when AUTO_PLUGIN_NAME is specified' "$@"
+  args_or_ask -h "$HH" -n -F -- VERBOSE '--verbose/url//%sp prints to the stderr additional info' "$@"
+  end_help_parsing
+  if $AUTO_PLUGIN_NAME && [ -z "$PLUGIN_NAME" ]; then
+    # shellcheck disable=SC2031
+    _ecr_determine_bundle_plugin_name PLUGIN_NAME "$BUNDLE_PUB_REPO" "$BUNDLE_VERSION" 
+  fi
+  _nn BUNDLE_ID || {
+    NONNULL -s BUNDLE_PUB_REPO
+    ecr.calculate-bundle-id BUNDLE_ID "$BUNDLE_PUB_REPO"
+  }
+  local RES
+  NONNULL -s PLUGIN_NAME BUNDLE_ID
+  ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
+  echo "$RES"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_ecr-get-bundle-id() {
+  local BUNDLE_PUB_REPO
+  bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
+  args_or_ask -h "$HH" -a -n -- BUNDLE_PUB_REPO '1/url//%sp bundle publication repository URL' "$@"
+  end_help_parsing
+  local RES
+  NONNULL -s BUNDLE_PUB_REPO
+  ecr.calculate-bundle-id RES "$BUNDLE_PUB_REPO"
+  echo "$RES"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ecr-generate-custom-resource() {
+  local BUNDLE_NAME BUNDLE_PUB_REPO THUMBNAIL_FILE THUMBNAIL_URL
+
+  bgn_help_parsing ":ECR-CR" "$@"
+  args_or_ask -h "$HH" -n BUNDLE_NAME  '--name///name of the bundle project' "$@"
+  args_or_ask -h "$HH" -n BUNDLE_PUB_REPO "--repo///url of the bundle publication repository" "$@"
+  args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
+  args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  NONNULL -s BUNDLE_PUB_REPO
+  end_help_parsing
+  
+  ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
+}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ent-ecr-install() {
+  local VERSION_TO_INSTALL CONFLICT_STRATEGY
+  args_or_ask -n ${HH:+"$HH"} VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
+  args_or_ask -n ${HH:+"$HH"} CONFLICT_STRATEGY \
+  '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+  args_or_ask -n ${HH:+"$HH"} BUNDLE_NAME '--name///bundle name' "$@"
+  [ -n "$HH" ] && return 0
+  _nn BUNDLE_NAME || FATAL "Please provide the bundle name"
+  ecr.install-bundle "$BUNDLE_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
 }
 
 RUN "$@"
