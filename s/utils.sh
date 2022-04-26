@@ -1317,7 +1317,7 @@ _pkg_k9s() {
 
 _pkg_get_path() {
   local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
-  local _tmp_PKGPATH="${2^^}_PATH"
+  local _tmp_PKGPATH="$(_upper "${2}_PATH")"
   _tmp_PKGPATH="${!_tmp_PKGPATH}"
   if command -v "$_tmp_PKGPATH" &> /dev/null; then
     _set_or_print "$1" "$_tmp_PKGPATH"
@@ -1339,3 +1339,6 @@ _column() {
   fi
 }
 
+_upper() {
+  echo "$1" | tr '[:lower:]' '[:upper:]'
+}
