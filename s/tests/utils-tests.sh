@@ -200,4 +200,10 @@ test_shell_replacements() {
   [ "$RES" = "$plain" ] || FATAL "failed! $LINENO"
 }
 
+test_utils_misc() {
+  print_current_function_name "> " ".."
+  RES="$(_upper "1x8299zzuiIO")"
+  [ "$RES" = "1X8299ZZUIIO" ] || FATAL "failed! $LINENO"
+}
+
 true
