@@ -1218,9 +1218,9 @@ __exist() {
 # Removes a directory only if it's marked a disposable
 #
 __rm_disdir() {
-  [ ! -d "$1" ] && _FATAL -S 1 "Not found or not a dir (\"$1\") "
+  [ ! -d "$1" ] && _FATAL -S 1 "Not found or not a dir (\"$1\") " 1>&2
   if [ -f "$1/.entando-disdir" ]; then
-    rm -rf "$1" || _FATAL -S 1 "Unable to delete the dir (\"$1\") "
+    rm -rf "$1" || _FATAL -S 1 "Unable to delete the dir (\"$1\") " 1>&2
   else
     _FATAL -S 1 "I won't delete a directory (\"$1\") that is not marked as disposable" 1>&2
   fi

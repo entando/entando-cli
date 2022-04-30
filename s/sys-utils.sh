@@ -337,8 +337,9 @@ git_clone_repo() {
         exit 92
       fi
     )
-
-    if [ "$?" == 0 ]; then
+    local EC="$?"
+    
+    if [ "$EC" == 0 ]; then
       ! $ENTER && {
         cd - >/dev/null || $ERRC "Unable to return back to the original path"
       }
@@ -346,7 +347,7 @@ git_clone_repo() {
     else
       cd - >/dev/null && {
         rm -rf "./${FLD:?}" 2>/dev/null
-        return "$?"
+        return "$EC"
       }
     fi
   fi
