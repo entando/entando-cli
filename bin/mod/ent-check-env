@@ -25,6 +25,7 @@ RUN() {
   $M_DEVL && check-env.check-jhipster
   $M_DEVL && check-env.check-generator-jhipster-entando
   $M_DEVL && check-env.check-bundler
+  $M_DEVL && check-env.check-bundle-cli
 
   # RUNTIME
   $M_KUBE && check-env.runtime.check-k3s
@@ -216,6 +217,17 @@ check-env.check-bundler() {
     "$C_ENTANDO_BUNDLER_DIR";
 }
 
+
+check-env.check-bundle-cli() {
+  check_npm_git_package --full \
+    "$REPO_ENTANDO_BUNDLE_CLI_ADDR" \
+    "$VER_ENTANDO_BUNDLE_CLI_REQ" \
+    "$VER_ENTANDO_BUNDLE_CLI_DEF" \
+    "$ENTANDO_BUNDLE_CLI_VERSION_OVERRIDE" \
+    "$C_ENTANDO_BUNDLE_CLI_DIR" \
+    "$C_ENTANDO_BUNDLE_CLI_DIR";
+}
+
 ########################################################################################################################
 
 check_ver_cfg() {
@@ -234,6 +246,10 @@ check_ver_cfg() {
 
 # checks the installation status of a npm package installed from source
 #
+# Options:
+#   --full    a full insall is done instead of a simple npm install -g
+#
+# Args:
 # $1: package url
 # $2: requested version range
 # $3: default version
@@ -242,6 +258,7 @@ check_ver_cfg() {
 # $6: package description
 #
 check_npm_git_package() {
+  local FULL=false; [ "$1" = "--full" ] && { FULL=true; shift; } 
   local ADDR="$1"
   local VER_REQ="$2"
   local VER_DEF="$3"
@@ -288,6 +305,10 @@ check_npm_git_package() {
           [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL -s "Inconsistent directory structure"
 
           # ACTUAL INSTALLATION
+          $FULL && {
+            _ent-npm install || exit "$?"
+            _ent-npm run build || exit "$?"
+          }
           _ent-npm install --global || exit "$?"
           date > .entando-finalized
           echo '~~~'$'\n'
@@ -316,6 +337,7 @@ PARSE_ARGS() {
   
   args_or_ask -h "$HH" -n ENTANDO_K3S_VERSION_OVERRIDE "--k3s-version///overrides the k3s version to use" "$@"
   args_or_ask -h "$HH" -n ENTANDO_NODE_VERSION_OVERRIDE "--node-version///overrides the node version to use" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_BUNDLER_VERSION_OVERRIDE "--entando-bundler-version///overrides the entando-bundler to use" "$@"
   args_or_ask -h "$HH" -n ENTANDO_BUNDLE_CLI_VERSION_OVERRIDE "--entando-bundle-cli-version///overrides the entando-bundle-cli version to use" "$@"
   args_or_ask -h "$HH" -n ENTANDO_GENERATOR_JHIPSTER_VERSION_OVERRIDE "--entando-ecg-version///overrides the ecg version to use" "$@"
   args_or_ask -h "$HH" -n ENTANDO_JHIPSTER_VERSION_OVERRIDE "--entando-jhipster-version///overrides the jhipster version to use" "$@"
