@@ -17,7 +17,7 @@ else
     ENTANDO_RELEASE="$(
       # shellcheck disable=SC1091
       source /dev/stdin <<<"$(curl "https://raw.githubusercontent.com/entando/entando-releases/quickstart/manifest" 2> /dev/null)";
-      echo "$QUICKSTART_VERSION";
+      echo "$ENTANDO_RELEASE";
     )"
   fi
 

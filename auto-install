@@ -48,45 +48,47 @@ ent_clone_repo_DC7C420E09B4492D() {
   if [[ ! -d "$FLD" || "$UPDATE" -ne 0 ]]; then
     (
       if [[ ! -d "$FLD" || "$UPDATE" -eq 0 ]]; then
-        git clone "$URL" "$FLD"
+        git clone "$URL" "$FLD" &> /dev/null
       fi
       cd "$FLD" || {
-        echo "Unable to enter folder \"$FLD\"" 1>&2
+        echo "> Unable to enter folder \"$FLD\"" 1>&2
         exit 99
       }
-      git fetch --tags --force
-      local NOT_A_TAG=false
-      git tag | grep "^$TAG\$" > /dev/null || NOT_A_TAG=true
 
-      if [ "$UPDATE" -eq 1 ]; then
-        echo "> Updating branch of $DSC \"$TAG\"" 1>&2
-        git checkout -f ent-local-tmp &> /dev/null || git checkout -b ent-local-tmp &> /dev/null || {
-          echo "> Unable to checkout to a TMP branch" 1>&2
-          exit 92
+      git fetch --tags --force &>/dev/null
+      
+      local RV=0
+      if git tag | grep "^$TAG\$" > /dev/null; then
+        git checkout -f "$TAG" 2>/dev/null || {
+          RV="$?"
+          echo "> Unable to checkout the reference \"$TAG\"."
         }
-        git branch -D "$TAG" 1> /dev/null 2>&1 || true
-      fi
-      
-      if $NOT_A_TAG; then
-        git checkout -b "$TAG" 1> /dev/null;
       else
-        git checkout -b "$TAG" "${OP}$TAG" 1> /dev/null;
-      fi
+        echo "> Reference \"$TAG\" is not a tag, trying as branch.."
       
-      if [ $? -ne 0 ]; then
-        echo "> Unable to checkout the given tag or branch of $DSC \"$TAG\"" 1>&2
-        exit 92
+        git checkout -f "origin/$TAG" 2>/dev/null || {
+          RV="$?"
+          echo "> Unable to checkout the reference \"$TAG\"."
+        }
       fi
 
-      if [ $? ]; then
-        git branch -D ent-local-tmp &> /dev/null
-        cd - > /dev/null
-      else
+      if [ "$RV" != 0 ]; then
+        echo "> Error downloading the release, rolling back.."
         cd - > /dev/null
         rm -rf "./$FLD"
-        exit "$?"
+        exit "$RV"
       fi
-    ) || return "$?"
+      {
+        git fetch --tags --force
+        git reset --hard
+        git checkout .
+        git clean -d -f
+        cd - > /dev/null
+      } &> /dev/null
+      
+      echo "> Release \"$TAG\" installed.."
+
+    ) || exit "$?"
   else
     # Please note that this is not an error
     echo "> Destination dir \"$PWD/$FLD\" already exists and will not be overwritten.. (you may use --update)"
@@ -189,35 +191,47 @@ ENT_RUNNER_DC7C420E09B4492D() {
   local TGT_DIR="$PWD"
   local ENTANDO_DIR='.entando'
   local ENT_DIR="ent"
+  
+  local TMPDIR="$(mktemp -d -p "$DIR")"
+  trap "rm -rf \"$WORK_DIR\"" EXIT
 
   (
     git --version
     [ $? -ne 0 ] && echo "please install git" 1>&2 && exit 91
 
     set -e
+    
+    cd "$TMPDIR"
 
     # RELEASE
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    echo "> Downloading the ENTANDO RELEASE $ENTANDO_RELEASE"
+    echo "> Downloading the ENTANDO RELEASE \"$ENTANDO_RELEASE\""
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-
-    mkdir -p "$ENTANDO_DIR/$ENT_DIR"
-    cd "$ENTANDO_DIR/$ENT_DIR"
 
     ent_clone_repo_DC7C420E09B4492D "$ENTANDO_RELEASES_REPO_URL" \
       "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" $UPDATE_REL || exit "$?"
   ) || return "$?"
 
-  cd "$ENTANDO_DIR/$ENT_DIR"
   # shellcheck disable=SC1090
-  [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "./$ENTANDO_RELEASE/dist/manifest"
+  local ORIG_RELEASE_TAG="$ENTANDO_RELEASE"
+  [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && source "$TMPDIR/$ENTANDO_RELEASE/dist/manifest"
   [[ -z "${ENTANDO_CLI_VERSION:-}" ]] && echo "Unable to determine the proper entando cli version" 1>&2 && exit 1
+  
+  mkdir -p "$ENTANDO_DIR/$ENT_DIR"
+  cd "$ENTANDO_DIR/$ENT_DIR"
+  
+  if [ "$ENTANDO_RELEASE" != "$ORIG_RELEASE_TAG" ]; then
+    echo "> Renaming ENTANDO RELEASE \"$ORIG_RELEASE_TAG\" to \"$ENTANDO_RELEASE\""
+  fi
+  
+  mv "$TMPDIR/$ORIG_RELEASE_TAG" "$ENTANDO_RELEASE"
 
   (
     # CLI
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    echo "> Downloading the ENTANDO CLI $ENTANDO_CLI_VERSION"
+    echo "> Downloading the ENTANDO CLI \"$ENTANDO_CLI_VERSION\""
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
     cd "$ENTANDO_RELEASE"
     mkdir -p "./cli"
     ent_clone_repo_DC7C420E09B4492D "https://github.com/entando/entando-cli" \
@@ -273,26 +287,24 @@ ENT_RUNNER_DC7C420E09B4492D() {
   
     if [ $? -eq 0 ]; then
       H() { echo -e '\033[44m\033[1;37m' ; }
+      Hx() { echo -e '\033['$1'm'; }
       E() { echo -e '\033[0;39m'; }
     else
       H() { true; }
+      Hx() { true; }
       E() { true; }
     fi
     
-    echo -e "▒$(H) P L E A S E   R E A D : $(E)▒"
-    echo -e "You now need to activate this version of ent by opening another shell or manually with this command:\n"
+    echo -e "_________________________"
+    echo -e "$(H)▒ P L E A S E   R E A D  $(E)"
+    echo -e "$(H)▒$(E) $(Hx 94)Activate this version of ent by opening another shell or manually with this command:$(E)"
+    echo "$(H)▒$(E)"
     if "$CURR_DIR"; then
-      echo -e "    source \"$TGT_DIR/$ENTANDO_DIR/activate\""
+      echo -e "$(H)▒$(E) $(Hx 34)>$(E) source \"$TGT_DIR/$ENTANDO_DIR/activate\"$(E)"
     else
-      echo -e "    source \"\$HOME/$ENTANDO_DIR/activate\""
+      echo -e "$(H)▒$(E) $(Hx 34)>$(E) source \"\$HOME/$ENTANDO_DIR/activate\"$(E)"
     fi
-    echo ""
-    echo "after which you can get help via \"ent help\""
-    echo ""
-    echo "═════════════════════════════════════════════════════════════════════════════"
-    echo ".."
-    echo "."
-    echo ""
+    echo "$(H)▒$(E)"
   )
 
   if ! "$CURR_DIR"; then
