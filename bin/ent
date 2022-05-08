@@ -123,6 +123,9 @@ RUN() {
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
         ;;
+      "shorts")
+        _FATAL -s "This command should be source-executed"
+        ;;
       "")
         # shellcheck disable=SC1091
         _source_ent help
@@ -356,6 +359,10 @@ if (
         rm "$ENTANDO_ENT_TMPFILE_0002bb75"
         ;;
       esac
+      ;;
+    "shorts")
+      alias k="ent k"
+      alias ep="ent prj"
       ;;
     "help")
       shift
