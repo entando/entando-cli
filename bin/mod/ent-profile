@@ -448,8 +448,12 @@ list_profiles() {
 }
 
 profile_link_context() {
-  local kube_context use_def
-  if args_or_ask -h "$HH" -F -n -- use_def '--default///selects the default kubectx' "$@"; then
+  local kube_context use_def=false
+  if args_or_ask -h "$HH" -f -- '--current///attaches the current kubectx' "$@"; then
+    kube_context="$(kubectl config current-context)"
+    _nn kube_context || _FATAL "Unable to extract the currently selected context"
+    _log_i "Attaching context \"$kube_context\""
+  elif args_or_ask -h "$HH" -F -n -- use_def '--default///selects the default kubectx' "$@"; then
     args_or_ask -n -a -- kube_context '1///' "$@" && {
       FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
     }

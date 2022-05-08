@@ -402,8 +402,10 @@ select_one() {
   local SELECTED=""
   local ALL=false
   local AUTO_SET_IF_SINGLE=false
+  local PREVIEW_CMD=""
   [ "$1" = "-s" ] && AUTO_SET_IF_SINGLE=true && shift
   [ "$1" = "-a" ] && ALL=true && shift
+  [ "$1" = "-p" ] && { shift; PREVIEW_CMD="$1" && shift; }
   P="$1"
   shift
   select_one_res=""
@@ -415,27 +417,41 @@ select_one() {
     return 0
   fi
 
-  for item in "$@"; do
-    echo "$i) $item"
-    i=$((i + 1))
-  done
-  ${ALL:-false} && echo "a) all"
-  echo "q) to quit"
+  if _flag_status -s FZF_SELECT; then
+    # shellcheck disable=SC2034
+    {
+      select_one_res_alt="$(
+        printf '%s\n' "$@" | _pkg_fzf --header $'\n'"== select the context to attach ==" --history="./tmpf" \
+        ${PREVIEW_CMD:+--preview="$PREVIEW_CMD"}
+          
+      )"
+      [ "$?" = "130" ] && EXIT_UE "User interrupted"
+      select_one_res="$(_index_in_array "$select_one_res_alt" "$@")"
+      [ -n "$select_one_res" ] && ((select_one_res++))
+    }
+  else
+    for item in "$@"; do
+      echo "$i) $item"
+      i=$((i + 1))
+    done
+    ${ALL:-false} && echo "a) all"
+    echo "q) to quit"
 
-  while true; do
-    printf "%s" "$P"
-    set_or_ask "SELECTED" "" ""
-    [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
-    [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
-    [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
-    [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
-  done
+    while true; do
+      printf "%s" "$P"
+      set_or_ask "SELECTED" "" ""
+      [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
+      [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
+      [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
+      [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
+    done
 
-  # shellcheck disable=SC2034
-  {
-    select_one_res="$SELECTED"
-    select_one_res_alt="${!SELECTED}"
-  }
+    # shellcheck disable=SC2034
+    {
+      select_one_res="$SELECTED"
+      select_one_res_alt="${!SELECTED}"
+    }
+  fi
 }
 
 # Sets a variable according with the value found in a variable definition and arguments
@@ -1266,24 +1282,42 @@ _pkg_get() {
         "$url/jq-win64.exe" "jq-win64.exe" "";
       ;;
     k9s)
-      var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver/"
+      var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver"
       _pkg_download_and_install "$var" "k9s" "$ver" \
         "$url/k9s_Linux_x86_64.tar.gz" "k9s" "" \
         "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
         "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
+      ;;
+    fzf)
+      var="FZF_PATH";ver="${ver:-0.30.0}";url="https://github.com/junegunn/fzf/releases/download/$ver"
+      _pkg_download_and_install "$var" "fzf" "$ver" \
+        "$url/fzf-$ver-linux_amd64.tar.gz" "fzf" "" \
+        "$url/fzf-$ver-darwin_amd64.zip" "fzf" "" \
+        "$url/fzf-$ver-windows_amd64.zip" "fzf.exe" "";
       ;;
     *)
       _FATAL -s "Unknown package \"$pkg\""
       ;;
   esac
   
-  [ -n "$var" ] && {
+ [ -n "$var" ] && {
     $VERBOSE && {
       _log_i "Config var: ${var}"
       _log_i "Location: ${!var}"
     }
     save_cfg_value "$var" "${!var}" "$ENT_DEFAULT_CFG_FILE"
   }
+}
+
+_pkg_run() {
+  local PKG="$1"; shift
+  
+  if type -t "_pkg_$PKG" > /dev/null; then
+    "_pkg_$PKG" "$@"
+  else
+    _pkg_get_path RES "$PKG"
+    "$RES" "$@"
+  fi
 }
 
 _jq() {
@@ -1315,6 +1349,11 @@ _pkg_k9s() {
   fi
 }
 
+_pkg_fzf() {
+  local CMD; _pkg_get_path CMD "fzf"
+  "$CMD" "$@"
+}
+
 _pkg_get_path() {
   local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
   local _tmp_PKGPATH="$(_upper "${2}_PATH")"
@@ -1341,4 +1380,37 @@ _column() {
 
 _upper() {
   echo "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+_index_in_array() {
+  local i=0 f="$1"; shift
+  for e in "$@"; do
+    if [ "$e" == "$f" ]; then
+      echo "$i"
+    fi
+    ((i++))
+  done
+  echo ""
+}
+
+_flag_status() {
+  local temporary=false; [ "$1" = "-t" ] && { temporary=true; shift; }
+  local silent=false; [ "$1" = "-s" ] && { silent=true; shift; }
+  local flag_name="$1"
+  local new_flag_status="$2"
+  local flag_var="FLAG_$(_upper "$flag_name")"
+
+  if [ -n "$new_flag_status" ]; then
+    _set_var "$flag_var" "$new_flag_status"
+    ! $temporary && save_cfg_value "$flag_var" "$new_flag_status"
+    return 0
+  else
+    if [ "${!flag_var}" = "true" ]; then
+      ! $silent && echo "true"
+      return 0
+    else
+      ! $silent && echo "false"
+      return 1
+    fi
+  fi
 }

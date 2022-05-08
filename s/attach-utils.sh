@@ -70,7 +70,7 @@ kubectx-select() {
 
   # shellcheck disable=SC2076 disable=SC2199
   if [[ ! " ${LST[@]} " =~ " ${kube_context} " ]]; then
-    select_one "Kube Context" "${LST[@]}"
+    select_one -p "ent k config view -o json | jq '.contexts[] | select(.name==\"{}\")'" "Kube Context" "${LST[@]}"
     # shellcheck disable=SC2154
     kube_context="$select_one_res_alt"
   fi

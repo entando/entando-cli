@@ -7,6 +7,12 @@
 ENTANDO_HOME="$(
   cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
 )"
+
+if [ "$ENTANDO_PIPELINE_EXECUTION" = "true" ]; then
+  ENTANDO_HOME="$HOME/.entando/ent/test"
+  mkdir -p "$ENTANDO_HOME"
+fi
+
 ENTANDO_BINS="$ENTANDO_HOME/bin"
 ENTANDO_PROFILES="$ENTANDO_HOME/profiles"
 
@@ -56,6 +62,10 @@ C_DEFAULT_KUBECT_VERSION="v1.23.4"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
 XU_LOG_LEVEL=9
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# FLAGS DEFAULTS
+FLAG_FZF_SELECT=false
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # EXTERNAL RESOURCES DEFAULTS

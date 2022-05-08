@@ -27,6 +27,7 @@ test_index_of_arg
 test_path_functions
 test_shell_replacements
 test_utils_misc
+[ "$ENTANDO_TEST_SYS" = "true" ] && test_pkg_utils
 test_cfg_helper
 test_ask
 test_select_one

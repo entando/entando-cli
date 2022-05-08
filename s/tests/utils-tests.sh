@@ -67,6 +67,7 @@ test_ask() {
 
 # HELPER "SELECT ONE"
 test_select_one() {
+  _flag_status -t "FZF_SELECT" false
   print_current_function_name "> " ".."
   local select_one_res select_one_res_alt
 
@@ -202,8 +203,24 @@ test_shell_replacements() {
 
 test_utils_misc() {
   print_current_function_name "> " ".."
+  
   RES="$(_upper "1x8299zzuiIO")"
   [ "$RES" = "1X8299ZZUIIO" ] || FATAL "failed! $LINENO"
+  
+  RES="$(_index_in_array "3" "1" "2" "3" "4")"
+  [ "$RES" = "2" ] || FATAL "failed! $LINENO"
+}
+
+test_pkg_utils() {
+  print_current_function_name "> " ".."
+  
+  _pkg_get "jq"
+  _pkg_get "fzf"
+  _pkg_get "k9s"
+  
+  _pkg_run jq --version || FATAL "failed! $LINENO"
+  _pkg_run fzf --version || FATAL "failed! $LINENO"
+  _pkg_run k9s version || FATAL "failed! $LINENO"
 }
 
 true

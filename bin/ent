@@ -183,12 +183,7 @@ ent-pkg() {
       args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
       shift 1
 
-      if type -t "_pkg_$PKG" > /dev/null; then
-        "_pkg_$PKG" "$@"
-      else
-        _pkg_get_path RES "$PKG"
-        "$RES" "$@"
-      fi
+      _pkt_run "$PKG"
       ;;
     "rm"|"delete")
       args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
