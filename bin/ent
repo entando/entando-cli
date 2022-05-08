@@ -19,6 +19,8 @@ RUN() {
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
   
+  handle_profile_param "$@" && shift && shift
+  
   while true; do
     cmd="$1"
     shift
@@ -316,6 +318,15 @@ _ent() {
 _source_ent() {
   # shellcheck disable=SC1090
   source "$ENTANDO_ENT_HOME/bin/ent" "$@"
+}
+
+handle_profile_param() {
+  if [ "$1" = "-p" ]; then
+    THIS_PROFILE="$2"
+    return 0
+  else
+    return 1
+  fi
 }
 
 # ######################################################################################################################
