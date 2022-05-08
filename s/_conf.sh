@@ -23,6 +23,10 @@ ENTANDO_VERSION_DIR="$(
   pwd
 )"
 
+if [ "$ENTANDO_PIPELINE_EXECUTION" = "true" ]; then
+  ENTANDO_VERSION_DIR="$HOME/.entando/ent/test"
+fi
+
 (
   [ -z "$ENTANDO_VERSION_DIR" ] && exit 1
   __cd "$ENTANDO_VERSION_DIR"
