@@ -318,8 +318,11 @@ COLLECT.ALL_EVENTS() {
     if ! "$TOSTDOUT"; then
       if "$CLUSTER"; then
         LOG_TITLE "ALL CLUSTER EVENTS"
-        _diag_kubectl -A get events -o json > "$EVENTS_JSON_FILE" | _R
-        _diag_kubectl -A get events > "$EVENTS_TXT_FILE" | _R
+        # shellcheck disable=SC2260
+        {
+          _diag_kubectl -A get events -o json > "$EVENTS_JSON_FILE" | _R
+          _diag_kubectl -A get events > "$EVENTS_TXT_FILE" | _R
+        }
       else
         LOG_TITLE "ALL NAMESPACE EVENTS"
         _diag_kubectl get events -o json > "$EVENTS_JSON_FILE"

@@ -166,13 +166,16 @@ check-env.check-jhipster() {
   _log_i "Checking ENT private installation of jhipster.."
 
   check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" \
-    "ENT private jhipster installation is not available" ||
+    "Version \"$VER_JHIPSTER_REQ\" of \"jhipster\" was not found among the ENT-private packages" ||
   {
     if ask "Should I try to install it?" "y"; then
       _ent-npm install --global "generator-jhipster@$VER_JHIPSTER_DEF"
     else
       DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
+  }
+  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" || {
+    PRIVATE_DEPENDENCY_INSTALL_ERROR "Unable to install jhipster ($VER_JHIPSTER_DEF)"
   }
 }
 
@@ -213,6 +216,8 @@ check_ver_cfg() {
 # checks the installation status of a npm package installed from source
 #
 check_npm_git_package() {
+  local FULL=false; [ "$1" = "--full" ] && { FULL=true; shift; } 
+  local WITHINST=true; [ "$1" = "--no-local-install" ] && { WITHINST=false; shift; } 
   local ADDR="$1"
   local VER_REQ="$2"
   local VER_DEF="$3"
@@ -228,7 +233,7 @@ check_npm_git_package() {
     if [ -f "$PACKAGE_NAME/$VER_REQ/.entando-finalized" ]; then
       _log_i "\tfound: $VER_REQ => OK"
     else
-      _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found"
+      _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found among the ENT-private packages"
 
       if ask "Should I try to install it?" "y"; then
         [ ! -d "$PACKAGE_NAME" ] && __mk_disdir "$PACKAGE_NAME"
@@ -242,24 +247,36 @@ check_npm_git_package() {
           git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$PACKAGE_DESC" "ENTER,FATAL"
           EC="$?"
           
-          [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL "Inconsistent directory structure"
-          __mk_disdir --mark "$BASE_PACKAGE_DIR/$VER_DEF"
+          if [[ -d "$BASE_PACKAGE_DIR/$VER_DEF" ]]; then
+            __mk_disdir --mark "$BASE_PACKAGE_DIR/$VER_DEF"
+          fi
           
-          [ "$EC" != 0 ] && exit "$EC"
+          if [ "$EC" != 0 ]; then
+            [[ -d "$BASE_PACKAGE_DIR/$VER_DEF" ]] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
+            _FATAL -s "Error while cloning the repository of package \"$PACKAGE_DESC\""
+          fi
 
-          _ent-npm install --global && {
-            date > .entando-finalized
-            echo '~~~'$'\n'
-          }
+          [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL -s "Inconsistent directory structure"
+          
+          # ACTUAL INSTALLATION
+          if $WITHINST || $FULL; then
+            _ent-npm install || exit "$?"
+          fi
+          if $FULL; then
+            _ent-npm run build || exit "$?"
+          fi
+          _ent-npm install --global || exit "$?"
+          date > .entando-finalized
+          echo '~~~'$'\n'
         ) || {
           local EC="$?"
           _log_e "An error has occurred while installing $PACKAGE_DESC.. rolling back"
           __cd "$BASE_PACKAGE_DIR"
-          [ ! -d "$PACKAGE_NAME/$VER_DEF" ] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
+          [ -d "$PACKAGE_NAME/$VER_DEF" ] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
           exit $EC
         }
       else
-        DEPENDENCY_ERROR "Mandatory dependency not available"
+        PRIVATE_DEPENDENCY_INSTALL_ERROR "Mandatory dependency not available"
       fi
     fi
   ) || exit "$?"
@@ -276,15 +293,28 @@ PARSE_ARGS() {
 
 
   FATAL_DEPENDENCY_ERROR() { 
-    local msg="### Recommended dependency was not found and cannot be automatically installed."$'\n'
+    local msg="### DEPENDENCY ERROR"$'\n'
+    msg+="### Recommended dependency was not found and cannot be automatically installed."$'\n'
     msg+="### Please install ${1:-it} manually or use --lenient to ignore this error"$'\n'
     echo $'\n'"$msg"$'\n'
     exit 99; 
   }
 
+  PRIVATE_DEPENDENCY_INSTALL_ERROR() { 
+    echo "~"
+    _log_e "$1"
+    local msg="### DEPENDENCY ERROR"$'\n'
+    msg+="### It has not been possible to install a required dependency"$'\n'
+    msg+="### Use --lenient to ignore this error"$'\n'
+    echo $'\n'"$msg"$'\n'
+    exit 99; 
+  }
   if $LENIENT; then
     DEPENDENCY_ERROR() {
       prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
+    }
+    PRIVATE_DEPENDENCY_INSTALL_ERROR() {
+      prompt "Can't install recommended dependency, some command may not work as expected.\nPress enter to continue.."
     }
   else
     DEPENDENCY_ERROR() { FATAL_DEPENDENCY_ERROR "$@"; }

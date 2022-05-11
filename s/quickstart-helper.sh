@@ -566,9 +566,9 @@ QS.WATCH-DEPLOYMENT() {
 }
 
 QS.REFRESH-ENVIRONMENT() {
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090 disable=SC1091
   [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
-    # shellcheck disable=SC2034
+  # shellcheck disable=SC2034
   [ -z "$ENT_KUBECTL_CMD" ] && DESIGNATED_KUBECONFIG=""
   setup_kubectl
 }
