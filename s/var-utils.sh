@@ -25,6 +25,7 @@ _coalesce_vars() {
 
 _print_var() {
   if [ -n "$ZSH_VERSION" ]; then
+    # shellcheck disable=SC2296
     echo "${(P)1}"
   else
     echo "${!1}"

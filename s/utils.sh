@@ -1147,6 +1147,7 @@ keycloak-get-token() {
 # 1) In order to avoid interferences between ttys 
 # 2) The qualifiers allows to prevent from reusing the same environment variables on forked ttys
 #
+# shellcheck disable=SC2296
 handle_forced_profile() {
   local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
