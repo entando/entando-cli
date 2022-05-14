@@ -167,6 +167,10 @@ _ent-bundler() {
       "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" --version
     fi
   else
+    if [ "$1" == "--autoconfig" ]; then
+      _ent-bundler-autoconfig
+      shift
+    fi
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
@@ -182,6 +186,34 @@ _ent-bundler() {
       fi
     fi
   fi
+}
+
+function _ent-bundler-autoconfig() {
+  local main_ingress ecr_ingress ignored url_scheme
+  app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
+  [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
+  [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
+  
+  local client_secret_name="${ENTANDO_APPNAME}-de-secret"
+  local client_id client_secret tmp
+
+  tmp="$(
+    _kubectl get secret "$client_secret_name" -o jsonpath="{.data.clientId}:{.data.clientSecret}" 2> /dev/null
+  )"
+  client_id="$(echo "$tmp" | cut -d':' -f1)"
+  client_secret="$(echo "$tmp" | cut -d':' -f2)"
+  
+  local ENV='{ '$'\n'
+  ENV+='  "coreBaseApi": "'$(path-blunt "$url_scheme://$main_ingress")'",'$'\n'
+  ENV+='  "componentManagerApi": "'$(path-blunt "$url_scheme://$ecr_ingress")'",'$'\n'
+  ENV+='  "clientId": "'$(_base64_d <<< "$client_id")'",'$'\n'
+  ENV+='  "clientSecret": "'"$(_base64_d <<< "$client_secret")"'"'$'\n'
+  ENV+='}'
+
+  echo "$ENV" > "env.json"
+  
+  _log_i "Configuration written to file \"env.json\""
+  exit
 }
 
 node.command_wrapper() {

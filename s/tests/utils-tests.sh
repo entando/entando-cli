@@ -179,7 +179,11 @@ test_path_functions() {
   
   path-concat -t RES "a" "b"
   [ "$RES" = "a/b/" ] || FATAL "failed! $LINENO"
-
+  
+  RES=$(path-blunt "ab/c")
+  [ "$RES" = "ab/c" ] || FATAL "failed! $LINENO"
+  RES=$(path-blunt "ab/c/")
+  [ "$RES" = "ab/c" ] || FATAL "failed! $LINENO"
 }
 
 test_shell_replacements() {

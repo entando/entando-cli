@@ -1058,6 +1058,16 @@ path-concat() {
   _set_var "$out" "$TMP"
 }
 
+# Removes the terminating path separator if present
+#
+path-blunt() {
+  local val="$1"
+  local val_len="${#val}"
+  [[ "$val" =~ ^.*/$ ]] && val="${val::$val_len-1}"
+  echo "$val"
+}
+
+
 keycloak-query-connection-data() {
   local tmp
   local scheme="$5"
