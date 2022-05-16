@@ -62,6 +62,10 @@ check-env.runtime.minimal-sys-requirements() {
 }
 
 check-env.runtime.check-k3s() {
+  if [ -n "$ENTANDO_K3S_VERSION_OVERRIDE" ]; then
+    VER_K3S_REQ="$ENTANDO_K3S_VERSION_OVERRIDE"
+    VER_K3S_DEF="$ENTANDO_K3S_VERSION_OVERRIDE"
+  fi
   if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | _perl_sed 's/k3s version (.*)\+k.*/\1/'"; then
     _log_i "\tfound: $check_ver_res => OK"
   else
@@ -143,6 +147,10 @@ check-env.check-node() {
   mkdir -p "lib/node"
 
   _log_i "Checking ENT private installation of node.js.."
+  if [ -n "$ENTANDO_NODE_VERSION_OVERRIDE" ]; then
+    VER_NODE_REQ="$ENTANDO_NODE_VERSION_OVERRIDE"
+    VER_NODE_DEF="$ENTANDO_NODE_VERSION_OVERRIDE"
+  fi
   
   check_ver "_ent-node" "$VER_NODE_REQ" "--version" "quiet,verbose" "" || {
     _log_w "ENT private node.js installation is not available"
@@ -164,6 +172,10 @@ check-env.check-node() {
 
 check-env.check-jhipster() {
   _log_i "Checking ENT private installation of jhipster.."
+  if [ -n "$ENTANDO_JHIPSTER_VERSION_OVERRIDE" ]; then
+    VER_JHIPSTER_REQ="$ENTANDO_JHIPSTER_VERSION_OVERRIDE"
+    VER_JHIPSTER_DEF="$ENTANDO_JHIPSTER_VERSION_OVERRIDE"
+  fi
 
   check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" \
     "Version \"$VER_JHIPSTER_REQ\" of \"jhipster\" was not found among the ENT-private packages" ||
@@ -184,6 +196,7 @@ check-env.check-generator-jhipster-entando() {
     "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
     "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" \
     "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+    "$ENTANDO_GENERATOR_JHIPSTER_VERSION_OVERRIDE" \
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" \
     "$C_GENERATOR_JHIPSTER_ENTANDO_NAME";
 }
@@ -193,6 +206,7 @@ check-env.check-bundler() {
     "$REPO_ENTANDO_BUNDLER_ADDR" \
     "$VER_ENTANDO_BUNDLER_REQ" \
     "$VER_ENTANDO_BUNDLER_DEF" \
+    "$ENTANDO_BUNDLER_VERSION_OVERRIDE" \
     "$C_ENTANDO_BUNDLER_DIR" \
     "$C_ENTANDO_BUNDLER_DIR";
 }
@@ -215,23 +229,43 @@ check_ver_cfg() {
 
 # checks the installation status of a npm package installed from source
 #
+# Options:
+#   --full              also runs mpm build
+#   --no-local-install  avoid running npm install .
+#
+# Args:
+# $1: package url
+# $2: requested version range
+# $3: default version
+# $4: optional version override
+# $5: package name
+# $6: package description
 check_npm_git_package() {
   local FULL=false; [ "$1" = "--full" ] && { FULL=true; shift; } 
   local WITHINST=true; [ "$1" = "--no-local-install" ] && { WITHINST=false; shift; } 
   local ADDR="$1"
   local VER_REQ="$2"
   local VER_DEF="$3"
-  local PACKAGE_NAME="$4"
-  local PACKAGE_DESC="$5"
+  local VER_OVERRIDE="$4"
+  local PACKAGE_NAME="$5"
+  local PACKAGE_DESC="$6"
 
   _log_i "Checking ENT private installation of $PACKAGE_DESC.."
 
   (
+    if [ -n "$VER_OVERRIDE" ]; then
+      VER_REQ="$VER_OVERRIDE"
+      VER_DEF="$VER_OVERRIDE"
+    fi
     [ ! -d "$ENT_OPTS_ENTANDO" ] && __mk_disdir "$ENT_OPTS_ENTANDO"
     __cd "$ENT_OPTS_ENTANDO"
     
     if [ -f "$PACKAGE_NAME/$VER_REQ/.entando-finalized" ]; then
       _log_i "\tfound: $VER_REQ => OK"
+      _log_i "\tupdating bins"
+      __cd "$PACKAGE_NAME/$VER_REQ"
+      (_ent-npm install --global 1>/dev/null 2>&1 | grep -v "npm WARN") 1>&2
+      exit 0
     else
       _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found among the ENT-private packages"
 
@@ -289,6 +323,12 @@ PARSE_ARGS() {
   args_or_ask -h "$HH" -n -F NO_DNS_FIX "--no-dns-fix///Does't try to fix the DNS when starting the quickstart" "$@"
   args_or_ask -h "$HH" -n -F ENTANDO_OPT_YES_FOR_ALL "--yes///Assumes yes for all yes-no questions" "$@"
   args_or_ask -h "$HH" -n -F LENIENT "--lenient///Assumes yes for all yes-no questions" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_K3S_VERSION_OVERRIDE "--k3s-version///overrides the k3s version to use" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_NODE_VERSION_OVERRIDE "--node-version///overrides the node version to use" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_BUNDLER_VERSION_OVERRIDE "--entando-bundler-version///overrides the entando-bundler to use" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_BUNDLE_CLI_VERSION_OVERRIDE "--entando-bundle-cli-version///overrides the entando-bundle-cli version to use" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_GENERATOR_JHIPSTER_VERSION_OVERRIDE "--entando-ecg-version///overrides the ecg version to use" "$@"
+  args_or_ask -h "$HH" -n ENTANDO_JHIPSTER_VERSION_OVERRIDE "--entando-jhipster-version///overrides the jhipster version to use" "$@"
   end_help_parsing
 
 
@@ -356,5 +396,5 @@ PARSE_ARGS() {
 }
 
 PARSE_ARGS "$@"
-RUN
+RUN "$@"
 _log_i "${0##*/} execution completed"
