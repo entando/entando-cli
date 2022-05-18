@@ -1147,6 +1147,7 @@ keycloak-get-token() {
 # 1) In order to avoid interferences between ttys 
 # 2) The qualifiers allows to prevent from reusing the same environment variables on forked ttys
 #
+# shellcheck disable=SC2296
 handle_forced_profile() {
   local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
@@ -1317,7 +1318,7 @@ _pkg_k9s() {
 
 _pkg_get_path() {
   local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
-  local _tmp_PKGPATH="${2^^}_PATH"
+  local _tmp_PKGPATH="$(_upper "${2}_PATH")"
   _tmp_PKGPATH="${!_tmp_PKGPATH}"
   if command -v "$_tmp_PKGPATH" &> /dev/null; then
     _set_or_print "$1" "$_tmp_PKGPATH"
@@ -1339,3 +1340,6 @@ _column() {
   fi
 }
 
+_upper() {
+  echo "$1" | tr '[:lower:]' '[:upper:]'
+}

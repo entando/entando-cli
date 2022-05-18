@@ -50,7 +50,7 @@ _log_d() {
 
 _log_enable_types() {
   [ "$1" == "all" ] && XU_ENABLED_LOG_TYPES="EWIDT" && return
-  [ -n "$1" ] && XU_ENABLED_LOG_TYPES="${1^^}"
+  [ -n "$1" ] && XU_ENABLED_LOG_TYPES="$(_upper "$1")"
 }
 
 _log_set_level() {
