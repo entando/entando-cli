@@ -124,6 +124,7 @@ _ent-npm() {
   args_or_ask -p -F GLOBAL "--global" "$@"
   args_or_ask -p -F GLOBAL "-g" "$@"
   if $GLOBAL; then
+    #export PREFIX="$ENT_NODE_DIR"
     "$ENT_NPM_BIN_NATIVE" --prefix "$ENT_NODE_DIR" "$@"
   else
     "$ENT_NPM_BIN_NATIVE" "$@"
@@ -157,32 +158,45 @@ _mp_node_exec() {
 
 # Runs the ent private installation of the entando bundle tool
 _ent-bundler() {
+  _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLER_BIN_NAME" "$@"
+}
+
+# Runs the ent private installation of the entando-bundle-cli tool
+_ent-bundle() {
+  _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
+}
+
+# Runs the ent private installation of an internal npm-based entando tool
+_ent-run-internal-npm-tool() {
+  local TOOL_NAME="$1"; shift
+  
   require_develop_checked
   node.activate_environment
 
   if [ "$1" == "--ent-get-version" ]; then
     if $OS_WIN; then
-      "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" --version
+      "$ENT_NODE_BINS/${TOOL_NAME}.cmd" --version
     else
-      "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" --version
+      "$ENT_NODE_BINS/${TOOL_NAME}" --version
     fi
   else
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        SYS_CLI_PRE "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+        SYS_CLI_PRE "$ENT_NODE_BINS/${TOOL_NAME}.cmd" "$@"
       else
-        SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+        SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/${TOOL_NAME}.cmd" "$@"
       fi
     else
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
+        "$ENT_NODE_BINS/${TOOL_NAME}" "$@"
       else
-        "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" | _strip_colors
+        "$ENT_NODE_BINS/${TOOL_NAME}" "$@" | _strip_colors
       fi
     fi
   fi
 }
+
 
 node.command_wrapper() {
   CMD="$1"

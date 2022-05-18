@@ -41,9 +41,18 @@ C_ENT_OLD_PRJ_FILE=".ent-prj"
 C_ENT_OLD_STATE_FILE=".ent-state"
 
 C_GENERATOR_JHIPSTER_ENTANDO_NAME="generator-jhipster-entando"
-C_ENTANDO_BUNDLER_DIR="entando-bundle-tool"
+
+# BUNDLER
+C_ENTANDO_BUNDLER_DIR="entando-bundler"
 C_ENTANDO_BUNDLER_NAME="entando-bundler"
-C_ENTANDO_BUNDLE_BIN_NAME="entando-bundler"
+C_ENTANDO_BUNDLER_BIN_NAME="entando-bundler"
+
+# BUNDLE-CLI
+C_ENTANDO_BUNDLE_CLI_DIR="entando-bundle-cli"
+C_ENTANDO_BUNDLE_CLI_NAME="entando-bundle-cli"
+C_ENTANDO_BUNDLE_CLI_BIN_NAME="entando-bundle-cli"
+
+#
 C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 
 C_ENTANDO_LOGO_FILE="res/entando.png"
