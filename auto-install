@@ -38,7 +38,7 @@ ent_clone_repo_DC7C420E09B4492D() {
   local TAG="$2"    # TAG TO CHECKOUT
   local FLD="$3"    # local folder name
   local DSC="$4"    # human description of the cloned repository
-  local UPDATE="$5" # human description of the cloned repository
+  local UPDATE="$5"
 
   if [[ -d "$FLD" && $UPDATE -eq 2 ]]; then
     echo "> Skipping due to partial update request"
@@ -192,7 +192,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   local ENTANDO_DIR='.entando'
   local ENT_DIR="ent"
   
-  local TMPDIR="$(mktemp -d -p "$DIR")"
+  local TMPDIR="$(mktemp -d)"
   trap "rm -rf \"$WORK_DIR\"" EXIT
 
   (
@@ -209,7 +209,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
     ent_clone_repo_DC7C420E09B4492D "$ENTANDO_RELEASES_REPO_URL" \
-      "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" $UPDATE_REL || exit "$?"
+      "$ENTANDO_RELEASE" "$ENTANDO_RELEASE" "release" 0 || exit "$?"
   ) || return "$?"
 
   # shellcheck disable=SC1090
@@ -224,8 +224,17 @@ ENT_RUNNER_DC7C420E09B4492D() {
     echo "> Renaming ENTANDO RELEASE \"$ORIG_RELEASE_TAG\" to \"$ENTANDO_RELEASE\""
   fi
   
-  mv "$TMPDIR/$ORIG_RELEASE_TAG" "$ENTANDO_RELEASE"
-
+  if [ -d "$ENTANDO_RELEASE" ]; then
+    if [[ "$UPDATE_REL" -ne 0 ]]; then
+      rm -rf "$ENTANDO_RELEASE/dist"
+      cp -R "$TMPDIR/$ORIG_RELEASE_TAG"/* "$ENTANDO_RELEASE/"
+    else
+      echo "> Destination dir \"$PWD/$ENTANDO_RELEASE/\" already exists and will not be overwritten.. (you may use --update)"
+    fi
+  else
+    mv "$TMPDIR/$ORIG_RELEASE_TAG" "$ENTANDO_RELEASE"
+  fi
+  
   (
     # CLI
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
