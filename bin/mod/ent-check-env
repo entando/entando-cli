@@ -174,9 +174,9 @@ check-env.check-jhipster() {
       DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
   }
-  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" || {
-    PRIVATE_DEPENDENCY_INSTALL_ERROR "Unable to install jhipster ($VER_JHIPSTER_DEF)"
-  }
+  #`check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" || {
+  #  PRIVATE_DEPENDENCY_INSTALL_ERROR "Unable to install jhipster ($VER_JHIPSTER_DEF)"
+  #}
 }
 
 check-env.check-generator-jhipster-entando() {
