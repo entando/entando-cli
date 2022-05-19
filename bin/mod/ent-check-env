@@ -185,9 +185,9 @@ check-env.check-jhipster() {
     else
       DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
-  }
-  check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" || {
-    PRIVATE_DEPENDENCY_INSTALL_ERROR "Unable to install jhipster ($VER_JHIPSTER_DEF)"
+    check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" || {
+      PRIVATE_DEPENDENCY_INSTALL_ERROR "Unable to install jhipster ($VER_JHIPSTER_DEF)"
+    }
   }
 }
 
@@ -260,14 +260,35 @@ check_npm_git_package() {
     [ ! -d "$ENT_OPTS_ENTANDO" ] && __mk_disdir "$ENT_OPTS_ENTANDO"
     __cd "$ENT_OPTS_ENTANDO"
     
+    local force_reinstall=false
+    if [ "${VER_DEF:0:2}" = 'f:' ]; then
+      force_reinstall=true
+      VER_DEF="${VER_DEF:2}"
+    fi
+    if [ "${VER_REQ:0:2}" = 'f:' ]; then
+      VER_REQ="${VER_REQ:2}"
+    fi
+    
+    local skip=false forced=false
+    
     if [ -f "$PACKAGE_NAME/$VER_REQ/.entando-finalized" ]; then
+      if [ "$force_reinstall" == "true" ]; then
+        skip=false forced=true
+        _log_i "\tfound: $VER_REQ but force-reinstall was specified => REINSTALL"
+        __rm_disdir "$PACKAGE_NAME/$VER_REQ"
+      else
+        skip=true
+      fi
+    fi
+    
+    if "$skip"; then
       _log_i "\tfound: $VER_REQ => OK"
       _log_i "\tupdating bins"
       __cd "$PACKAGE_NAME/$VER_REQ"
       (_ent-npm install --global 1>/dev/null 2>&1 | grep -v "npm WARN") 1>&2
       exit 0
     else
-      _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found among the ENT-private packages"
+      ! $forced && _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found among the ENT-private packages"
 
       if ask "Should I try to install it?" "y"; then
         [ ! -d "$PACKAGE_NAME" ] && __mk_disdir "$PACKAGE_NAME"
