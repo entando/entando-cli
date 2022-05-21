@@ -150,17 +150,19 @@ _COLLECT_K8S() {
 }
 
 COLLECT.APP_TLS_INFO() {
-  (
-    # shellcheck disable=SC2030 disable=SC2031
-    export PFUN="${FUNCNAME[0]}" PSORT="$1"
-    
-    LOG_TITLE "APP SHORT TLS CERT INSPECTION"
-    (ent tls inspect --app --short 2>&1) | _R
-    
-    LOG_TITLE "APP FULL TLS CERT INSPECTION"
-    ent tls inspect --app > "$APP_CERT_FILE"
-   ) &
-  _QUEUE
+  if ent tls --help &> /dev/null then
+    (
+      # shellcheck disable=SC2030 disable=SC2031
+      export PFUN="${FUNCNAME[0]}" PSORT="$1"
+      
+      LOG_TITLE "APP SHORT TLS CERT INSPECTION"
+      (ent tls inspect --app --short 2>&1) | _R
+      
+      LOG_TITLE "APP FULL TLS CERT INSPECTION"
+      ent tls inspect --app > "$APP_CERT_FILE"
+    ) &
+    _QUEUE
+  fi
 }
 
 COLLECT.K8S_BASICS() {
