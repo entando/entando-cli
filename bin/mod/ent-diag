@@ -1,39 +1,25 @@
 #!/bin/bash
 # shellcheck disable=SC2129
 
-[ "$1" = "--help" ] && echo -e "Runs diagnostics and aggregates the related info in a .tgz file" && exit 0
-
+[[ "$1" == "--help" && "$2" == "--short" ]] && { echo -e "Runs diagnostics and aggregates the related info in a .tgz file"; exit 0; }
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-cd "$DIR/../.." || {
-  echo "Internal error: unable to find the script source dir" | _comment
-  exit
-}
-
+cd "$DIR/../.." || { echo "Internal error: unable to find the script source dir"; exit 1; }
 . s/_base.sh
 
-HH="$(parse_help_option "$@")"; show_help_option "$HH"
-args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
-args_or_ask -h "$HH" -n -F LOCALINFO '--localinfo///%sp the information of the localhost' "$@"
-args_or_ask -h "$HH" -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
-args_or_ask -h "$HH" -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
-args_or_ask -h "$HH" -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
-args_or_ask -h "$HH" -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
 
-if ! "$TOSTDOUT"; then
-  SUMMARY_FILE="summary.txt"
-else
-  SUMMARY_FILE=""
-  SEQUENTIAL=true
-fi
+RUN() {
+  _PARSE_OPTIONS "$@"
+  _INITIALIZE
+  _COLLECT_BASICS
+  _COLLECT_K8S
+  _FINALIZE
+  _PACKAGE
+}
 
-CRD_JSON_FILE="crds.json"
-EVENTS_JSON_FILE="events.json"
-EVENTS_TXT_FILE="events.txt"
-NAMESPACE_DESC_TXT_FILE="namespace.describe.txt"
-NODES_DESC_TXT_FILE="nodes.describe.txt"
-APP_CERT_FILE="app-cert-inspection.txt"
 
-[ -n "$HH" ] && exit 0
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
 _QUEUE() {
   LAST_JOB="$!"
@@ -53,22 +39,9 @@ _log() {
   echo -e "$@" | _R
 }
 
-_diag_kubectl() {
-  if [ "$1" = "--NOERR" ]; then
-    local redir="--null"
-    shift
-  else
-    local redir="--err"
-  fi
-
-  if [ "$1" = "-A" ]; then
-    shift;cmd="$1";shift;
-    _kubectl "$cmd" --all-namespaces "$@" 2> >(_R "$redir" >&2)
-  else
-    _kubectl ${NAMESPACE:+-n "$NAMESPACE"} "$@" 2> >(_R "$redir" >&2)
-  fi
-}
-
+# Redirect printer
+# Prints to stdout and in case to file
+#
 _R.P() {
   if [ -n "$1" ]; then
     printf "%s%s\n" "$2" "$3"
@@ -78,6 +51,19 @@ _R.P() {
   fi
 }
 
+# Redirect helper
+# manipulates a stream and prints it to the stdout and a summary file
+#
+# - Adds type indicator       (O: standard, E: error)
+# - Adds process indicator    (PSORT subshell global variable)
+# - Adds function name        (PFUN subshell global variable)
+# - Writes a copy to file     (SUMMARY_FILE subshell global variable)
+# 
+# Options:
+# --null:       suppress the output
+# --err:        changes the type indicator to "E"
+# --no-summary: skips the summary file
+#
 _R() {
   [ "$1" = "--null" ] && return 0
   local CH="O"; [ "$1" = "--err" ] && { CH="E";shift; }
@@ -104,7 +90,7 @@ LOG_TITLE() {
 
 _COLLECT_BASICS() {
   LOG_TITLE "Current ENT"
-  ent which | _R
+  ent which 2>&1 | _R
   LOG_TITLE "Current ENT status"
   ent status | _R
   if [ -n "$NAMESPACE" ]; then
@@ -183,12 +169,12 @@ COLLECT.K8S_BASICS() {
     export PFUN="${FUNCNAME[0]}" PSORT="$1"
     
     LOG_TITLE "VERSIONS"
-    _diag_kubectl version --short
+    ent kubectl version | _R
     _log "\n-done."
     
     if "$CLUSTER"; then
       LOG_TITLE "NODES list"
-      _diag_kubectl get nodes | _R
+      ent kubectl get nodes | _R
     fi
    ) &
   _QUEUE
@@ -211,7 +197,7 @@ COLLECT.NAMESPACE_BASICS() {
     
     #  POD list
     LOG_TITLE "~ POD list"
-    _diag_kubectl get pods | _R
+    ent kubectl get pods | _R
 
     #  Running Images list 
     LOG_TITLE "~ RUNNING IMAGES"
@@ -257,7 +243,7 @@ COLLECT.CRs() {
     
     _log "> parallel execution started.." | _comment
     _dump_resources --crd \
-      < <(echo ClusterServiceVersion; _diag_kubectl api-resources --verbs=list --namespaced -o name | grep -F ".entando.org";)  
+      < <(echo ClusterServiceVersion; ent kubectl api-resources --verbs=list --namespaced -o name | grep -F ".entando.org";)  
 
     _log "\n-done."
    ) &
@@ -299,10 +285,10 @@ COLLECT.EVENT_SEL() {
     # SELECTION OF EVENTS
     if "$CLUSTER"; then
       LOG_TITLE "SELECTION OF CLUSTER EVENTS"
-      _diag_kubectl -A get events | grep -i -E "error|fail|warn" | _R
+      ent kubectl get events -A | grep -i -E "error|fail|warn" | _R
     else
       LOG_TITLE "SELECTION OF NAMESPACE EVENTS"
-      _diag_kubectl get events | grep -i -E "error|fail|warn" | _R
+      ent kubectl get events | grep -i -E "error|fail|warn" | _R
     fi
 
     _log "\n-done."
@@ -320,13 +306,13 @@ COLLECT.ALL_EVENTS() {
         LOG_TITLE "ALL CLUSTER EVENTS"
         # shellcheck disable=SC2260
         {
-          _diag_kubectl -A get events -o json > "$EVENTS_JSON_FILE" | _R
-          _diag_kubectl -A get events > "$EVENTS_TXT_FILE" | _R
+          ent kubectl get events -A -o json > "$EVENTS_JSON_FILE" | _R
+          ent kubectl get events -A > "$EVENTS_TXT_FILE" | _R
         }
       else
         LOG_TITLE "ALL NAMESPACE EVENTS"
-        _diag_kubectl get events -o json > "$EVENTS_JSON_FILE"
-        _diag_kubectl get events  > "$EVENTS_TXT_FILE"
+        ent kubectl get events -o json > "$EVENTS_JSON_FILE"
+        ent kubectl get events  > "$EVENTS_TXT_FILE"
       fi
       _log "\n-done."
     fi
@@ -341,7 +327,7 @@ COLLECT.NAMESPACE_DESCRIBE() {
     export PFUN="${FUNCNAME[0]}" PSORT="$1"
     if ! "$TOSTDOUT"; then
       LOG_TITLE "NAMESPACE DESCRIBE"
-      _diag_kubectl describe namespace > "$NAMESPACE_DESC_TXT_FILE"
+      ent kubectl describe namespace > "$NAMESPACE_DESC_TXT_FILE"
       _log "\n-done."
     fi
    ) &
@@ -356,7 +342,7 @@ COLLECT.NODES_DESCRIBE() {
     if ! "$TOSTDOUT"; then
       if "$CLUSTER"; then
         LOG_TITLE "NODES DESCRIBE"
-        _diag_kubectl describe nodes > "$NODES_DESC_TXT_FILE"
+        ent kubectl describe nodes > "$NODES_DESC_TXT_FILE"
         _log "\n-done."
       fi
     fi
@@ -374,15 +360,15 @@ COLLECT.PODS_DETAILS() {
       LOG_TITLE "APP PODS LOGS DETAILS"
       _log "> parallel execution started.." | _comment
 
-      for pod in $(_diag_kubectl get pods | awk 'NR>1' | awk '{print $1}'); do
+      for pod in $(ent kubectl get pods | awk 'NR>1' | awk '{print $1}'); do
         (
           _log "> POD: $pod"
-          _diag_kubectl describe pods/"$pod" 1>"$pod.describe.txt"
-          for co in $(_diag_kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}'); do
+          ent kubectl describe pods/"$pod" 1>"$pod.describe.txt"
+          for co in $(ent kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}'); do
             _log ">\tCONTAINER: $co"
-            _diag_kubectl logs pods/"$pod" -c "$co" 1>"$pod-$co.logs.txt"
+            ent kubectl logs pods/"$pod" -c "$co" 1>"$pod-$co.logs.txt"
             F="$pod-$co.previous.logs.txt"
-            _diag_kubectl --NOERR logs --previous pods/"$pod" -c "$co" 1>"$F"
+            ent kubectl logs --previous pods/"$pod" -c "$co" 1>"$F" 2>/dev/null
             [ -f "$F" ] && [ ! -s "$F" ] && rm "$F"
           done
         ) &
@@ -408,7 +394,7 @@ _dump_resources() {
         while IFS= read -r i; do
           _log ">\t$i"
           _dump_resources -q "$i" \
-            < <(_diag_kubectl get "$i" -o jsonpath='{.items[*].metadata.name} ' | tr ' ' $'\n') &
+            < <(ent kubectl get "$i" -o jsonpath='{.items[*].metadata.name} ' | tr ' ' $'\n') &
         done
         
         $QUIET || { sleep 0.2; _log "> waiting for completion.." | _comment; }
@@ -420,7 +406,7 @@ _dump_resources() {
         while IFS= read -r i; do
           if [ "$i" != "" ]; then
             _log ">\t$i" | _comment
-            _diag_kubectl get "$t" -o yaml > "$i.$t.yaml" &
+            ent kubectl get "$t" -o yaml > "$i.$t.yaml" &
           fi
         done
           
@@ -435,6 +421,32 @@ _dump_resources() {
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
+
+_PARSE_OPTIONS() {
+  HH="$(parse_help_option "$@")"; show_help_option "$HH"
+  args_or_ask -h "$HH" -n -p NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
+  args_or_ask -h "$HH" -n -F LOCALINFO '--localinfo///%sp the information of the localhost' "$@"
+  args_or_ask -h "$HH" -n -F TOSTDOUT '--print///prints to stdout instead of writing a file' "$@"
+  args_or_ask -h "$HH" -n -F DIRONLY '--dir///generates a dir instead of writing a file' "$@"
+  args_or_ask -h "$HH" -n -F CLUSTER '--cluster///collects all the cluster event' "$@"
+  args_or_ask -h "$HH" -n -F SEQUENTIAL '--sequential///disables the parallel execution' "$@"
+
+  if ! "$TOSTDOUT"; then
+    SUMMARY_FILE="summary.txt"
+  else
+    SUMMARY_FILE=""
+    SEQUENTIAL=true
+  fi
+
+  CRD_JSON_FILE="crds.json"
+  EVENTS_JSON_FILE="events.json"
+  EVENTS_TXT_FILE="events.txt"
+  NAMESPACE_DESC_TXT_FILE="namespace.describe.txt"
+  NODES_DESC_TXT_FILE="nodes.describe.txt"
+  APP_CERT_FILE="app-cert-inspection.txt"
+
+  [ -n "$HH" ] && exit 0
+}
 
 _INITIALIZE() {
   if ! "$TOSTDOUT"; then
@@ -471,13 +483,4 @@ _PACKAGE() {
   fi
 }
 
-RUN() {
-  _INITIALIZE
-  _COLLECT_BASICS
-  _COLLECT_K8S
-  _FINALIZE
-  _PACKAGE
-}
-
 RUN "$@"
-
