@@ -272,6 +272,8 @@ QS.DETERMINE_FILE_STRUCTURE() {
   local BASEREL="${ENTANDO_RELEASE/-*/}"
   if check_ver_ge "$BASEREL" "7.0.0"; then
     ENTANDO_RELEASES_FILES_STRUCTURE="v7"
+  elif check_ver_ge "$BASEREL" "6.5.0"; then
+    ENTANDO_RELEASES_FILES_STRUCTURE="v7"
   elif check_ver_ge "$BASEREL" "6.3.2"; then
     ENTANDO_RELEASES_FILES_STRUCTURE="v6new"
   else
