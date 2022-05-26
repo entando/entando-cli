@@ -408,7 +408,7 @@ _dump_resources() {
         while IFS= read -r i; do
           if [ "$i" != "" ]; then
             _log ">\t$i" | _comment
-            ent kubectl get "$t" -o yaml > "$i.$t.yaml" &
+            ent kubectl get "$t" "$i" -o yaml > "$i.$t.yaml" &
           fi
         done
           
