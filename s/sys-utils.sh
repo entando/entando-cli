@@ -598,5 +598,9 @@ _pkg_download_and_install() {
 _pkg_is_command_available() {
   local MANDATORY=false;[ "$1" = "-m" ] && { MANDATORY=true; shift; }
   command -v "$1" >/dev/null || { "$MANDATORY" && _FATAL "Unable to find required command \"$1\""; }
+  return 0
 }
-return 0
+
+_remove_broken_symlink() {
+  find -L . -iname "$1" -type l -exec rm -- {} +
+}
