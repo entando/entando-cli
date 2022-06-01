@@ -7,7 +7,7 @@ DESC="$1";shift
 
 [[ "$WRAPPED_COMMAND" = "--help" ]] && { echo -e "wrapper of node commands"; exit 0; }
 [[ "$1" = "--cmplt" ]] && exit 0
-[[ "$1" = "--help" ]] && { echo -e "$DESC"; exit 0; }
+[[ "$1" = "--ent-help" ]] && { echo -e "$DESC"; exit 0; }
 
 ORIGINAL_DIR="$PWD"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"

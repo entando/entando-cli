@@ -225,7 +225,11 @@ $OS_WIN && {
   if command -v winpty &>/dev/null; then
     if $SYS_IS_STDIN_A_TTY; then
       SYS_CLI_PRE() {
+        if perl -e 'print -t STDOUT ? exit 0 : exit 1'; then
         "winpty" "$@"
+        else
+          "winpty" -Xallow-non-tty -Xplain "$@"
+        fi
       }
     fi
   fi
@@ -594,5 +598,9 @@ _pkg_download_and_install() {
 _pkg_is_command_available() {
   local MANDATORY=false;[ "$1" = "-m" ] && { MANDATORY=true; shift; }
   command -v "$1" >/dev/null || { "$MANDATORY" && _FATAL "Unable to find required command \"$1\""; }
+  return 0
 }
-return 0
+
+_remove_broken_symlink() {
+  find -L . -iname "$1" -type l -exec rm -- {} +
+}

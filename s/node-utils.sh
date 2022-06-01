@@ -124,7 +124,6 @@ _ent-npm() {
   args_or_ask -p -F GLOBAL "--global" "$@"
   args_or_ask -p -F GLOBAL "-g" "$@"
   if $GLOBAL; then
-    #export PREFIX="$ENT_NODE_DIR"
     "$ENT_NPM_BIN_NATIVE" --prefix "$ENT_NODE_DIR" "$@"
   else
     "$ENT_NPM_BIN_NATIVE" "$@"

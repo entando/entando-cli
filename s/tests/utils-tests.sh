@@ -180,6 +180,10 @@ test_path_functions() {
   path-concat -t RES "a" "b"
   [ "$RES" = "a/b/" ] || FATAL "failed! $LINENO"
 
+  RES=$(path-blunt "ab/c")
+  [ "$RES" = "ab/c" ] || FATAL "failed! $LINENO"
+  RES=$(path-blunt "ab/c/")
+  [ "$RES" = "ab/c" ] || FATAL "failed! $LINENO"
 }
 
 test_shell_replacements() {
@@ -198,6 +202,12 @@ test_shell_replacements() {
   [ "$RES" = "$encoded" ] || FATAL "failed! $LINENO"
   RES="$(echo "$encoded" | _base64_d)"
   [ "$RES" = "$plain" ] || FATAL "failed! $LINENO"
+}
+
+test_utils_misc() {
+  print_current_function_name "> " ".."
+  RES="$(_upper "1x8299zzuiIO")"
+  [ "$RES" = "1X8299ZZUIIO" ] || FATAL "failed! $LINENO"
 }
 
 true

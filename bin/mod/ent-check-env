@@ -189,12 +189,12 @@ check-env.check-jhipster() {
     else
       DEPENDENCY_ERROR "Mandatory dependency not available"
     fi
-  }
   
   check_ver "_ent-jhipster" "$VER_JHIPSTER_REQ" "--ent-get-version" "quiet,verbose" || {
     PRIVATE_DEPENDENCY_INSTALL_ERROR "Unable to install jhipster ($VER_JHIPSTER_DEF)"
   }
 
+  }
 }
 
 check-env.check-generator-jhipster-entando() {
@@ -247,7 +247,8 @@ check_ver_cfg() {
 # checks the installation status of a npm package installed from source
 #
 # Options:
-#   --full    a full insall is done instead of a simple npm install -g
+#   --full              also runs mpm build
+#   --no-local-install  avoid running npm install .
 #
 # Args:
 # $1: package url
@@ -256,9 +257,9 @@ check_ver_cfg() {
 # $4: optional version override
 # $5: package name
 # $6: package description
-#
 check_npm_git_package() {
   local FULL=false; [ "$1" = "--full" ] && { FULL=true; shift; } 
+  local WITHINST=true; [ "$1" = "--no-local-install" ] && { WITHINST=false; shift; } 
   local ADDR="$1"
   local VER_REQ="$2"
   local VER_DEF="$3"
@@ -277,10 +278,34 @@ check_npm_git_package() {
     [ ! -d "$ENT_OPTS_ENTANDO" ] && __mk_disdir "$ENT_OPTS_ENTANDO"
     __cd "$ENT_OPTS_ENTANDO"
     
+    local force_reinstall=false
+    if [ "${VER_DEF:0:2}" = 'f:' ]; then
+      force_reinstall=true
+      VER_DEF="${VER_DEF:2}"
+    fi
+    if [ "${VER_REQ:0:2}" = 'f:' ]; then
+      VER_REQ="${VER_REQ:2}"
+    fi
+    
+    local skip=false forced=false
     if [ -f "$PACKAGE_NAME/$VER_REQ/.entando-finalized" ]; then
+      if [ "$force_reinstall" == "true" ]; then
+        skip=false forced=true
+        _log_i "\tfound: $VER_REQ but force-reinstall was specified => REINSTALL"
+        __rm_disdir "$PACKAGE_NAME/$VER_REQ"
+      else
+        skip=true
+      fi
+    fi
+    
+    if "$skip"; then
       _log_i "\tfound: $VER_REQ => OK"
+      _log_i "\tupdating bins"
+      __cd "$PACKAGE_NAME/$VER_REQ"
+      (_ent-npm install --global 1>/dev/null 2>&1 | grep -v "npm WARN") 1>&2
+      exit 0
     else
-      _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found among the ENT-private packages"
+      ! $forced && _log_i "Version \"$VER_REQ\" of \"$PACKAGE_DESC\" was not found among the ENT-private packages"
 
       if ask "Should I try to install it?" "y"; then
         [ ! -d "$PACKAGE_NAME" ] && __mk_disdir "$PACKAGE_NAME"
@@ -293,22 +318,24 @@ check_npm_git_package() {
           local EC=0
           git_clone_repo "$ADDR" "$VER_DEF" "$VER_DEF" "$PACKAGE_DESC" "ENTER,FATAL"
           EC="$?"
-          [[ -d "$BASE_PACKAGE_DIR/$VER_DEF" ]] && {
+          if [[ -d "$BASE_PACKAGE_DIR/$VER_DEF" ]]; then
             __mk_disdir --mark "$BASE_PACKAGE_DIR/$VER_DEF"
-          }
+          fi
           
-          [ "$EC" != 0 ] && {
+          if [ "$EC" != 0 ]; then
             [[ -d "$BASE_PACKAGE_DIR/$VER_DEF" ]] && __rm_disdir "$BASE_PACKAGE_DIR/$VER_DEF"
             _FATAL -s "Error while cloning the repository of package \"$PACKAGE_DESC\""
-          }
+          fi
           
           [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL -s "Inconsistent directory structure"
 
           # ACTUAL INSTALLATION
-          $FULL && {
+          if $WITHINST || $FULL; then
             _ent-npm install || exit "$?"
+          fi
+          if $FULL; then
             _ent-npm run build || exit "$?"
-          }
+          fi
           _ent-npm install --global || exit "$?"
           date > .entando-finalized
           echo '~~~'$'\n'

@@ -19,6 +19,7 @@ RUN() {
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
   
+  handle_profile_param "$@" && shift && shift
   while true; do
     cmd="$1"
     shift
@@ -133,8 +134,8 @@ RUN() {
 
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
         [ ! -f "$mod_script" ] && {
-          _log_i "Unrecognized ent command \"$cmd\""
-          return 0
+          _log_e "Unrecognized ent command \"$cmd\""
+          return 33
         }
         # shellcheck disable=SC1090
         source "$mod_script" "$@"
@@ -229,8 +230,8 @@ which_ent() {
     
     echo "## RELEASE:"
     echo ""
-    cd "dist"
-    echo "- DIR: $(cd ../../../dist;pwd)"
+    cd "../../dist"
+    echo "- DIR: $PWD"
     echo "- TAG: $(git describe --tags "$(git rev-list --tags --max-count=1)" 2>/dev/null)"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
@@ -318,9 +319,18 @@ _source_ent() {
   source "$ENTANDO_ENT_HOME/bin/ent" "$@"
 }
 
+handle_profile_param() {
+  if [ "$1" = "-p" ]; then
+    THIS_PROFILE="$2"
+    return 0
+  else
+    return 1
+  fi
+}
 # ######################################################################################################################
 # ######################################################################################################################
 # ######################################################################################################################
+# shellcheck disable=SC2296
 
 if (
  [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
