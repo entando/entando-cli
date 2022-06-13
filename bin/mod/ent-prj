@@ -307,7 +307,7 @@ prj_print_bundle_id() {
   _nn REPOSITORY "$(get_bundle_repo_url)" || _FATAL "Unable to determine the publication repo url"
 
   local RES
-  ecr.calculate-bundle-id RES "$NAME" "$REPOSITORY"
+  ecr.calculate-bundle-id RES "$REPOSITORY"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
