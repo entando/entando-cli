@@ -19,7 +19,10 @@ RUN() {
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
   
-  handle_profile_param "$@" && shift && shift
+  parse_global_args consumed "$@"
+  # shellcheck disable=2154
+  shift "$consumed"
+  
   while true; do
     cmd="$1"
     shift
@@ -189,7 +192,7 @@ ent-pkg() {
     "rm"|"delete")
       args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
       shift 1
-      _pkg_get_path RES "$PKG"
+      _pkg_get_path --strict RES "$PKG"
       ask "Are you sure?" "n" && rm "$RES"
       ;;
     "--help")
@@ -319,9 +322,37 @@ _source_ent() {
   source "$ENTANDO_ENT_HOME/bin/ent" "$@"
 }
 
+parse_global_args() {
+  local _tmp_consumed=0
+  local _tmp_dst_var="$1"; shift;
+  while true; do
+    case "$1" in
+    "-p")
+      THIS_PROFILE="$2"
+      DESIGNATED_PROFILE="$2"
+      kubectl_mode --reset-mem
+      activate_designated_workdir --temporary
+      
+      shift 2
+      ((_tmp_consumed+=2))
+      ;;
+    "-d" | "--debug")
+      ENTANDO_DEBUG=true
+      
+      shift 1
+      ((_tmp_consumed++))
+      ;;
+    *)
+      break
+      ;;
+    esac
+  done
+  
+  _set_var "$_tmp_dst_var" "$_tmp_consumed"
+}
+
 handle_profile_param() {
   if [ "$1" = "-p" ]; then
-    THIS_PROFILE="$2"
     return 0
   else
     return 1

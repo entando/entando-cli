@@ -179,11 +179,6 @@ test_path_functions() {
   
   path-concat -t RES "a" "b"
   [ "$RES" = "a/b/" ] || FATAL "failed! $LINENO"
-
-  RES=$(path-blunt "ab/c")
-  [ "$RES" = "ab/c" ] || FATAL "failed! $LINENO"
-  RES=$(path-blunt "ab/c/")
-  [ "$RES" = "ab/c" ] || FATAL "failed! $LINENO"
 }
 
 test_shell_replacements() {
@@ -206,8 +201,16 @@ test_shell_replacements() {
 
 test_utils_misc() {
   print_current_function_name "> " ".."
+  
   RES="$(_upper "1x8299zzuiIO")"
   [ "$RES" = "1X8299ZZUIIO" ] || FATAL "failed! $LINENO"
+  
+  RES="$(_url_remove_last_subpath "http://example.com/entando-de-app")"
+  [ "$RES" = "http://example.com" ] || FATAL "failed! $LINENO"
+  RES="$(_url_remove_last_subpath "http://example.com/subpath/entando-de-app")"
+  [ "$RES" = "http://example.com/subpath" ] || FATAL "failed! $LINENO"
+  RES="$(_url_remove_last_subpath "http://example.com/subpath/entando-de-app/")"
+  [ "$RES" = "http://example.com/subpath" ] || FATAL "failed! $LINENO"
 }
 
 true

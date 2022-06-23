@@ -34,12 +34,4 @@ test_args_or_ask
 test_asserters
 test_multipass_mocks
 
-
-# shellcheck disable=SC1090
-(
-  bash <(curl -L "https://get.entando.org/cli") --update --release="v7.1.0-alpha1" --cli-version="v7.1.0-alpha1.1" 
-  source ~/.entando/activate --force
-  ent which
-)
-
 true

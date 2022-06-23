@@ -51,6 +51,9 @@ C_ENTANDO_BUNDLER_BIN_NAME="entando-bundler"
 C_ENTANDO_BUNDLE_CLI_DIR="entando-bundle-cli"
 C_ENTANDO_BUNDLE_CLI_NAME="entando-bundle-cli"
 C_ENTANDO_BUNDLE_CLI_BIN_NAME="entando-bundle-cli"
+ENTANDO_BUNDLE_CLI_BIN_NAME="entando bundle"
+ENTANDO_BUNDLE_CLI_DEBUG=false
+ENTANDO_DEBUG=false
 
 #
 C_QUICKSTART_DEFAULT_RELEASE="quickstart"
@@ -61,6 +64,8 @@ C_WIN_VM_HOSTNAME_SUFFIX="mshome.net"
 C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 
 C_DEFAULT_KUBECT_VERSION="v1.23.4"
+
+ENTANDO_CLI_DOCKER_CONFIG_PATH="$ENT_ORIGIN_WORKDIR/.entando/.docker/config.json"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
