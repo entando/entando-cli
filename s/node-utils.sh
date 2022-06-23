@@ -162,6 +162,15 @@ _ent-bundler() {
 
 # Runs the ent private installation of the entando-bundle-cli tool
 _ent-bundle() {
+  if [ "$1" == "api" ]; then
+    ecr-prepare-action INGRESS_URL TOKEN
+    export ENTANDO_CLI_ECR_TOKEN="$TOKEN"
+    export ENTANDO_CLI_ECR_URL="$INGRESS_URL"
+    export ENTANDO_CLI_BASE_URL="$(_url_remove_last_subpath "$INGRESS_URL")"
+  fi
+  export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
+  export ENTANDO_CLI_DOCKER_CONFIG_PATH
+  
   _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }
 

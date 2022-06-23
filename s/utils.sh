@@ -1273,6 +1273,13 @@ _pkg_get() {
         "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
         "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
       ;;
+    crane)
+      var="CRANE_PATH";ver="${ver:-v0.9.0}";url="https://github.com/google/go-containerregistry/releases/download/$ver/"
+      _pkg_download_and_install "$var" "crane" "$ver" \
+        "$url/go-containerregistry_Linux_x86_64.tar.gz" "crane" "" \
+        "$url/go-containerregistry_Darwin_x86_64.tar.gz" "crane" "" \
+        "$url/go-containerregistry_Windows_x86_64.tar.gz" "crane.exe" "";
+      ;;
     *)
       _FATAL -s "Unknown package \"$pkg\""
       ;;
@@ -1289,6 +1296,11 @@ _pkg_get() {
 
 _jq() {
   _pkg_jq "$@"
+}
+
+_crane() {
+  local CMD; _pkg_get_path CMD "crane"
+  "$CMD" "$@"
 }
 
 _pkg_jq() {
@@ -1342,4 +1354,13 @@ _column() {
 
 _upper() {
   echo "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+_url_remove_last_subpath() {
+  local url="$1"
+  if [[ "$url" = */ ]]; then
+    local len="${#url}"
+    url="${url:0:((len-1))}"
+  fi
+  echo "${url%/*}"
 }

@@ -98,6 +98,14 @@ check-env.develop.minimal-tools-requirements() {
       DEPENDENCY_ERROR "$FAIL_MSG"
     fi
   }
+  
+  check_ver "_crane" "*.*.*" "version" || {
+    if ask "Should I try to install it?" "y"; then
+      (_pkg_get "crane") || DEPENDENCY_ERROR "$FAIL_MSG"
+    else
+      DEPENDENCY_ERROR "$FAIL_MSG"
+    fi
+  }
 }
 
 
@@ -329,17 +337,28 @@ check_npm_git_package() {
           
           [[ "$PWD" != "$BASE_PACKAGE_DIR/$VER_DEF" ]] && _FATAL -s "Inconsistent directory structure"
 
-          # ACTUAL INSTALLATION
+          # CLEANUP          
+          (
+            __cd "$ENT_NODE_MODS"
+            _remove_broken_symlink "$PACKAGE_NAME"
+            __cd "$ENT_NODE_BINS"
+            _remove_broken_symlink "$PACKAGE_NAME"
+            _ent-npm uninstall --global "$PACKAGE_NAME" &> /dev/null
+          ) &>/dev/null
+          
+          # BUILD
           if $WITHINST || $FULL; then
             _ent-npm install || exit "$?"
           fi
           if $FULL; then
             _ent-npm run build || exit "$?"
           fi
+          
+          # ACTUAL INSTALLATION
           _ent-npm install --global || exit "$?"
           date > .entando-finalized
           echo '~~~'$'\n'
-        
+
         ) || {
           local EC="$?"
           _log_e "An error has occurred while installing $PACKAGE_DESC.. rolling back"
