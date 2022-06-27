@@ -230,10 +230,9 @@ which_ent() {
     echo ""
     
     # RELEASE INFO
-    
+    __cd "$(_dist_directory)"
     echo "## RELEASE:"
     echo ""
-    cd "../../dist"
     echo "- DIR: $PWD"
     echo "- TAG: $(git describe --tags "$(git rev-list --tags --max-count=1)" 2>/dev/null)"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
