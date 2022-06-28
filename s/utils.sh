@@ -1314,7 +1314,7 @@ _pkg_ok() {
 }
 
 _pkg_k9s() {
-  local CMD; _pkg_get_path CMD "k9s"
+  local CMD; _pkg_get_path --strict CMD "k9s"
   if [ -z "$1" ]; then
     if _nn DESIGNATED_KUBECTX; then
       "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
@@ -1363,4 +1363,58 @@ _url_remove_last_subpath() {
     url="${url:0:((len-1))}"
   fi
   echo "${url%/*}"
+}
+
+_str_contains() {
+  [[ "$1" = *"$2"* ]]
+}
+
+_with_spinner() {
+  local OUTFILE="";[ "$1" = "--out" ] && { OUTFILE="$2"; shift 2; }
+  (
+    _spin "$1" &
+    PID="$!"
+    trap "kill -- $PID &>/dev/null" SIGINT SIGTERM EXIT SIGQUIT
+    while read -r line;do
+      [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
+    done
+    local SPC="          "
+    SPC="$SPC$SPC$SPC$SPC$SPC$SPC$SPC$SPC"
+    echo -ne $'\r'"$SPC"$'\r'
+  )
+}
+
+# Intercepts the stdin and instead prints an summary
+#
+_spin() {
+  local count=0
+  local started_at="$SECONDS"
+  local TITLE="$1"
+  [ -n "$TITLE" ] && TITLE="$TITLE "
+  local SPC="          "
+  SPC="$SPC$SPC$SPC$SPC$SPC$SPC$SPC$SPC"
+  
+  while true; do
+    
+    [[ "${line:0:20}" = *" ERROR "* ]] && ((_stat_ne++))
+    elapsed="$((SECONDS - started_at))"
+    
+    local ch    
+    case "$((count%7))" in
+      0) ch="#    ";;
+      1) ch=" #   ";;
+      2) ch="   # ";;
+      3) ch="    #";;
+      4) ch="   # ";;
+      5) ch="  #  ";;
+      6) ch=" #   ";;
+    esac
+    
+    echo -ne "$SPC"$'\r'
+    printf "${TITLE}|%s| (%ds)" "$ch" "$elapsed"
+    
+    sleep 0.2
+    ((count++))
+  done
+  echo -ne $'\r'"$SPC"$'\r'
 }

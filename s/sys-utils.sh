@@ -604,3 +604,42 @@ _pkg_is_command_available() {
 _remove_broken_symlink() {
   find -L . -iname "$1" -type l -exec rm -- {} +
 }
+
+_dist_directory() {
+  (
+    __cd "$ENTANDO_ENT_HOME/../../dist"
+    echo "$PWD"
+  ) || _SOE
+}
+
+# STOP ON ERROR
+#
+# Options:
+# --pipe N  checks the result of the part #N of a pipe expression, can be specified up to 3 times
+#
+_SOE() {
+  local R="$?" PPS=("${PIPESTATUS[@]}")
+  [ "$1" == "--pipe" ] && { shift; R="${PPS[$1]}"; shift; }
+  [ "$R" = 0 ] && return 0
+  [ "$1" == "--res-file" ] && {
+    shift
+    [ -f "$1" ] && {
+      local tmp="$(mktemp)"
+      cp "$1" "$tmp"
+      echo ""
+      echo "> An ERROR was detected ($R)"
+      echo "> Full log available in this file: \"$tmp\""
+      echo "> Tail of the log:"
+      echo "~~~"
+      tail -n 10 "$1"
+      rm "$1"
+    } 1>&2
+    shift
+  }
+  exit "$R"
+}
+
+_print_npm_rc() {
+  echo "//$ENTANDO_NPM_REGISTRY_NO_SCHEMA/:_authToken=$ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS"
+  echo "@entando:registry=$ENTANDO_NPM_REGISTRY"
+}

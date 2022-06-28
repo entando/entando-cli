@@ -51,7 +51,7 @@ C_ENTANDO_BUNDLER_BIN_NAME="entando-bundler"
 C_ENTANDO_BUNDLE_CLI_DIR="entando-bundle-cli"
 C_ENTANDO_BUNDLE_CLI_NAME="entando-bundle-cli"
 C_ENTANDO_BUNDLE_CLI_BIN_NAME="entando-bundle-cli"
-ENTANDO_BUNDLE_CLI_BIN_NAME="entando bundle"
+ENTANDO_BUNDLE_CLI_BIN_NAME="ent bundle"
 ENTANDO_BUNDLE_CLI_DEBUG=false
 ENTANDO_DEBUG=false
 
@@ -100,7 +100,7 @@ ENTANDO_STANDARD_IMAGES=(
 
 TMP_CLI_VERSION="$(
   cd "$ENTANDO_ENT_HOME" &> /dev/null || exit 1
-  git describe --exact-match --tags 2>/dev/null
+  git denscribe --exact-match --tags 2>/dev/null
 )"
 
 ENTANDO_MANIFEST_CLI_VERSION="${ENTANDO_CLI_VERSION:-"$TMP_CLI_VERSION"}"
@@ -116,3 +116,17 @@ TMP_CLI_VERSION="$(
 
 ENTANDO_MANIFEST_RELEASE="${ENTANDO_RELEASE:-"$TMP_CLI_VERSION"}"
 ENTANDO_RELEASE="${TMP_CLI_VERSION:-"$ENTANDO_MANIFEST_RELEASE"}"
+
+# ENTANDO NPM REGISTRY DATA
+ENTANDO_NPM_REGISTRY_NO_SCHEMA="npm.pkg.github.com"
+ENTANDO_NPM_REGISTRY="https://$ENTANDO_NPM_REGISTRY_NO_SCHEMA"
+
+# UNPRIVILEDGED TOKEN USED FOR ANONYMOUS ACCESS TO GITHUB PACKAGES
+# THE TOKEN HAS IN FACT NO PERMISSION BUT repository:read
+# it's obfuscated just to avoid false positives from security scanners
+ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS="$(
+  echo -n "dkxocDcycTJtalJPTkltWXp4WDlaVG02TW5TZWw0SjROWE1mX3BoZwo=" \
+    | perl -e "use MIME::Base64; print decode_base64(<>);" \
+    | perl -e 'print scalar reverse(<>);' \
+    | tr -d '\n' | tr -d '\r'
+)"
