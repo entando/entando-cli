@@ -80,6 +80,8 @@ node.activate_environment() {
   # shellcheck disable=SC2154
   export PATH="$PATH:${sENT_NODE_DIR}bin"
   
+  _ent-npm-init-rc
+  
   case "$SYS_OS_TYPE" in
     windows)
       ENT_NODE_CMDEXT=".cmd"
@@ -117,17 +119,35 @@ _ent-node() {
 }
 
 _ent-npm() {
+  require_develop_checked
+  _ent-npm_direct "$@"
+}
+
+_ent-npm-init-rc() {
+  export HOME="$(_dist_directory)/opt/home"
+  mkdir -p "$HOME"
+  if [ "$SYS_OS_TYPE" = "windows" ]; then
+    export USERPROFILE="$(win_convert_existing_posix_path_to_win_path "$HOME")"
+  fi
+  echo -n "" > "$HOME/.npmrc"
+  chmod 600 "$HOME/.npmrc"
+  _print_npm_rc >> "$HOME/.npmrc"
+}
+
+_ent-npm_direct() {
   activate_shell_login_environment
   node.activate_environment
-  
-  local GLOBAL=false
-  args_or_ask -p -F GLOBAL "--global" "$@"
-  args_or_ask -p -F GLOBAL "-g" "$@"
-  if $GLOBAL; then
-    "$ENT_NPM_BIN_NATIVE" --prefix "$ENT_NODE_DIR" "$@"
-  else
-    "$ENT_NPM_BIN_NATIVE" "$@"
-  fi
+
+  (
+    local GLOBAL=false
+    args_or_ask -p -F GLOBAL "--global" "$@"
+    args_or_ask -p -F GLOBAL "-g" "$@"
+    if $GLOBAL; then
+      "$ENT_NPM_BIN_NATIVE" --prefix "$ENT_NODE_DIR" "$@"
+    else
+      "$ENT_NPM_BIN_NATIVE" "$@"
+    fi
+  )
 }
 
 # Runs the ent private installation of jhipster
@@ -162,6 +182,13 @@ _ent-bundler() {
 
 # Runs the ent private installation of the entando-bundle-cli tool
 _ent-bundle() {
+  if [ "$1" == "--debug" ]; then
+    ENTANDO_CLI_DEBUG=true
+    shift
+  else
+    ENTANDO_CLI_DEBUG=false
+  fi
+
   if [ "$1" == "api" ]; then
     ecr-prepare-action INGRESS_URL TOKEN
     export ENTANDO_CLI_ECR_TOKEN="$TOKEN"
@@ -170,8 +197,9 @@ _ent-bundle() {
   fi
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
+  export ENTANDO_BUNDLE_CLI_BIN_NAME
   
-  _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
+  ENTANDO_CLI_DEBUG="$ENTANDO_CLI_DEBUG" _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }
 
 # Runs the ent private installation of an internal npm-based entando tool
