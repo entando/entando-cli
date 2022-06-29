@@ -209,29 +209,47 @@ _ent-run-internal-npm-tool() {
   require_develop_checked
   node.activate_environment
 
+  local BIN_PATH
+  _ent-get-npm-internal-tool-path BIN_PATH "$TOOL_NAME"
+
   if [ "$1" == "--ent-get-version" ]; then
-    if $OS_WIN; then
-      "$ENT_NODE_BINS/${TOOL_NAME}.cmd" --version
-    else
-      "$ENT_NODE_BINS/${TOOL_NAME}" --version
-    fi
+    "$BIN_PATH.cmd" --version
   else
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        SYS_CLI_PRE "$ENT_NODE_BINS/${TOOL_NAME}.cmd" "$@"
+        SYS_CLI_PRE "$BIN_PATH" "$@"
       else
         SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/${TOOL_NAME}.cmd" "$@"
       fi
     else
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        "$ENT_NODE_BINS/${TOOL_NAME}" "$@"
+        "$BIN_PATH" "$@"
       else
-        "$ENT_NODE_BINS/${TOOL_NAME}" "$@" | _strip_colors
+        "$BIN_PATH" "$@" | _strip_colors
       fi
     fi
   fi
 }
+
+_ent-npm.get-internal-tool-path() {
+  if $OS_WIN; then
+    _set_var "$1" "$ENT_NODE_BINS/${2}.cmd"
+  else
+    _set_var "$1" "$ENT_NODE_BINS/${2}" "$@"
+  fi
+}
+
+_ent-npm.delete-internal-tool-bin() {
+  local BIN_PATH
+  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
+  if [[ "$BIN_PATH" = *"/.entando/"* ]]; then
+    rm "$BIN_PATH"
+  else
+    _log_e "Error determining the internal tool path while trying delete it"
+  fi
+}
+
 
 
 node.command_wrapper() {
