@@ -311,6 +311,7 @@ check_npm_git_package() {
         skip=false forced=true
         _log_i "\tfound: $VER_REQ but force-reinstall was specified => REINSTALL"
         __rm_disdir "$PACKAGE_NAME/$VER_REQ"
+        _ent-npm.delete-internal-tool-bin "$npm_package"
       else
         skip=true
       fi
@@ -394,7 +395,7 @@ check-env.npm-registry-package() {
   local npm_package="$1"; shift
   local version_req="$1"; shift
   local version_def="$1"; shift
-  local FORCE="$1"; shift
+  local FORCE="$1"; shift; [ "$FORCE" != "true" ] && { FORCE=""; }
 
   _log_i "Checking ENT private installation of $package.."
   
@@ -404,6 +405,7 @@ check-env.npm-registry-package() {
     if ask "Should I try to install it?" "y"; then
       (
         _ent-npm_direct config set @entando:registry "$ENTANDO_NPM_REGISTRY"
+        [ "$FORCE" == "true" ] && _ent-npm.delete-internal-tool-bin "$npm_package"
         ___npm "INSTALL" install --global "$npm_package@$version_def" ${FORCE:+--force}
       )
     else
