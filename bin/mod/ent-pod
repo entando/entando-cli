@@ -33,17 +33,20 @@ RUN() {
   args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
   args_or_ask -h "$HH" -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
   
-  if [ "$CMD" = "xc" ]; then
-    args_or_ask -h "$HH" -a -n -- "POD_PATT" '3/any?/.*/%sp pod pattern (or --all)' "$@"
+  if [[ "$CMD" = "x" || "$CMD" = "xc" ]]; then
+    args_or_ask -h "$HH" -a -n -- SUBCMD '2/any?/.*/%sp pod pattern (or --all)' "$@"
+    args_or_ask -h "$HH" -a -n -- POD_PATT '3/any?/.*/%sp pod pattern (or --all)' "$@"
+    GREP_PATT_POS="3"
   else
-    args_or_ask -h "$HH" -a -n -- "POD_PATT" '3/any?/.*/%sp pod pattern (or --all)' "$@"
+    args_or_ask -h "$HH" -a -n -- POD_PATT '2/any?/.*/%sp pod pattern (or --all)' "$@"
+    GREP_PATT_POS="2"
+    
+    args_or_ask -h "$HH" -n -f '--all/any?// for all pods' "$@" && {
+      POD_PATT='.*'
+      GREP_PATT_POS="2"
+    }
   fi
   
-  GREP_PATT_POS="3"
-  args_or_ask -h "$HH" -n -f '--all/any?// for all pods' "$@" && {
-    POD_PATT='.*'
-    GREP_PATT_POS="2"
-  }
   args_or_ask -h "$HH" -n -p ENTANDO_NAMESPACE "--namespace/ext_ic_id//%sp the kubernetes namespace" "$@"
   
   [[ -n "$HH" || -z "$CMD" ]] && {
@@ -55,6 +58,7 @@ RUN() {
 
   [ -z "$HH" ] && process_pod_pattern
 
+  shift "$GREP_PATT_POS"
   case "$CMD" in
     "grep") #H: greps the pods logs
       multi_pod_action grep "$@"
@@ -63,6 +67,7 @@ RUN() {
       multi_pod_action describe "$@"
       ;;
     "list") #H: shows the list of pods
+      echo 
       pod_list "$@"
       ;;
     "shell") #H: run a shell into the pod
@@ -71,24 +76,22 @@ RUN() {
       pod_action shell "$@"
       ;;
     "exec") #H: run a command into the pod container
-      shift 2
       pod_action exec "$@"
       ;;
     "logs"|"log") #H: show the logs of a pod
-      shift 2
       pod_action xc logs "$@"
       ;;
     "force-reload") #H: forces the reload of a pod related to a given deployment
-      shift 2
       pod_action force-reload
       ;;
+    "port-forward"|"pf") #H: executes the given k8s command against the a given pod
+      pod_action x port-forward "$@"
+      ;;
     "x") #H: executes the given k8s command against the a given pod
-      shift;local SCMD="$1";shift 2
-      pod_action x "$SCMD" "$@"
+      pod_action x "$SUBCMD" "$@"
       ;;
     "xc") #H: executes the given k8s command against the a given pod and container
-      shift;local SCMD="$1";shift 2
-      pod_action xc "$SCMD" "$@"
+      pod_action xc "$SUBCMD" "$@"
       ;;
     "")
       [ -z "$HH" ] && "${BASH_SOURCE[0]}" --help
@@ -103,13 +106,13 @@ RUN() {
 
 multi_pod_action() {
   local ACTION="$1"
-  shift
   local LOG_PATT
   local IGNORE_CASE=true
 
   [ "$ACTION" = "grep" ] && {
-    args_or_ask -h "$HH-only" -a -- LOG_PATT "$GREP_PATT_POS/any?//%sp the log grep pattern" "$@"
+    args_or_ask -h "$HH-only" -a -- LOG_PATT "2/any?//%sp the log grep pattern" "$@"
     args_or_ask -h "$HH-only" -n -p -F IGNORE_CASE '--ignore-case/any?//%sp the log filter pattern' "$@"
+    shift 2
   }
 
   $IGNORE_CASE && {
@@ -119,6 +122,8 @@ multi_pod_action() {
   [ -n "$HH" ] && exit 0
 
   _kubectl-pre-sudo
+  
+  pod_action.log_action "$ACTION"
 
   for pod in $(read_pod_list); do
     echo -e "\n====================================================================================================" 1>&2
@@ -129,13 +134,13 @@ multi_pod_action() {
     }
 
     [ "$ACTION" != "grep" ] && continue
-
+    
     for co in $(read_container_list "$pod"); do
       echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" 1>&2
       echo -e "> CONTAINER: $pod/$co" 1>&2
       echo -e ""
       if [ -n "$LOG_PATT" ]; then
-        _kubectl logs pods/"$pod" -c "$co" | grep ${OPT_IC:+"$OPT_IC"} -E "$LOG_PATT" --color
+        _kubectl logs pods/"$pod" -c "$co" | grep ${OPT_IC:+"$OPT_IC"} -E "$LOG_PATT" --color "$@"
       else
         _kubectl logs pods/"$pod" -c "$co"
       fi
@@ -167,8 +172,7 @@ pod_list() {
 }
 
 pod_action() {
-  ACTION="$1"
-  shift
+  ACTION="$1"; SUBCMD="$2"
   [ -n "$HH" ] && exit 0
 
   local SELECTED_POD SELECTED_CONTAINER
@@ -183,14 +187,11 @@ pod_action() {
   SELECTED_POD="$select_one_res_alt"
 
   local CONTAINERS=()
-  if [ "$ACTION" != "x" ]; then
-    stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
-    if [[ "${#CONTAINERS[@]}" -ge 1 ]]; then
-      select_one -s "CONTAINER" "${CONTAINERS[@]}"
-      SELECTED_CONTAINER="$select_one_res_alt"
-    fi
-  fi
-
+  [ $ACTION != "xc" ] && _select_container
+  
+  pod_action.log_action "$ACTION" "$SUBCMD"
+  
+  shift;
   case "$ACTION" in
     "shell")
       echo "Opening shell for $(mk_target_desc)"
@@ -205,14 +206,12 @@ pod_action() {
       pod_action.force-reload "$SELECTED_POD"
       ;;
     "x")
-      ACTION="$1"
-      shift
+      ACTION="$SUBCMD";shift
       echo "Executing \"$ACTION\" command against $(mk_target_desc)" 1>&2
-      _kubectl "$ACTION" "pod" "$SELECTED_POD" "$@"
+      _kubectl "$ACTION" "pod/$SELECTED_POD" "$@"
       ;;
     "xc")
-      ACTION="$1"
-      shift
+      ACTION="$SUBCMD";shift
       echo "Executing \"$ACTION\" command against $(mk_target_desc)" 1>&2
       if [ -n "$SELECTED_CONTAINER" ]; then
         _kubectl "$ACTION" "pod/$SELECTED_POD" -c "$SELECTED_CONTAINER" "$@"
@@ -224,6 +223,28 @@ pod_action() {
       FATAL "Unknown command \"$ACTION\""
       ;;
   esac
+}
+
+pod_action.log_action() {
+  (
+    POD_PATTERN="$POD_PATT"
+    POD_SELECTED="$SELECTED_POD"
+    CONTAINER="$SELECTED_CONTAINER"
+    ACTION="$1"
+    [[ "$ACTION" = "x" || "$ACTION" = "xc" ]] && ACTION="$2"
+    _pp ACTION POD_PATTERN \
+      ${POD_SELECTED:+POD_SELECTED} \
+      ${CONTAINER:+CONTAINER}
+      1>&2
+  )
+}
+
+_select_container() {
+  stdin_to_arr ' ' CONTAINERS < <(read_container_list "$SELECTED_POD")
+  if [[ "${#CONTAINERS[@]}" -ge 1 ]]; then
+    select_one -s "CONTAINER" "${CONTAINERS[@]}"
+    SELECTED_CONTAINER="$select_one_res_alt"
+  fi
 }
 
 read_pod_list() {
