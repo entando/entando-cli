@@ -125,7 +125,7 @@ _ent-npm() {
 
 _ent-npm-init-rc() {
    mkdir -p "$ENT_NODE_DIR/etc/"
-  _print_npm_rc > "$ENT_NODE_DIR/etc/.npmrc"
+  _print_npm_rc > "$ENT_NODE_DIR/etc/npmrc"
 }
 
 _ent-npm_direct() {
