@@ -643,3 +643,17 @@ _print_npm_rc() {
   echo "//$ENTANDO_NPM_REGISTRY_NO_SCHEMA/:_authToken=$ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS"
   echo "@entando:registry=$ENTANDO_NPM_REGISTRY"
 }
+
+_ent-setup_home_env_variables() {
+  export ENTANDO_CLI_HOME_OVERRIDE="$(_dist_directory)/opt/home"
+  mkdir -p "$ENTANDO_CLI_HOME_OVERRIDE"
+
+  if [ "$SYS_OS_TYPE" = "windows" ]; then
+    export ENTANDO_CLI_USERPROFILE_OVERRIDE="$(win_convert_existing_posix_path_to_win_path "$HOME")"
+    [[ -z "$ENTANDO_CLI_ORIGINAL_USERPROFILE" ]] && export ENTANDO_CLI_ORIGINAL_USERPROFILE="$USERPROFILE"
+    [[ "$ENTANDO_OPT_OVERRIDE_HOME_VAR" = "true" ]] && export USERPROFILE="$ENTANDO_CLI_USERPROFILE_OVERRIDE"
+  else
+    [[ -z "$ENTANDO_CLI_ORIGINAL_HOME" ]] && export ENTANDO_CLI_ORIGINAL_HOME="$HOME"
+    [[ "$ENTANDO_OPT_OVERRIDE_HOME_VAR" = "true" ]] && export HOME="$ENTANDO_CLI_HOME_OVERRIDE"
+  fi
+}

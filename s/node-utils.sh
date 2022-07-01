@@ -124,21 +124,20 @@ _ent-npm() {
 }
 
 _ent-npm-init-rc() {
-  export HOME="$(_dist_directory)/opt/home"
-  mkdir -p "$HOME"
-  if [ "$SYS_OS_TYPE" = "windows" ]; then
-    export USERPROFILE="$(win_convert_existing_posix_path_to_win_path "$HOME")"
-  fi
-  echo -n "" > "$HOME/.npmrc"
-  chmod 600 "$HOME/.npmrc"
-  _print_npm_rc >> "$HOME/.npmrc"
+  (
+    _ent-setup_home_env_variables
+    echo -n "" > "$HOME/.npmrc"
+    chmod 600 "$HOME/.npmrc"
+    _print_npm_rc >> "$HOME/.npmrc"
+  )
 }
 
 _ent-npm_direct() {
-  activate_shell_login_environment
-  node.activate_environment
-
   (
+    _ent-setup_home_env_variables
+    activate_shell_login_environment
+    node.activate_environment
+
     local GLOBAL=false
     args_or_ask -p -F GLOBAL "--global" "$@"
     args_or_ask -p -F GLOBAL "-g" "$@"
@@ -182,6 +181,10 @@ _ent-bundler() {
 
 # Runs the ent private installation of the entando-bundle-cli tool
 _ent-bundle() {
+  _ent-entando-bundle-cli "$@"
+}
+
+_ent-entando-bundle-cli() {
   if [ "$1" == "--debug" ]; then
     ENTANDO_CLI_DEBUG=true
     shift
@@ -199,7 +202,8 @@ _ent-bundle() {
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
   
-  ENTANDO_CLI_DEBUG="$ENTANDO_CLI_DEBUG" _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
+  ENTANDO_CLI_DEBUG="$ENTANDO_CLI_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
+    _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }
 
 # Runs the ent private installation of an internal npm-based entando tool
@@ -210,17 +214,17 @@ _ent-run-internal-npm-tool() {
   node.activate_environment
 
   local BIN_PATH
-  _ent-get-npm-internal-tool-path BIN_PATH "$TOOL_NAME"
+  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
 
   if [ "$1" == "--ent-get-version" ]; then
-    "$BIN_PATH.cmd" --version
+    "$BIN_PATH" --version
   else
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
         SYS_CLI_PRE "$BIN_PATH" "$@"
       else
-        SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/${TOOL_NAME}.cmd" "$@"
+        SYS_CLI_PRE -Xallow-non-tty -Xplain "$BIN_PATH" "$@"
       fi
     else
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
