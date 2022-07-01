@@ -54,6 +54,8 @@ C_ENTANDO_BUNDLE_CLI_BIN_NAME="entando-bundle-cli"
 ENTANDO_BUNDLE_CLI_BIN_NAME="ent bundle"
 ENTANDO_BUNDLE_CLI_DEBUG=false
 ENTANDO_DEBUG=false
+ENTANDO_CLI_ORIGINAL_HOME=""
+ENTANDO_CLI_ORIGINAL_USERPROFILE=""
 
 #
 C_QUICKSTART_DEFAULT_RELEASE="quickstart"
@@ -66,6 +68,7 @@ C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 C_DEFAULT_KUBECT_VERSION="v1.23.4"
 
 ENTANDO_CLI_DOCKER_CONFIG_PATH="$ENT_ORIGIN_WORKDIR/.entando/.docker/config.json"
+ENTANDO_OPT_OVERRIDE_HOME_VAR="true"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
