@@ -1299,17 +1299,17 @@ _jq() {
 }
 
 _crane() {
-  local CMD; _pkg_get_path CMD "crane"
+  local CMD; _pkg_get_path --strict CMD "crane"
   "$CMD" "$@"
 }
 
 _pkg_jq() {
-  local CMD; _pkg_get_path CMD "jq"
+  local CMD; _pkg_get_path --strict CMD "jq"
   "$CMD" "$@"
 }
 
 _pkg_ok() {
-  local CMD; _pkg_get_path CMD "k9s"
+  local CMD; _pkg_get_path --strict CMD "$1"
   test -n "$CMD"
 }
 
