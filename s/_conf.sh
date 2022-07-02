@@ -40,6 +40,7 @@ C_ENT_STATE_FILE="$C_ENT_PRJ_ENT_DIR/ent-state"
 C_ENT_OLD_PRJ_FILE=".ent-prj"
 C_ENT_OLD_STATE_FILE=".ent-state"
 
+
 C_GENERATOR_JHIPSTER_ENTANDO_NAME="generator-jhipster-entando"
 
 # BUNDLER
@@ -69,6 +70,8 @@ C_DEFAULT_KUBECT_VERSION="v1.23.4"
 
 ENTANDO_CLI_DOCKER_CONFIG_PATH="$ENT_ORIGIN_WORKDIR/.entando/.docker/config.json"
 ENTANDO_OPT_OVERRIDE_HOME_VAR="true"
+
+ENTANDO_ENT_EXTENSIONS_MODULES_PATH="${ENTANDO_ENT_HOME}/bin/mod/ext"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS

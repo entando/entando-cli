@@ -1,6 +1,7 @@
 w/
 opt/
 prj/
+bin/mod/ext
 .xdev
 .kdev4
 *.kdev4
@@ -9,4 +10,3 @@ prj/
 *.iml
 ########
 .ent/ent-state
-
