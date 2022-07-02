@@ -15,6 +15,7 @@ cd "$DIR/../.." || { echo "Internal error: unable to find the script source dir"
 
 RUN() {
   RESULT_FILE="$(mktemp)"
+  # shellcheck disable=SC2064
   trap "[ -f \"$RESULT_FILE\" ] && rm \"$RESULT_FILE\"" exit
   # COMMON REQS
   check-env.common.minimal-requirements
@@ -244,7 +245,7 @@ parse-version-flags() {
   local _tmp_ver="${!2}" _tmp_flags
   [ -n "${!4}" ] && _tmp_ver="${!4}"
   
-  IFS=: read _tmp_flags _tmp_ver <<< "$_tmp_ver"
+  IFS=: read -r _tmp_flags _tmp_ver <<< "$_tmp_ver"
   [ -z "$_tmp_ver" ] && {
     _tmp_ver="$_tmp_flags"
     _tmp_flags=""
@@ -390,6 +391,7 @@ check_npm_git_package() {
 }
 
 check-env.npm-registry-package() {
+  # shellcheck disable=SC2034
   local registry_type="$1"; shift
   local package="$1"; shift
   local npm_package="$1"; shift
