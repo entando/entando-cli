@@ -187,7 +187,7 @@ pod_action() {
   SELECTED_POD="$select_one_res_alt"
 
   local CONTAINERS=()
-  [ $ACTION != "xc" ] && _select_container
+  [ "$ACTION" != "xc" ] && _select_container
   
   pod_action.log_action "$ACTION" "$SUBCMD"
   
@@ -227,6 +227,7 @@ pod_action() {
 
 pod_action.log_action() {
   (
+    # shellcheck disable=SC2034
     POD_PATTERN="$POD_PATT"
     POD_SELECTED="$SELECTED_POD"
     CONTAINER="$SELECTED_CONTAINER"
@@ -234,7 +235,7 @@ pod_action.log_action() {
     [[ "$ACTION" = "x" || "$ACTION" = "xc" ]] && ACTION="$2"
     _pp ACTION POD_PATTERN \
       ${POD_SELECTED:+POD_SELECTED} \
-      ${CONTAINER:+CONTAINER}
+      ${CONTAINER:+CONTAINER} \
       1>&2
   )
 }

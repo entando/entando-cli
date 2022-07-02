@@ -617,6 +617,7 @@ _dist_directory() {
 # Options:
 # --pipe N  checks the result of the part #N of a pipe expression, can be specified up to 3 times
 #
+# shellcheck disable=SC2120
 _SOE() {
   local R="$?" PPS=("${PIPESTATUS[@]}")
   [ "$1" == "--pipe" ] && { shift; R="${PPS[$1]}"; shift; }

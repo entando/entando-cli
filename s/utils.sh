@@ -1374,7 +1374,9 @@ _with_spinner() {
   (
     _spin "$1" &
     PID="$!"
+    # shellcheck disable=SC2064
     trap "kill -- $PID &>/dev/null" SIGINT SIGTERM EXIT SIGQUIT
+    # shellcheck disable=SC2030
     while read -r line;do
       [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
     done
