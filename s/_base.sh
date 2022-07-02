@@ -220,13 +220,22 @@ activate_designated_workdir() {
 }
 
 set_curr_profile() {
+  local TEMP=false;[ "$1" = "--temporary" ] && { TEMP=true; shift; }
   [ -z "$1" ] && _FATAL "Illegal profile name detected"
   DESIGNATED_PROFILE="$1"
   DESIGNATED_PROFILE_HOME="$2"
   [ -z "$DESIGNATED_PROFILE_HOME" ] && DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
-  save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
-  save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
+  ! $TEMP && {
+    save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
+  }
 }
+
+case "$ENTANDO_FORCE_PROFILE" in
+  "--none") DESIGNATED_PROFILE="";DESIGNATED_PROFILE_HOME="";;
+  "") ;;
+  *) set_curr_profile --temporary "$ENTANDO_FORCE_PROFILE";;
+esac
 
 if [ -n "$DESIGNATED_PROFILE" ]; then
   activate_application_workdir
