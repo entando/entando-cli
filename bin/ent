@@ -22,6 +22,8 @@ RUN() {
   
   while true; do
     cmd="$1"
+    export ENTANDO_CLI_COMMAND="$1"
+
     shift
     case "$cmd" in
       "version") #H: shows the version of the current ent
@@ -125,6 +127,9 @@ RUN() {
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
         ;;
+      "load-module")
+        ent-load-extension-module "$@"
+        ;;
       "")
         # shellcheck disable=SC1091
         _source_ent help
@@ -135,13 +140,33 @@ RUN() {
       *)
         [ "$cmd" = "k" ] && cmd="kubectl"
 
-        local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
-        [ ! -f "$mod_script" ] && {
+        local FOUND=false
+
+        local ext_mod_script="$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-${cmd}"
+
+        if [ -f "$ext_mod_script" ]; then
+          FOUND=true
+          (
+            export ENTANDO_ENT_EXTENSIONS_MODULES_PATH
+            # shellcheck disable=SC1090
+            source "$ext_mod_script" "$@"
+            RUN "$@"
+          )
+        else
+          local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
+
+          if [ -f "$mod_script" ]; then
+            FOUND=true
+            # shellcheck disable=SC1090
+            source "$mod_script" "$@"
+          fi
+        fi
+
+        ! $FOUND && {
           _log_e "Unrecognized ent command \"$cmd\""
           return 33
         }
-        # shellcheck disable=SC1090
-        source "$mod_script" "$@"
+
         ;;
     esac
     index_of_arg "--AND" "$@"
@@ -151,6 +176,36 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ent-load-extension-module() {
+  (
+    args_or_ask -h "$HH" -a -n -- REPO '1/git_repo//%sp repository of the module' "$@"
+    args_or_ask -h "$HH" -n -- NAME '--name/strict_file_name//%sp name of the module' "$@"
+    args_or_ask -h "$HH" -n -- BRANCH '--branch/dn//%sp branch to use instead of the default one' "$@"
+    end_help_parsing
+
+    DIRNAME="$(basename "$REPO")"
+    [ -z "$NAME" ] && NAME="$DIRNAME"
+
+    local EXT_DIR="${ENTANDO_ENT_HOME}/bin/mod/ext"
+    mkdir -p "$EXT_DIR"
+    __cd "$EXT_DIR"
+    if [[ "$PWD" = *".entando"* ]]; then
+      [ -d "$DIRNAME" ] && rm -rf "$DIRNAME"
+      git clone --depth=1 ${BRANCH:+-b "$BRANCH"} --single-branch "$REPO"
+      cp -p -- "$PWD/$DIRNAME/mod/"* .
+    else
+      _FATAL "Extension module cleanup: Refusing to delete a non entando-cli dir"
+    fi
+  )
+}
+
+list-extension-modules() {
+  (
+    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
+    ls ent-* -p | grep -v / | sed 's/^ent-//'
+  )
+}
+
 ent-pkg() {
   bgn_help_parsing ":ENT-PKG" "$@"
   CMD="$1"; shift;
@@ -299,6 +354,17 @@ cmplt() {
     echo "$mod"
   done
 
+  [ -z "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ] && ENTANDO_ENT_EXTENSIONS_MODULES_PATH="$ENTANDO_ENT_HOME/bin/mod/ext"
+  (
+    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
+    for file in ent-*; do
+      [ -f "$file" ] && {
+        mod="${file//ent-/}"
+        echo "$mod"
+      }
+    done
+  )
+  
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
       "kubectl-cmd" "reset-kubectl-mode" "status"
