@@ -122,6 +122,9 @@ RUN() {
       "pkg") #H: helps dealing with the ent bin tools
         ent-pkg "$@"
         ;;
+      "crane"|"docker"|"jq"|"k9s")
+        ent-pkg run "$cmd" "$@"
+        ;;
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
         ;;
