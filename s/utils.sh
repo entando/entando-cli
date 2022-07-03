@@ -1420,3 +1420,50 @@ _spin() {
   done
   echo -ne $'\r'"$SPC"$'\r'
 }
+
+# Prints general information about the currently activated ent instance
+#
+print_ent_general_status() {
+  print_hr
+  print_current_profile_info -v
+  setup_kubectl
+  kubectl_update_once_options ""
+  #print_hr
+  #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
+  echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
+  if [ -z "$DESIGNATED_KUBECONFIG" ]; then
+    echo " - KUBECONFIG (ENV):  ${KUBECONFIG:-<DEFAULT>}"
+  fi
+  case "$ENTANDO_KUBECTL_MODE" in
+  "COMMAND")
+    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL:-<ERR-NO-FOUND>}"
+    ;;
+  "CONFIG")
+    echo " - KUBECTL CMD:       <DEFAULT>"
+    ;;
+  "AUTODETECT")
+    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL_AUTO_DETECTED:-<ERR-NO-FOUND>} (autodetected)"
+    ;;
+  *)
+    FATAL "Unknown kubectl mode"
+    ;;
+  esac
+  echo " - KUBECTL MODE:      $ENTANDO_KUBECTL_MODE"
+  print_hr
+  local TTY_ENV
+  TTY_ENV=$(
+    env | grep "ENTANDO_" | grep "_0e7e8d89_$ENTANDO_TTY_QUALIFIER" \
+    | sed "s/_0e7e8d89_$ENTANDO_TTY_QUALIFIER//" \
+    | sed "s/ENTANDO_FORCE_//" \
+    | sed "s/_/ /g" \
+    | sed "s/=/: /" \
+    | xargs -I {} echo " - TTY SESSION {}"
+  )
+  if [ -n "$TTY_ENV" ]; then
+    _log_i "TTY environment ($ENTANDO_DEV_TTY):"
+    echo -n "$TTY_ENV"
+    echo ""
+    print_hr
+  fi
+}

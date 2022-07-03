@@ -150,15 +150,9 @@ RUN() {
           source "$mod_script" "$@"
         else
           local ext_mod_script="$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-${cmd}"
-
-          if [ -f "$ext_mod_script" ]; then
+          if _ent.extension-module.is-present "$cmd"; then
             FOUND=true
-            (
-              export ENTANDO_ENT_EXTENSIONS_MODULES_PATH
-              # shellcheck disable=SC1090
-              source "$ext_mod_script" "$@"
-              RUN "$@"
-            )
+            _ent.extension-module.execute "${cmd}" "$@"
           fi
         fi
 
@@ -196,14 +190,6 @@ ent-load-extension-module() {
     else
       _FATAL "Extension module cleanup: Refusing to delete a non entando-cli dir"
     fi
-  )
-}
-
-list-extension-modules() {
-  (
-    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
-    # shellcheck disable=SC2010
-    ls ent-* -p | grep -v / | sed 's/^ent-//'
   )
 }
 
@@ -365,7 +351,7 @@ cmplt() {
       }
     done
   )
-  
+
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
       "kubectl-cmd" "reset-kubectl-mode" "status"

@@ -658,3 +658,36 @@ _ent-setup_home_env_variables() {
     [[ "$ENTANDO_OPT_OVERRIDE_HOME_VAR" = "true" ]] && export HOME="$ENTANDO_CLI_HOME_OVERRIDE"
   fi
 }
+
+_ent.extension-modules.list() {
+  (
+    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
+    # shellcheck disable=SC2010
+    ls ent-* -p | grep -v / | sed 's/^ent-//'
+  )
+}
+
+_ent.extension-module.is-present() {
+  local module="$1";shift;
+  local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/ent-${module}"
+  [ -f "$mod_script" ]
+}
+
+_ent.extension-module.execute() {
+  (
+    local module="$1";shift;
+    local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/ent-${module}"
+    [ ! -f "$mod_script" ] && _FATAL "unable to find script \"$mod_script\" of extension module \"$module\""
+    # shellcheck disable=S2034
+    ENTANDO_CLI_MODULE_NAME="$module"
+    # shellcheck disable=SC1090
+    RUN() { _FATAL "unable to load extension module \"$module\" from script \"$mod_script\""; }
+    source "$mod_script"
+    RUN "$@"
+  )
+}
+
+
+_ent.sys.is-stdout-tty() {
+  perl -e 'print -t STDOUT ? exit 0 : exit 1;'
+}

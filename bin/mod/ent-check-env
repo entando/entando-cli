@@ -19,6 +19,9 @@ RUN() {
   trap "[ -f \"$RESULT_FILE\" ] && rm \"$RESULT_FILE\"" exit
   # COMMON REQS
   check-env.common.minimal-requirements
+  
+  check-env.extention-modules "$ENTANDO_CLI_CHECKENV_MODE"
+  exit
 
   # DEVELOP TOOLS
   $M_DEVL && check-env.develop.minimal-tools-requirements
@@ -35,6 +38,9 @@ RUN() {
   $M_KUBE && check-env.runtime.minimal-sys-requirements
   $M_KUBE && $M_QS && check-env.runtime.quickstart.apply-fixes
   $M_KUBE && check-env.runtime.check-dns
+  
+  # EXTENSION MODULES
+  check-env.extention-modules "$ENTANDO_CLI_CHECKENV_MODE"
 
   # COMMIT
   $M_DEVL && save_cfg_value "WAS_DEVELOP_CHECKED" "true" "$ENT_DEFAULT_CFG_FILE"
@@ -80,6 +86,15 @@ check-env.runtime.check-k3s() {
       prompt "Recommended dependency not found, some command may not work as expected.\nPress enter to continue.."
     fi
   fi
+}  
+
+check-env.extention-modules() {
+  local module;
+  while IFS= read -r module; do
+    _ent.extension-module.execute "$module" check-env || {
+      DEPENDENCY_ERROR "$FAIL_MSG"
+    }
+  done < <(_ent.extension-modules.list)
 }
 
 check-env.develop.minimal-tools-requirements() {
@@ -429,6 +444,7 @@ PARSE_ARGS() {
   args_or_ask -h "$HH" -n -F ENTANDO_OPT_YES_FOR_ALL "--yes///Assumes yes for all yes-no questions" "$@"
   args_or_ask -h "$HH" -n -F LENIENT "--lenient///Assumes yes for all yes-no questions" "$@"
   args_or_ask -h "$HH" -n -F VERBOSE "--verbose///Prints more details" "$@"
+  args_or_ask -h "$HH" -n -F EXT_MOD "--include-extension-modules///also runs the check-env of the extension modules" "$@"
   
   args_or_ask -h "$HH" -n ENTANDO_K3S_VERSION_OVERRIDE "--k3s-version///overrides the k3s version to use" "$@"
   args_or_ask -h "$HH" -n ENTANDO_NODE_VERSION_OVERRIDE "--node-version///overrides the node version to use" "$@"
@@ -473,6 +489,8 @@ PARSE_ARGS() {
   M_DEVL=false
   M_KUBE=false
   M_QS=false
+  ENTANDO_CLI_CHECKENV_MODE="$ARG1"
+  
   case "$ARG1" in
     develop) #H: environment for bundle developers
       M_DEVL=true
