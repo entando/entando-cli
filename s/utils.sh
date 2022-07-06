@@ -1149,8 +1149,8 @@ keycloak-get-token() {
 #
 # shellcheck disable=SC2296
 handle_forced_profile() {
-  local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
-  local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local pv="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local phv="ENTANDO_ENT_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   if [[ "$1" =~ --profile=.* ]]; then
     args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
@@ -1466,4 +1466,11 @@ print_ent_general_status() {
     echo ""
     print_hr
   fi
+}
+
+print_fullsize_hsep() {
+  local HSEP="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  local HSEP="$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP"
+  local W="$(tput cols)"
+  echo "${HSEP:0:$W}"
 }
