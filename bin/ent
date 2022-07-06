@@ -508,9 +508,6 @@ fi
   exit 0
 }
 
-parse_global_args "$@"
-shift "$ENTANDO_CONSUMED_ARGS"
-
 . s/_base.sh
 cd - > /dev/null || _FATAL "internal error"
 

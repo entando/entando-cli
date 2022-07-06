@@ -72,6 +72,7 @@ ENTANDO_CLI_DOCKER_CONFIG_PATH="$ENT_ORIGIN_WORKDIR/.entando/.docker/config.json
 ENTANDO_OPT_OVERRIDE_HOME_VAR="true"
 
 ENTANDO_ENT_EXTENSIONS_MODULES_PATH="${ENTANDO_ENT_HOME}/bin/mod/ext"
+ENTANDO_CLI_FORCE_COLORS="false"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
