@@ -124,15 +124,17 @@ _ent-npm() {
 }
 
 _ent-npm-init-rc() {
+  if [ -d "$ENT_NODE_DIR" ]; then
   (
     _ent-setup_home_env_variables
     D="$ENT_NODE_DIR/etc/"
-    F="${D}etc/npmrc"
+    F="${D}npmrc"
     mkdir -p "$D"
     echo -n "" > "$F"
     chmod 600 "$F"
     _print_npm_rc >> "$F"
   )
+  fi
 }
 
 _ent-npm_direct() {

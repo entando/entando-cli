@@ -21,7 +21,6 @@ RUN() {
   check-env.common.minimal-requirements
   
   check-env.extention-modules "$ENTANDO_CLI_CHECKENV_MODE"
-  exit
 
   # DEVELOP TOOLS
   $M_DEVL && check-env.develop.minimal-tools-requirements

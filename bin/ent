@@ -342,6 +342,7 @@ cmplt() {
   done
 
   [ -z "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ] && ENTANDO_ENT_EXTENSIONS_MODULES_PATH="$ENTANDO_ENT_HOME/bin/mod/ext"
+  if [ -d "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ]; then
   (
     cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
     for file in ent-*; do
@@ -351,6 +352,7 @@ cmplt() {
       }
     done
   )
+  fi
 
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
