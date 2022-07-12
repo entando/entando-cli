@@ -126,9 +126,12 @@ _ent-npm() {
 _ent-npm-init-rc() {
   (
     _ent-setup_home_env_variables
-    echo -n "" > "$HOME/.npmrc"
-    chmod 600 "$HOME/.npmrc"
-    _print_npm_rc >> "$HOME/.npmrc"
+    D="$ENT_NODE_DIR/etc/"
+    F="${D}etc/npmrc"
+    mkdir -p "$D"
+    echo -n "" > "$F"
+    chmod 600 "$F"
+    _print_npm_rc >> "$F"
   )
 }
 
