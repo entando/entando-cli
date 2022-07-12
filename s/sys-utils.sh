@@ -660,11 +660,13 @@ _ent-setup_home_env_variables() {
 }
 
 _ent.extension-modules.list() {
+  if [ -d "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ]; then
   (
     cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
     # shellcheck disable=SC2010
     ls ent-* -p | grep -v / | sed 's/^ent-//'
   )
+  fi
 }
 
 _ent.extension-module.is-present() {
