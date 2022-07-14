@@ -1,0 +1,249 @@
+#!/bin/bash
+
+# shellcheck disable=SC1091
+source "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/walter-ent-extensions/s/lib.sh" "$@"
+
+
+
+k() {
+  _kubectl "$@"
+}
+
+extract_pod() {
+  _get NAME '.name'
+  _get IMAGE '.image'
+  _get ENTRYPOINT '.entrypoint'
+  _get COMMAND '.command'
+  _get PORTS '.ports[] | [.containerPort] | join(",")'
+  _get ENV '.env[] | select(.valueFrom|not) | [.name,.value]  | @csv'
+  _get SECRET_ENV '.env[] | select(.valueFrom.secretKeyRef) | [.name,.valueFrom.secretKeyRef.name,.valueFrom.secretKeyRef.key] | @csv'
+  _get FIELDREF_ENV '.env[] | select(.valueFrom.fieldRef) | [.name,.valueFrom.fieldRef.fieldPath] | join(",")'
+  _get VOLUMES '.volumeMounts[] | [.mountPath,.readOnly] | @csv'
+
+  {
+    exec > docker-compose.yml
+    
+    _log "\n# ~~~\n# BUILDING THE DOCKERFILE\n# ~~~\n" 1>&2
+    PRINT_SKELETON "$NAME"
+    _log "# BASE"
+    PRINT_BASE "$IMAGE" "$ENTRYPOINT" "$COMMAND"
+    _log "# ENV VARS"
+    PRINT_ENV "$ENV"
+    PRINT_FIELDREF_ENV "$FIELDREF_ENV"
+    PRINT_SECRET_ENV "$SECRET_ENV"
+    _log "# PORTS"
+    PRINT_PORTS "$PORTS"
+    _log "# VOLUMES "
+    PRINT_VOLUMES_REFS "$VOLUMES"
+    #_indent -
+    #_indent -
+    #_log "# VOLUMES DEFS"
+    #PRINT_VOLUMES_DEFS "$VOLUMES"
+    _log "\n# ~~~\n# IMPORTING THE VOLUMES\n# ~~~\n" 1>&2
+    IMPORT_VOLUMES_CONTENTS
+  }
+}
+
+_print() {
+  SPC="          "
+  SPC="$SPC$SPC$SPC$SPC"
+  echo "${SPC:0:$((LEVEL*2))}$1"
+}
+
+_indent() {
+  case "${1:-+}" in 
+    "+") ((LEVEL++));;
+    "-") ((LEVEL--));;
+  esac
+}
+
+PRINT_SKELETON() {
+  _print "version: '3'"
+  _print ""
+  _print "services:"
+  _indent +
+  _print "\"$1\":"
+  _indent +
+}
+
+_print_prop() {
+  [[ -n "$2" && "$2" != null ]] && {
+    _log "\t- $(_upper "$1"): \"$2\""
+    _print "$1: \"$2\""
+  }
+}
+
+PRINT_BASE() {
+  _print_prop "image" "$1"
+  _print_prop "entrypoint" "$2"
+  _print_prop "command" "$3"
+}
+
+PRINT_PORTS() {
+  local P=true
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    PORT="$line"
+    _log "\t- $PORT"
+    $P && { _print 'ports:'; _indent +; P=false; }
+    _print "- $PORT:$PORT"
+  done <<< "$1"
+  $P || _indent -
+}
+
+PRINT_ENV() {
+  local P=true
+  [ -z "$1" ] && return 0
+  while IFS= read -r line; do
+    IFS=',' read -r key value <<< "$line"
+    _log "\t- $key"
+    [ -z "$value" ] && value='""'
+    $P && { _print 'environment:'; _indent +; P=false; }
+    _print "$key: $value"
+  done <<< "$1"
+  $P || _indent -
+}
+
+PRINT_SECRET_ENV() {
+  [ -z "$1" ] && return 0
+  _indent +
+  local sec_list=() secs_data sec_env_value
+  while IFS= read -r line; do
+    IFS=',' read -r name secretName secretKey <<< "$line"
+  done <<< "$1"
+  secs_data="$(k get secrets "${sec_list[@]}" -n "$ENTANDO_NAMESPACE" -o json)"
+  while IFS= read -r line; do
+    IFS=',' read -r name secretName secretEntryKey <<< "$line"
+    _log "\t- $name"
+    sec_env_value="$(jq -r '.items[] | select(.metadata.name == '"$secretName"') | .data | '".$secretEntryKey" <<< "$secs_data")"
+    _print "$name: \"$(base64 -d <<< "$sec_env_value")\""
+  done <<< "$1"
+  _indent -
+}
+
+PRINT_FIELDREF_ENV() {
+  [ -z "$1" ] && return 0
+  _indent +
+  local sec_list=() ref_data env_value
+  ref_data="$POD_JSON"
+  while IFS= read -r line; do
+    IFS=',' read -r name fieldPath <<< "$line"
+    _log "\t- \"$name\""
+      env_value="$(jq ".${fieldPath}" <<< "$POD_JSON")"
+    _print "\"$name\": $env_value"
+  done <<< "$1"
+  _indent -
+}
+
+PRINT_VOLUMES_REFS() {
+  local P=true
+  [ -z "$1" ] && return 0
+  VOLUMES_DEFS=()
+  while IFS= read -r line; do
+    IFS=, read -r mountPath readOnly <<< "$line"
+    _log "\t- $mountPath"
+    localDir="${mountPath##*/}"
+    [[ "$localDir" == *\" ]] && localDir="${localDir:0:$((${#localDir}-1))}"
+    [[ "$mountPath" == *\" ]] && mountPath="${mountPath:1:$((${#mountPath}-2))}"
+    #localDir="$localDir-$((1 + $RANDOM % 100000))"
+    if [ "${readOnly:-false}" == "true" ]; then
+      OPT=":ro"
+    else
+      OPT=""
+    fi
+    
+    $P && { _print 'volumes:'; _indent +; P=false; }
+    _print "- \"./volumes/${localDir}:${mountPath}${OPT}\""
+    VOLUMES_DEFS+=("./volumes/${localDir}:${mountPath}")
+  done <<< "$1"
+  $P || _indent -
+}
+
+PRINT_VOLUMES_DEFS() {
+  local P=true
+  _indent +
+  for line in "${VOLUMES_DEFS[@]}"; do
+    IFS=: read -r localDir _ignore_ <<< "$line"
+    $P && { _print 'volumes:'; _indent +; P=false; }
+    _print "${localDir}:"
+  done
+  $P || _indent -
+}
+
+IMPORT_VOLUMES_CONTENTS() {
+  for line in "${VOLUMES_DEFS[@]}"; do
+    IFS=: read -r localDir mountPath <<< "$line"
+    _log "> COPY: \"$mountPath\" => \"$localDir\" ($CONTAINER)"
+    mkdir -p "$localDir"
+    k_cp "$ENTANDO_NAMESPACE" "$POD" "$CONTAINER" "$mountPath" "$localDir"
+  done
+}
+
+pre-filter() {
+  if [ -n "$1" ]; then
+    fgrep -i "$1"
+  else
+    cat
+  fi
+}
+
+_log() {
+  {
+    echo -e "$@"
+  } 1>&2
+}
+
+mk-container-name() {
+  local tmp="${1//:/-}"
+  tmp="${tmp//\//-}"
+  echo "test-$tmp"
+}
+
+k_cp() {
+  local NS="$1" POD="$2" CO="$3" SRC="$3" DST="$4" 
+  k exec -n "$NS" "$POD" -c "$CONTAINER" -- bash -c "rm -rf \"/tmp$mountPath\"; mkdir -p \"/tmp$mountPath\"; cp -LR \"$mountPath\" \"/tmp$mountPath\""
+  k cp "$NS"/"$POD":"/tmp$mountPath" "$localDir" "-c" "$CONTAINER" | grep -v "tar: Removing leading"  
+}
+
+init() {
+  POD="$(
+    k get pod -n "$ENTANDO_NAMESPACE" | tail +2 | pre-filter "$POD_PATT" | fzf -1 | cut -d ' ' -f 1
+  )"
+  [ -z "$POD" ] && { echo "Please provide the pod" 1>&2; exit 1; }
+
+  CONTAINER="$(
+    k get pods "$POD" -n "$ENTANDO_NAMESPACE" -o jsonpath='{.spec.containers[*].name}' \
+    | pre-filter "$3" | fzf -1 | cut -d ' ' -f 1
+  )"
+
+  POD_JSON="$(k get pods "$POD" -n "$ENTANDO_NAMESPACE" -o json)"
+
+  CONT_JSON="$(jq '.spec.containers[] | select(.name=="'"$CONTAINER"'")' <<< "$POD_JSON")"
+  [ -z "$CONT_JSON" ] && FATAL "No container found in pod"
+
+  _get() {
+    read -r -d '' "$1" < <(jq -r "$2" 2>/dev/null <<< "$CONT_JSON")
+  }
+}
+
+RUN() {
+  bgn_help_parsing ":$ENTANDO_CLI_COMMAND" "$@"
+  CMD="$1";shift;
+  
+  case "$CMD" in
+    "extract")
+      args_or_ask -h "$HH" -a POD_PATT '1///POD NAME' -- "$@"
+      args_or_ask -h "$HH" -n OUT '--out//extracted-pod/destination dir' -- "$@"
+      end_help_parsing
+      init
+      _pp POD_PATT POD OUT
+      [[ -d "$OUT" || -f "$OUT" ]] && _FATAL -s "A file or directory named \"$OUT\" alredy exists"
+      mkdir "$OUT"
+      __cd "$OUT"
+      extract_pod
+      ;;
+    "check-env") return 0;;
+    --cmplt) simple_cmplt_handler "extract";;
+    *) [ -n "$CMD" ] && _FATAL -s "Unknown command \"$CMD\"";;
+  esac
+}

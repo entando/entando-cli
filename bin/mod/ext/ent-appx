@@ -1,0 +1,243 @@
+#!/bin/bash
+
+# shellcheck disable=SC1091
+source "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/walter-ent-extensions/s/lib.sh" "$@"
+
+RUN() {
+  bgn_help_parsing ":$ENTANDO_CLI_COMMAND" "$@"
+  CMD="$1";shift;
+  
+  case "$CMD" in
+    "mod")
+      args_or_ask -h "$HH" -F WATCH '--watch///persists and update the list periodically' -- "$@"
+      end_help_parsing
+      
+      if $WATCH; then
+        _list_modules_watch
+      else
+        _list_modules
+      fi
+      ;;
+    "ing")
+      end_help_parsing
+      _list_ingresses
+      ;;
+    "set-image")
+      args_or_ask -h "$HH" -F WATCH '--and-watch///persists and update the list periodically' -- "$@"
+      _set_module_image "$@" && {
+        $WATCH && ent ax mod --watch
+      }
+      ;;
+    "set-olm-image")
+      args_or_ask -h "$HH" -F WATCH '--and-watch///persists and update the list periodically' -- "$@"
+      _set_olm_module_image "$@" && {
+        $WATCH && ent ax mod --watch
+      }
+      ;;
+    "get-image")
+      _get_module_image "$@"
+      ;;
+    "events")
+      _get_module_events "$@"
+      ;;
+    "top")
+      _module_pod_action top "$@"
+      ;;
+    "describe")
+      _module_action describe "$@" | _colorize_yaml  | less -XSr
+      ;;
+    "check-env")
+      end_help_parsing
+      if [ "$ENTANDO_CLI_CHECKENV_MODE" = "develop" ]; then
+        _log_i "$ENTANDO_CLI_MODULE_NAME> doing some check.."
+        # some check..
+      fi
+      return 0
+      ;;
+    --cmplt)
+      simple_cmplt_handler "mod set-image top describe"
+      ;;
+    *)
+      [ -n "$CMD" ] && _FATAL -s "Unknown command \"$CMD\""
+      ;;
+  esac
+}
+
+_list_ingresses() {
+  local BLOCK
+  while read -r host paths; do
+    BLOCK=""
+    for path in $paths; do
+      BLOCK+="$(_format_ingress 100 50 "$path")"$'\n'
+    done
+    _print_block "## Host: \"$host\"" "$BLOCK"
+  done < <(_kubectl get ingresses -o json | jq '.items[].spec.rules[] | [.host,.http.paths[].path] | join(" ")' -r)
+}
+
+_module_action() {
+  local ACTION="$1";shift
+  args_or_ask -h "$HH" -a SHORT_NAME '1///the short name of the module' "$@"
+  end_help_parsing
+  local depl="$(_get_deployment_by_module_id "$SHORT_NAME" | _cut_deployment_suffix)"
+  _kubectl "$ACTION" deployment "$depl"
+}
+
+_module_pod_action() {
+  local ACTION="$1";shift
+  args_or_ask -h "$HH" -a SHORT_NAME '1///the short name of the module' "$@"
+  end_help_parsing
+  local depl="$(_get_deployment_by_module_id "$SHORT_NAME" | _cut_deployment_suffix)"
+  RES=$(_kubectl "$ACTION" pod -l "entando.org/deployment=$depl" 2>/dev/null)
+  [ -z "$RES" ] && RES="$(_kubectl "$ACTION" pod -l "deployment=$depl" 2>/dev/null)"
+  echo "$RES"
+}
+
+_set_olm_module_image() {
+  local controller_name="$1"
+  local new_image="$2"
+  local olm_manifest_name="$(_kubectl get ClusterServiceVersion -o=name)"
+  local olm_manifest="$(_kubectl get "$olm_manifest_name" -o=json)"
+  NONNULL olm_manifest_name olm_manifest
+  
+  # CONFIG
+  local image_config_index="$(
+    jq  '.spec.relatedImages | map(.name == '$(_str_quote "$controller_name")') | index(true)' <<< "$olm_manifest"
+  )"
+  NONNULL image_config_index
+  
+  local path1="/spec/relatedImages/$image_config_index/image"
+  
+  echo ""
+  echo "> Old value of \"$path1\""
+  jq '.spec.relatedImages[] | select(.name == '$(_str_quote "$controller_name")') | .image' -r <<< "$olm_manifest"
+
+  echo "> Setting the new value"
+  
+  # ENV VAR
+  local controller_env_var_name="RELATED_IMAGE_$(_upper "$controller_name" | sed 's/-/_/g')"
+  local operator_install_index="$(
+    jq  '.spec.install.spec.deployments | map(.name == "entando-operator") | index(true)' <<< "$olm_manifest"
+  )"
+  local env_var_index="$(
+    F='.spec.install.spec.deployments['"$operator_install_index"'].spec.template.spec.containers[0].env'
+    F+='| map(.name == '$(_str_quote "$controller_env_var_name")') | index(true)'
+    jq  "$F" <<< "$olm_manifest"
+  )"
+  NONNULL operator_install_index env_var_index
+
+  local path2="/spec/install/spec/deployments/$operator_install_index/spec/template/spec/"
+  path2+="containers/0/env/$env_var_index/value"
+
+  _pp path1 image_config_index path2 controller_env_var_name  operator_install_index env_var_index 
+  
+  _k8s_patch "$olm_manifest_name" \
+    "$path1" "$new_image" \
+    "$path2" "$new_image" \
+  ;
+}
+
+
+_set_module_image() {
+  args_or_ask -h "$HH" -a SHORT_NAME '1///the short name of the module' "$@"
+  args_or_ask -h "$HH" -a IMAGE_ADDRESS '2///the full image address to set' "$@"
+  args_or_ask -h "$HH" -F LATEST '--latest///update the pull policy in order to force the redownload of the image' -- "$@" || {
+    args_or_ask -h "$HH" -a -n IMAGE_TAG '3///optional tag if not provided in the image address already' "$@"
+  }
+
+  args_or_ask -h "$HH" -F POLICY '--TESTONLY-update-pull-policy///update the pull policy in order to force the redownload of the image' -- "$@"
+  end_help_parsing
+  
+  $LATEST && {
+    _log_i "Looking for the latest image tag of \"$IMAGE_ADDRESS\""
+    IMAGE_TAG="$(_find_docker_latest_digest "$IMAGE_ADDRESS")"
+  }
+  
+  IMAGE_ADDRESS="$(_add_tag_to_image "$IMAGE_ADDRESS" "$IMAGE_TAG")"
+
+  local depl="$(_get_deployment_by_module_id "$SHORT_NAME")"
+  local cont="$(_get_module_main_container_name "$SHORT_NAME")"
+
+  _log_i "Scaling down deployment \"$depl\""
+  _kubectl scale deployment "$depl" --replicas=0 || _FATAL "unable to scale down"
+  _log_i "Setting image of container \"$cont\" of deployment \"$depl\" to \"$IMAGE_ADDRESS\""
+  $POLICY && {
+    _kubectl patch deployment "$depl" -p '{"spec": {"template": {"spec":{"containers":[{"name":"'"$cont"'","imagePullPolicy":"Always"}]}}}}'
+  }
+  _kubectl set image deployment "$depl" "$cont"="$IMAGE_ADDRESS" || _FATAL "unable to set image"
+  _log_i "Scaling up deployment \"$depl\""
+  _kubectl scale deployment "$depl" --replicas=1 || _FATAL "unable to scale up"
+}
+
+_get_module_image() {
+  args_or_ask -h "$HH" -a SHORT_NAME '1///the short name of the module' "$@"
+  end_help_parsing
+  
+  local depl="$(_get_deployment_by_module_id "$SHORT_NAME")"
+  local cont="$(_get_module_main_container_name "$SHORT_NAME")"
+
+  (
+    _kubectl get deployments "$depl" -o json | _jq '.spec.template.spec.containers[] | select(.name == '"$(_str_quote "$cont")"') | .image' -r
+  ) || _FATAL "unable to find image of container \"$cont\" of deployment \"$depl\""
+}
+
+_list_modules_watch() {
+  (
+    local 
+    export ENTANDO_CLI_FORCE_COLORS=true
+    export -f print_fullsize_hsep
+    local CMD="date;"
+    CMD+="print_fullsize_hsep;"
+    CMD+="ent --color ax mod;"
+    CMD+="print_fullsize_hsep;"
+    CMD+="ent k get events --sort-by='.lastTimestamp' | tail -n 7"
+    watch --color -x bash -c "$CMD"
+  )
+}
+
+_list_modules() {
+  REST=""
+  ECR=""
+  MAIN=""
+
+  while IFS= read -r line; do
+    # shellcheck disable=SC2034
+    INF=" " read -r depl READY ignore ignore AGE <<<"$line"
+    
+    READY="$(_format_ready_indicator "$READY")"
+    
+    case "$depl" in
+
+      "${ENTANDO_APPNAME}-ab-deployment")
+        MAIN+="$(_format_depl 220 40 "$IM" "AppBuilder resources host" "$READY" "$AGE")"$'\n'
+        ;;
+      "${ENTANDO_APPNAME}-cm-deployment")
+        MAIN+="$(_format_depl 250 40 "$IN" "ECR Main service"  "$READY" "$AGE")"$'\n'
+        ;;
+      "${ENTANDO_APPNAME}-deployment")
+        MAIN+="$(_format_depl 200 40 "$IM" "AppEngine service" "$READY" "$AGE")"$'\n'
+        ;;
+      "entando-operator")
+        MAIN+="$(_format_depl 100 40 "$IN" "THE ENTANDO OPERATOR" "$READY" "$AGE")"$'\n'
+        ;;
+      "entando-k8s-service")
+        MAIN+="$(_format_depl 150 40 "$IN" "Infrastructure interface service" "$READY" "$AGE")"$'\n'
+        ;;
+      "default-"*"-in-namespace"*)
+        MAIN+="$(_format_namespace_resource "$IN" "$depl" "$READY" "$AGE")"$'\n'
+        ;;
+      "pn-"*)
+        ECR+="$(_format_plugin 400 70 "$IN" "$depl" "$READY" "$AGE")"$'\n'
+        ;;
+      *)
+        REST+="$(_format_depl 500 60 "$UN" "$depl" "$READY" "$AGE")"$'\n'
+        ;;
+    esac
+    
+  done < <(_kubectl get deploy --no-headers)
+  
+  _print_block "## Core Modules:" "$MAIN"
+  _print_block "## ECR Microservices:" "$ECR"
+  [ -n "$REST" ] && _print_block "## Remaining deployments:" "$REST"
+  
+  echo ""
+}

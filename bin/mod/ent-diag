@@ -64,6 +64,7 @@ _R.P() {
 # --err:        changes the type indicator to "E"
 # --no-summary: skips the summary file
 #
+# shellcheck disable=2120
 _R() {
   [ "$1" = "--null" ] && return 0
   local CH="O"; [ "$1" = "--err" ] && { CH="E";shift; }
@@ -150,7 +151,7 @@ _COLLECT_K8S() {
 }
 
 COLLECT.APP_TLS_INFO() {
-  if ent tls --help &> /dev/null then
+  if ent tls --help &> /dev/null; then
     (
       # shellcheck disable=SC2030 disable=SC2031
       export PFUN="${FUNCNAME[0]}" PSORT="$1"

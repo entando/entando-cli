@@ -1,0 +1,4 @@
+#!/bin/bash
+[ "$1" = "check-env" ] && exit 0
+# shellcheck disable=SC1091
+source "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-appx" "$@"

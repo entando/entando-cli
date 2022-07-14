@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# shellcheck disable=SC1091
+source "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/walter-ent-extensions/s/lib.sh" "$@"
+
+RUN() {
+  bgn_help_parsing ":$ENTANDO_CLI_COMMAND" "$@"
+  CMD="$1";shift;
+  
+  case "$CMD" in
+    "get") _api_action GET "$@";;
+    "post") _api_action POST "$@";;
+    "put") _api_action PUT "$@";;
+    "token") _api_token "$@";;
+    "prepare") _api_prepare "$@";;
+    *) _ent.extension-module.default-command-handler "$CMD" "get";;
+  esac
+}
+
+
+_api_action() {
+  args_or_ask -h "$HH" -a VERB '1///the short name of the module' -- "$@"
+  args_or_ask -h "$HH" -a SHORT_NAME '2///the short name of the module' -- "$@"
+  args_or_ask -h "$HH" -a URL_PATH '3///the path to query' -- "$@"
+  args_or_ask -h "$HH" -n -a DATA '4/any?//the data for the request' -- "$@"
+  end_help_parsing
+  
+  local addr scheme token_mode
+  _determine_subsystem_addr addr scheme token_mode "$SHORT_NAME"
+  
+  _req "$token_mode" status response "$(_upper "$VERB")" "$addr" "$URL_PATH" "$DATA"
+  
+  if [[ "$status" == "2"* ]]; then
+    echo "$response"
+  else
+    _FATAL "http request failed with status: $status"
+  fi
+}
+
+_api_prepare() {
+  local ID="$(_upper "$1" )"
+
+  case "$ID" in
+    "II") ent pod pf k8s 8084;;
+    "AE") ent pod pf "${ENTANDO_APPNAME}-deployment" 8080;;
+    "DB-POST"*|"DB-PG"*)
+      ent pod pf "postgresql-dbms" 5432
+      ;;
+    "DB-MYSQL"*|"DB-MY"*)
+      ent pod pf "mysql-dbms" 3306
+      ;;
+    *) _log_i "No need to prepare this module for api access";;
+    esac
+}
+
+_req() {
+  local autorefreshtoken=true;[ "$1" == "--no-token-auto-refresh" ] && { autorefreshtoken=false;shift; }
+  local token_mode="$1";shift
+  
+  _setup_token "$token_mode"
+  
+  http.request "$@" "$ENT_EXT_API_TOKEN"
+  
+  if [ "$token_mode" = "KEYCLOAK" ]; then
+    if "$autorefreshtoken"; then
+      if [[ "${!1}" == "403" || "${!1}" == "401" ]]; then
+        ENT_EXT_API_TOKEN=""
+        ENT_EXT_API_K8SS_KUBE_TOKEN=""
+        _req --no-token-auto-refresh "$token_mode" "$@"
+      fi
+    fi
+  fi
+}
+
+_setup_token() {
+  if [ "$1" = "KEYCLOAK" ]; then
+    if [ -z "$ENT_EXT_API_TOKEN" ]; then
+      keycloak-get-token ENT_EXT_API_TOKEN "$scheme"
+      save_cfg_value ENT_EXT_API_TOKEN "$ENT_EXT_API_TOKEN"
+    fi
+  else
+    if [ -z "$ENT_EXT_API_K8SS_KUBE_TOKEN" ]; then
+      ENT_EXT_API_K8SS_KUBE_TOKEN="$(_read_k8s-service_jwt_token)"
+      save_cfg_value ENT_EXT_API_K8SS_KUBE_TOKEN "$ENT_EXT_API_K8SS_KUBE_TOKEN"
+    fi
+    ENT_EXT_API_TOKEN="$ENT_EXT_API_K8SS_KUBE_TOKEN"
+  fi
+}
+
+_determine_subsystem_addr() {
+  local _tmp_scheme _tmp_main_ingress _tmp_ecr_ingress _tmp_ignored
+  app-get-main-ingresses _tmp_scheme _tmp_main_ingress _tmp_ecr_ingress _tmp_ignored
+  
+  local SNAME="$(_upper "$4" )" RES
+  local _tmp_addr
+  _set_var "$3" "KEYCLOAK"
+  
+  case "$SNAME" in
+    "ECR"|"CM") _tmp_addr="$_tmp_ecr_ingress";;
+    "II") 
+      _tmp_addr="localhost:8084/k8s"
+      _set_var "$3" "KUBE"
+    ;;
+    "AE") _tmp_addr="$_tmp_main_ingress";;
+    "SSO") keycloak-query-connection-data _tmp_addr _tmp_ignored _tmp_ignored _tmp_ignored "$_tmp_scheme";;
+    "LOC:"*|"L:"*) 
+      IFS=':' read -r _tmp_addr _tmp_port <<< "$SNAME"
+      _tmp_addr="localhost:$_tmp_port"
+      _tmp_scheme="http"
+    ;;
+    "LOC"|"L") _tmp_addr="localhost:8080" _tmp_scheme="http";;
+    *) _FATAL "unsupported subsystem or illegal subsystem short-name \"$SNAME\"";;
+  esac
+  
+  _set_var "$1" "$_tmp_scheme://$_tmp_addr"
+  _set_var "$2" "$_tmp_scheme"
+}
+
+_api_token() {
+  local scheme
+  app-get-main-ingresses scheme _tmp_ignored _tmp_ignored _tmp_ignored
+  local token
+  keycloak-get-token token "$scheme"
+  echo "$token"
+}
+
+_read_k8s-service_jwt_token() {
+  ent pod exec k8s bash -c "cat /run/secrets/kubernetes.io/serviceaccount/token" 2>/dev/null
+}
