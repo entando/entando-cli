@@ -77,6 +77,7 @@ check-env.runtime.check-k3s() {
   fi
   
   if check_ver "k3s" "$VER_K3S_REQ" "--version 2>/dev/null | _perl_sed 's/k3s version (.*)\+k.*/\1/'"; then
+    # shellcheck disable=SC2154
     _log_i "\tfound: $check_ver_res => OK"
   else
     if ask "Should I try to install it?" "y"; then
