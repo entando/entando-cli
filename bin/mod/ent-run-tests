@@ -10,7 +10,8 @@ cd "$DIR/../.." || {
 }
 [ "$1" = "--cmplt" ] && exit 0
 
-_log_i "Starting the unit tests for OS: $OSTYPE"
+echo ""
+_log_i "Starting the unit tests for OSTYPE: $OSTYPE"
 
 . s/_base.sh
 . s/tests/essentials.sh
