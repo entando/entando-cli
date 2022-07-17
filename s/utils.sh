@@ -564,7 +564,7 @@ args_or_ask() {
     val_name="Argument #$((val_name))"
 
     if [ $found_at -ne 255 ]; then
-      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+      val_from_args="${!found_at}"
     else
       val_from_args=""
     fi
@@ -1397,7 +1397,7 @@ _spin() {
   SPC="$SPC$SPC$SPC$SPC$SPC$SPC$SPC$SPC"
   
   while true; do
-    
+    # shellcheck disable=SC2031
     [[ "${line:0:20}" = *" ERROR "* ]] && ((_stat_ne++))
     elapsed="$((SECONDS - started_at))"
     

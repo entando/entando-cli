@@ -328,6 +328,7 @@ determine_namespace() {
 # ----------------------------------------------------------------------------------------------------------------------
 # BASE ENVIRONMENT SETUP
 
+# shellcheck disable=1094 disable=2154 disable=2115
 . s/sys-utils.sh
 
 $SYS_OS_UNKNOWN && {

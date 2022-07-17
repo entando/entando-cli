@@ -172,6 +172,7 @@ RUN() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ent-load-extension-module() {
   (
+    local REPO NAME BRANCH
     args_or_ask -h "$HH" -a -n -- REPO '1/git_repo//%sp repository of the module' "$@"
     args_or_ask -h "$HH" -n -- NAME '--name/strict_file_name//%sp name of the module' "$@"
     args_or_ask -h "$HH" -n -- BRANCH '--branch/dn//%sp branch to use instead of the default one' "$@"
