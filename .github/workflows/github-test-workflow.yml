@@ -23,14 +23,36 @@ jobs:
       - name: "shellcheck standalones"
         run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" activate && shellcheck --exclude "SC2181,SC2155,SC2119" deactivate'
   tests:
-    runs-on: ubuntu-latest
     strategy:
-      max-parallel: 3
       matrix:
-        target: [ 'linux', 'windows', 'darwin' ]    
+        os: [ubuntu-latest,windows-latest,macos-latest]
+      max-parallel: 3
+    runs-on: ${{ matrix.os }}
+    env:
+      ENTANDO_PIPELINE_EXECUTION: "true"
+      ENTANDO_TEST_SYS: "true"
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 
+      - name: "unit tests windows"
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd ..
+          Invoke-WebRequest -OutFile inst.exe -Uri "http://github.com/git-for-windows/git/releases/download/v2.36.0.windows.1/PortableGit-2.36.0-64-bit.7z.exe"
+          cmd /C ".\inst.exe -o . -y"
+          echo @"
+            export ENTANDO_PIPELINE_EXECUTION="true"
+            { 
+              source ./entando-cli/activate
+              ent run-tests || touch test-error
+            } &> test-log
+          "@ > run-test.sh
+          cmd /C ".\git-bash.exe run-test.sh"
+          cat test-log
+          if (Test-Path -Path test-error){ exit 1; }
+          exit 0
       - name: "unit tests"
-        run: bash -c "source ./activate && ent run-tests"
+        if: matrix.os != 'windows-latest'
+        run: |
+          bash -c "source ./activate && ent run-tests"
