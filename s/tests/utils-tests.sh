@@ -213,4 +213,21 @@ test_utils_misc() {
   [ "$RES" = "http://example.com/subpath" ] || FATAL "failed! $LINENO"
 }
 
+test_spinner() {
+  print_current_function_name "> " ".."
+  
+  testtmp(){
+    local i=0
+    while [[ $((i++)) -lt 10 ]]; do
+      echo -e "line"
+      sleep 0.1
+    done | _with_spinner
+  }
+  
+  export -f testtmp _with_spinner _spin
+  RES="$(bash -c "testtmp" | wc -l)"
+
+  [[ "$RES" -gt 1 ]] && FATAL "failed! $LINENO"
+}
+
 true

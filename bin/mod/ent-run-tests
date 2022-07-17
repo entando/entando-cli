@@ -10,6 +10,8 @@ cd "$DIR/../.." || {
 }
 [ "$1" = "--cmplt" ] && exit 0
 
+_log_i "Starting the unit tests for OS: $OSTYPE"
+
 . s/_base.sh
 . s/tests/essentials.sh
 . s/tests/sys-utils-tests.sh
@@ -33,5 +35,6 @@ test_select_one
 test_args_or_ask
 test_asserters
 test_multipass_mocks
+test_spinner
 
 true
