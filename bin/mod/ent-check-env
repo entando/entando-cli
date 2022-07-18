@@ -22,6 +22,8 @@ RUN() {
   
   check-env.extention-modules "$ENTANDO_CLI_CHECKENV_MODE"
 
+  export WAS_DEVELOP_CHECKED=true   # in order to allow to run the version command
+
   # DEVELOP TOOLS
   $M_DEVL && check-env.develop.minimal-tools-requirements
 
