@@ -266,7 +266,7 @@ which_ent() {
     echo ""
     cd "$ENTANDO_ENT_HOME"
     echo "- DIR: $ENTANDO_ENT_HOME"
-    echo "- TAG: $(git describe --exact-match --tags 2>/dev/null)"
+    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
@@ -277,7 +277,7 @@ which_ent() {
     echo "## RELEASE:"
     echo ""
     echo "- DIR: $PWD"
-    echo "- TAG: $(git describe --tags "$(git rev-list --tags --max-count=1)" 2>/dev/null)"
+    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
