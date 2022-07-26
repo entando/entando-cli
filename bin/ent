@@ -119,7 +119,7 @@ RUN() {
         _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "jhipster"|"bundler"|"bundle")
-        _ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+        _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "pkg") #H: helps dealing with the ent bin tools
         ent-pkg "$@"

@@ -160,21 +160,24 @@ _ent-jhipster() {
     echo "wrapper of the ent-internal installation of jhipster"
     return 0
   fi
-
+  
   node.activate_environment
   if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
     _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
-  else
-    require_develop_checked
-    [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
-      ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
-        ent-init-project-dir
-      }
-    }
-
-    # RUN
-    _mp_node_exec jhipster "$@"
+    return 0
   fi
+  
+  print_entando_banner
+  
+  require_develop_checked
+  [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
+    ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
+      ent-init-project-dir
+    }
+  }
+
+  # RUN
+  _mp_node_exec jhipster "$@"
 }
 
 # Executes a node command in any of the sypported platforms
@@ -191,6 +194,8 @@ _ent-bundler() {
     return 0
   fi
   
+  print_entando_banner
+  
   _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLER_BIN_NAME" "$@"
 }
 
@@ -205,11 +210,10 @@ _ent-entando-bundle-cli() {
     return 0
   fi
   
-  if [ "$1" == "--debug" ]; then
-    ENTANDO_CLI_DEBUG=true
-    shift
-  else
-    ENTANDO_CLI_DEBUG=false
+  ENTANDO_CLI_DEBUG=false; [ "$1" == "--debug" ] && { ENTANDO_CLI_DEBUG=true; shift; }
+  
+  if [ "$1" == "init" ]; then
+    print_entando_banner
   fi
 
   if [ "$1" == "api" ]; then
