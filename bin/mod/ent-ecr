@@ -28,7 +28,8 @@ cd "$DIR/../.." || {
 
 RUN() {
   bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
-  case "$1" in
+  local CMD="$1";shift;
+  case "$CMD" in
     "list") #H: shows the list of bundles
       end_help_parsing
       if args_or_ask -h "$HH" -n -f "--debug///" "$@"; then
@@ -50,10 +51,10 @@ RUN() {
     "uninstall") #H: uninstalls a bundle
       end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
+      ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
     "install") #H: shows the install status of the bundle
-      ent-ecr-install "$@"
+      ent-ecr-install "$1" "$@"
       ;;
     "install-status") #H: shows the install status of the bundle
       end_help_parsing
@@ -95,7 +96,7 @@ RUN() {
       end_help_parsing
       ;;
     *)
-      FATAL "Unknown command \"$1\""
+      FATAL "Unknown command \"$CMD\""
       ;;
   esac
 }
