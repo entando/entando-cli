@@ -81,7 +81,7 @@ ecr-bundle-action() {
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $token" \
         -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
+        ${raw_data:+--data "$raw_data"} \
         1> "$STATUS" 2> "$ERR"
       
       # shellcheck disable=SC2155 disable=SC2034
@@ -101,7 +101,7 @@ ecr-bundle-action() {
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $token" \
         -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
+        ${raw_data:+--data "$raw_data"} \
         2> /dev/null
     )
   fi
@@ -345,13 +345,13 @@ ecr.install-bundle() {
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
   local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
-
+  
   if [ -n "$CONFLICT_STRATEGY" ]; then
     assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
     DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
   fi
   DATA+="}"
-
+  
   ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
     return $?
   _log_i "Installation of bundle \"$BUNDLE_NAME\" started"
