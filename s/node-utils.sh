@@ -157,7 +157,7 @@ _ent-npm_direct() {
 # Runs the ent private installation of jhipster
 _ent-jhipster() {
   if [ "$1" == "--ent-help" ]; then
-    echo "wrapper of the ent-internal installation of jhipster"
+    echo "Wrapper of the ent-internal installation of jhipster"
     return 0
   fi
   
@@ -190,7 +190,11 @@ _mp_node_exec() {
 # Runs the ent private installation of the entando bundle tool
 _ent-bundler() {
   if [ "$1" == "--ent-help" ]; then
-    echo "export of resources from a running instance and generation old-generation bundle deployment CRs"
+    echo "Export of resources from a running instance and generation old-generation bundle deployment CRs"
+    return 0
+  fi
+  if [ "$1" == "--help" ]; then
+    _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLER_BIN_NAME" --help
     return 0
   fi
   
@@ -206,7 +210,7 @@ _ent-bundle() {
 
 _ent-entando-bundle-cli() {
   if [ "$1" == "--ent-help" ]; then
-    echo "management of new generation entando bundles"
+    echo "Management of new generation entando bundles"
     return 0
   fi
   

@@ -5,7 +5,7 @@
 
 # HELP HEADER
 #H::
-#H:: Helper for managing Entando bundle projects
+#H:: Helper for managing the first generation of Entando bundle projects
 #H::
 #H:: Syntax:
 #H::  - {{TOOL-NAME}} {sub-command}

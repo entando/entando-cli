@@ -5,7 +5,7 @@ PRINT_BANNER=false; [[ "$1" = "--banner" ]] && { PRINT_BANNER=true; shift; }
 WRAPPED_COMMAND="$1";shift
 DESC="$1";shift
 
-[[ "$WRAPPED_COMMAND" = "--help" ]] && { echo -e "wrapper of node commands"; exit 0; }
+[[ "$WRAPPED_COMMAND" = "--help" ]] && { echo -e "Wrapper of node commands"; exit 0; }
 [[ "$1" = "--cmplt" ]] && exit 0
 [[ "$1" = "--ent-help" ]] && { echo -e "$DESC"; exit 0; }
 
