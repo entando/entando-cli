@@ -664,7 +664,7 @@ _ent.extension-modules.list() {
   (
     cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
     # shellcheck disable=SC2010
-    ls ent-* -p | grep -v / | sed 's/^ent-//'
+    ls ent-* -p 2>/dev/null | grep -v / | sed 's/^ent-//'
   )
   fi
 }
