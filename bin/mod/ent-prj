@@ -217,7 +217,11 @@ RUN() {
       prj_print_bundle_id "$@"
       ;;
     "get-plugin-id"|"pid") #H: calculates and displays the plugin id
-      prj_print_plugin_id "$@"
+      _log_i "Deprecated, please use get-plugin-code" 1>&2
+      prj_print_plugin_code "$@"
+      ;;
+    "get-plugin-code"|"plc") #H: calculates and displays the plugin id
+      prj_print_plugin_code "$@"
       ;;
     "gen-secret"|"sec") #H: generates and displays a plugin secret skeleton
       prj_gen_secret "$@"
@@ -263,7 +267,7 @@ prj_gen_secret() {
   ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO" "$APPLY"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-prj_print_plugin_id() {
+prj_print_plugin_code() {
   local PLUGIN_NAME BUNDLE_PUB_REPO
 
   bgn_help_parsing ":ENT-PRJ-GET-PLUGIN-ID" "$@"
@@ -277,7 +281,7 @@ prj_print_plugin_id() {
   require_pbs_initialized
 
   if $AUTO_PLUGIN_NAME && [ -z "$PLUGIN_NAME" ]; then
-    _ecr_determine_bundle_plugin_name PLUGIN_NAME "." "" 
+    _ecr_determine_git_bundle_plugin_name PLUGIN_NAME "." "" 
   fi
 
   _nn BUNDLE_ID || {
