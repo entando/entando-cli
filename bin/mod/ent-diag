@@ -39,6 +39,10 @@ _log() {
   echo -e "$@" | _R
 }
 
+_log_d() {
+  echo -e "$@" | _R --dbg
+}
+
 # Redirect printer
 # Prints to stdout and in case to file
 #
@@ -68,6 +72,7 @@ _R.P() {
 _R() {
   [ "$1" = "--null" ] && return 0
   local CH="O"; [ "$1" = "--err" ] && { CH="E";shift; }
+  [ "$1" = "--dbg" ] && { CH="D";shift; }
   local NO_SUMMARY=false; [ "$1" = "--no-summary" ] && { NO_SUMMARY=true;shift; }
   local pfun="${PFUN:-ROOT}"
   pfun="${pfun/COLLECT./@}"  
@@ -79,11 +84,6 @@ _R() {
   done
   [[ -n $line ]] && _R.P "$SUMMARY_FILE" "$pre" "$line" "$NO_SUMMARY"
 }
-
-_comment() {
-  cat -
-}
-
 
 LOG_TITLE() {
   _log "\n## $*\n"
@@ -227,7 +227,7 @@ COLLECT.CRDs() {
           ent kubectl get crd -o json \
               | _jq '.items[] | select(.spec.group=="entando.org")' 1> "$CRD_JSON_FILE"
         else
-          _log "The CRD json dump was not collected, install \"jq\" for enabling this function" | _comment 
+          _log "The CRD json dump was not collected, install \"jq\" for enabling this function" 
         fi
       fi
       
@@ -244,7 +244,7 @@ COLLECT.CRs() {
     export PFUN="${FUNCNAME[0]}" PSORT="$1"
     LOG_TITLE "Entando Custom Resources"
     
-    _log "> parallel execution started.." | _comment
+    _log_d "> parallel execution started.."
     _dump_resources --crd \
       < <(echo ClusterServiceVersion; ent kubectl api-resources --verbs=list --namespaced -o name | grep -F ".entando.org";)  
 
@@ -259,7 +259,7 @@ COLLECT.INGRESSES() {
     export PFUN="${FUNCNAME[0]}" PSORT="$1"
     LOG_TITLE "NAMESPACE INGRESSES"
     
-    _log "> parallel execution started.." | _comment
+    _log_d "> parallel execution started.."
     _dump_resources --crd "ingresses" <<<"ingresses"
       
     _log "\n-done."
@@ -273,7 +273,7 @@ COLLECT.DEPLOYMENTS() {
     export PFUN="${FUNCNAME[0]}" PSORT="$1"
     LOG_TITLE "NAMESPACE DEPLOYMENTS"
     
-    _log "> parallel execution started.." | _comment
+    _log_d "> parallel execution started.."
     _dump_resources --crd "deployments" <<<"deployments"
       
     _log "\n-done."
@@ -361,7 +361,7 @@ COLLECT.PODS_DETAILS() {
     if ! "$TOSTDOUT"; then
       # PODs information collection
       LOG_TITLE "APP PODS LOGS DETAILS"
-      _log "> parallel execution started.." | _comment
+      _log_d "> parallel execution started.."
 
       for pod in $(ent kubectl get pods | awk 'NR>1' | awk '{print $1}'); do
         (
@@ -369,17 +369,17 @@ COLLECT.PODS_DETAILS() {
           ent kubectl describe pods/"$pod" 1>"$pod.describe.txt"
           for co in $(ent kubectl get pods/"$pod" -o jsonpath='{.spec.containers[*].name}{"\n"}'); do
             _log ">\tCONTAINER: $co"
-            ent kubectl logs pods/"$pod" -c "$co" 1>"$pod-$co.logs.txt"
-            F="$pod-$co.previous.logs.txt"
+            ent kubectl logs pods/"$pod" -c "$co" 1>"$pod-$co.log"
+            F="$pod-$co.previous.log"
             ent kubectl logs --previous pods/"$pod" -c "$co" 1>"$F" 2>/dev/null
             [ -f "$F" ] && [ ! -s "$F" ] && rm "$F"
           done
-        ) &
+        )
       done
       
-      sleep 0.2; _log "> waiting for completion.." | _comment
+      sleep 0.2; _log_d "> waiting for completion.."
       wait < <(jobs -p)
-      _log "> done." | _comment
+      _log_d "> done."
       
       _log "\n-done."
     fi
@@ -400,22 +400,22 @@ _dump_resources() {
             < <(ent kubectl get "$i" -o jsonpath='{.items[*].metadata.name} ' | tr ' ' $'\n') &
         done
         
-        $QUIET || { sleep 0.2; _log "> waiting for completion.." | _comment; }
+        $QUIET || { sleep 0.2; _log_d "> waiting for completion.."; }
         wait < <(jobs -p)
-        $QUIET || _log "> done." | _comment
+        $QUIET || _log_d "> done."
       )
     else
       (
         while IFS= read -r i; do
           if [ "$i" != "" ]; then
-            _log ">\t$i" | _comment
+            _log ">\t$i"
             ent kubectl get "$t" "$i" -o yaml > "$i.$t.yaml" &
           fi
         done
           
-        $QUIET || { sleep 0.2; _log "> waiting for completion.." | _comment; }
+        $QUIET || { sleep 0.2; _log_d "> waiting for completion.."; }
         wait < <(jobs -p)
-        $QUIET || _log "> done." | _comment
+        $QUIET || _log_d "> done."
       )
     fi
   fi
@@ -467,7 +467,7 @@ _INITIALIZE() {
 
 _FINALIZE() {
   [ -n "$SUMMARY_FILE" ] && {
-    sort -s -k1.1,1.6 "~$SUMMARY_FILE" | cut -c 35- > "$SUMMARY_FILE"
+    grep -v '^| [0-9]* | D |' "~$SUMMARY_FILE" | sort -s -k1.1,1.6 | cut -c 35- > "$SUMMARY_FILE"
   }
 }
 

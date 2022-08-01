@@ -15,12 +15,12 @@ ENTANDO_ENT_HOME_NEW=$(
   fi
 )
 
-if [[ ! "$ZSH_EVAL_CONTEXT" =~ :file$ ]] && [[ ! "${0##*/}" = *"bash"* ]]; then
-  P="$0"
-  [[ ! "$P" =~ / ]] && P="./$P"
-  echo "ERROR: activation needs source-execution (source \"$P\"${*:+ $*})" 1>&2
-  exit
-fi
+# if [[ ! "$ZSH_EVAL_CONTEXT" =~ :file$ ]] && [[ ! "${0##*/}" = *"bash"* ]]; then
+#   P="$0"
+#   [[ ! "$P" =~ / ]] && P="./$P"
+#   echo "ERROR: activation needs source-execution (source \"$P\"${*:+ $*})" 1>&2
+#   exit
+# fi
 
 
 [ "$ENTANDO_ENT_HOME_NEW" = "" ] && exit 99

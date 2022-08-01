@@ -262,19 +262,20 @@ kubectl_mode() {
 }
 
 check_kubectl() { 
-  if [ "$WARN_KUBECTL" != "false" ]; then
-    local VER="$(
-      KUBECTL_SKIP_SUDO=true _kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs
-    )"
-    if [ -n "$VER" ]; then
-      if check_ver_ge "$VER" "1.22.0" 2>/dev/null; then
-        _log_w "this version of kubectl is not yet supported, replace it with a version < 1.22" \
-                 "or try running \"ent auto-align-kubectl\" against a kubernetes server." \
-                 "To suppress this message execute \"ent config --set WARN_KUBECTL false\"" \
-                 > /dev/stderr
-      fi
-    fi
-  fi
+  true
+#   if [ "$WARN_KUBECTL" != "false" ]; then
+#     local VER="$(
+#       KUBECTL_SKIP_SUDO=true _kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs
+#     )"
+#     if [ -n "$VER" ]; then
+#       if check_ver_ge "$VER" "1.23.0" 2>/dev/null; then
+#         _log_w "this version of kubectl ($VER) is not yet supported, replace it with a version < 1.23" \
+#                  "or try running \"ent auto-align-kubectl\" against a kubernetes server." \
+#                  "To suppress this message execute \"ent config --set WARN_KUBECTL false\"" \
+#                  > /dev/stderr
+#       fi
+#     fi
+#   fi
 }
 
 determine_namespace() {
