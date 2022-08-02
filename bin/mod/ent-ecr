@@ -53,7 +53,7 @@ RUN() {
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
-    "install") #H: shows the install status of the bundle
+    "install") #H: installs a bundle
       ent-ecr-install "$1" "$@"
       ;;
     "install-status") #H: shows the install status of the bundle
@@ -71,7 +71,7 @@ RUN() {
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
       ;;
-    "generate-cr"|"gen-cr"|"cr") #H: shows the usage status of the bundle
+    "generate-cr"|"gen-cr"|"cr") #H: generates the deployment custom resource
       ecr-generate-custom-resource "$@"
       ;;
     "get-bundle-id"|"bid") #H: calculates and displays the bundle id
