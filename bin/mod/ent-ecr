@@ -56,17 +56,7 @@ RUN() {
     "install") #H: installs a bundle
       ent-ecr-install "$1" "$@"
       ;;
-    "install-status") #H: shows the install status of the bundle
-      end_help_parsing
-      ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "GET" "install" "$INGRESS_URL" "$TOKEN" "$@"
-      ;;
-    "uninstall-status") #H: shows the uninstall status of the bundle
-      end_help_parsing
-      ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "GET" "uninstall" "$INGRESS_URL" "$TOKEN" "$@"
-      ;;
-    "usage-status") #H: shows the usage status of the bundle
+    "usage-report") #H: shows the usage status of the bundle
       end_help_parsing
       ecr-prepare-action INGRESS_URL TOKEN
       ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
