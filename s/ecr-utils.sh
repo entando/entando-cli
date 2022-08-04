@@ -212,12 +212,17 @@ ecr.generate-custom-resource() {
     OPT="--thumbnail-url"
     OPT_VALUE="$THUMBNAIL_URL"
   fi
-
-  _ent-bundler from-git \
-    --dry-run \
-    ${NAME:+--name "$NAME"} \
-    --repository "$REPOSITORY" \
-    $OPT "$OPT_VALUE"
+  
+  if [[ "$REPOSITORY" = "docker://"* ]]; then
+    _ent-bundle generate-cr \
+      --image "${REPOSITORY:9}"
+  else
+    _ent-bundler from-git \
+      --dry-run \
+      ${NAME:+--name "$NAME"} \
+      --repository "$REPOSITORY" \
+      $OPT "$OPT_VALUE"
+  fi
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
