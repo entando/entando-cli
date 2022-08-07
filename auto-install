@@ -324,7 +324,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
   echo ""
   $AUTO_ACTIVATION && $SOURCED && {
     # shellcheck disable=SC1090
-    source "$ENTANDO_HOME/activate" > /dev/null || {
+    source "\"$ENTANDO_HOME/activate\"" > /dev/null || {
       echo ""
       echo -e "\033[101mENTANDO-CLI AUTOMATICALLY ACTIVATED\033[0;37m"
     }
