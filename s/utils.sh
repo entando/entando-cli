@@ -1380,9 +1380,7 @@ _with_spinner() {
     while read -r line;do
       [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
     done
-    local SPC="          "
-    SPC="$SPC$SPC$SPC$SPC$SPC$SPC$SPC$SPC"
-    echo -ne $'\r'"$SPC"$'\r'
+    echo -ne $'\r'"$(print_fullsize_hbar " ")"$'\r'
   )
 }
 
@@ -1393,8 +1391,8 @@ _spin() {
   local started_at="$SECONDS"
   local TITLE="$1"
   [ -n "$TITLE" ] && TITLE="$TITLE "
-  local SPC="          "
-  SPC="$SPC$SPC$SPC$SPC$SPC$SPC$SPC$SPC"
+  
+  SPC="$(print_fullsize_hbar " ")"
   
   while true; do
     # shellcheck disable=SC2031
@@ -1402,14 +1400,15 @@ _spin() {
     elapsed="$((SECONDS - started_at))"
     
     local ch    
-    case "$((count%7))" in
+    case "$((count%8))" in
       0) ch="#    ";;
       1) ch=" #   ";;
-      2) ch="   # ";;
-      3) ch="    #";;
-      4) ch="   # ";;
-      5) ch="  #  ";;
-      6) ch=" #   ";;
+      2) ch="  #  ";;
+      3) ch="   # ";;
+      4) ch="    #";;
+      5) ch="   # ";;
+      6) ch="  #  ";;
+      7) ch=" #   ";;
     esac
     
     echo -ne "$SPC"$'\r'
@@ -1468,9 +1467,14 @@ print_ent_general_status() {
   fi
 }
 
-print_fullsize_hsep() {
-  local HSEP="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  local HSEP="$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP$HSEP"
+print_fullsize_hbar() {
+  local CH="~"; [ -n "$1" ] && { CH="$1"; shift; }
+  local SEP="$CH$CH$CH$CH$CH$CH$CH$CH$CH$CH"
+  SEP="$SEP$SEP$SEP$SEP$SEP$SEP$SEP$SEP"
   local W="$(tput cols)"
-  echo "${HSEP:0:$W}"
+  if [ "$W" -gt 1 ]; then
+    echo "${SEP:0:$W}"
+  else
+    echo "${SEP:0:40}"
+  fi
 }
