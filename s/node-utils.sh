@@ -214,7 +214,7 @@ _ent-entando-bundle-cli() {
     return 0
   fi
   
-  ENTANDO_CLI_DEBUG=false; [ "$1" == "--debug" ] && { ENTANDO_CLI_DEBUG=true; shift; }
+  ENTANDO_CLI_DEBUG="$ENTANDO_DEBUG"
   
   if [ "$1" == "init" ]; then
     print_entando_banner

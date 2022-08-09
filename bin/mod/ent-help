@@ -81,6 +81,13 @@ cd ..
 
 ! $SIMPLE && {
   echo ""
+  echo "> Global options:"
+  echo -e "  --profile|-p {profile}   forces the use of the given profile"
+  echo -e "  --no-profile|-n          forces the use of no profile"
+  echo -e "  --debug|-d               enables the debug mode for some command"
+  echo -e "  --color                  disables the explicit suppression of the colors for some command"
+
+  echo ""
   echo "> Further info about entando:"
   echo -e "  - $PWD/README.md"
   echo -e "  - https://www.entando.com/"

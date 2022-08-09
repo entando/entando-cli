@@ -381,30 +381,6 @@ _source_ent() {
   source "$ENTANDO_ENT_HOME/bin/ent" "$@"
 }
 
-parse_global_args() {
-  ENTANDO_CONSUMED_ARGS=0
-  while true; do
-    case "$1" in
-    "--no-profile")
-      shift;((ENTANDO_CONSUMED_ARGS++))
-      ENTANDO_FORCE_PROFILE="--none"
-      ;;
-    "-p")
-      shift;((ENTANDO_CONSUMED_ARGS++))
-      ENTANDO_FORCE_PROFILE="$1"
-      shift;((ENTANDO_CONSUMED_ARGS++))
-      ;;
-    "-d" | "--debug")
-      shift;((ENTANDO_CONSUMED_ARGS++))
-      ENTANDO_DEBUG=true
-      ;;
-    *)
-      break
-      ;;
-    esac
-  done
-}
-
 # ######################################################################################################################
 # ######################################################################################################################
 # ######################################################################################################################
