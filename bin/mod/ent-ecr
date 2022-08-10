@@ -31,10 +31,11 @@ RUN() {
   local CMD="$1";shift;
   case "$CMD" in
     "list") #H: shows the list of bundles
+      args_or_ask -h "$HH" -n -F DEBUG "--debug///" "$@"
       end_help_parsing
-      if args_or_ask -h "$HH" -n -f "--debug///" "$@"; then
+      if "$DEBUG"; then
         app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
-        _pp ENTANDO_LATEST_DETECTED_APPVER url_scheme main_ingress ecr_ingress ignored
+        _pp url_scheme main_ingress ecr_ingress ignored
         ecr-prepare-action INGRESS_URL TOKEN
         _pp INGRESS_URL TOKEN 
         ecr-bundle-action --debug "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 

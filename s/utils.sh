@@ -933,69 +933,36 @@ http-get-working-url() {
 # $4: var for the application builder ingress
 #
 app-get-main-ingresses() {
-  if check_ver "$ENTANDO_APPVER" "6.3.0" "" "string"; then
-    app-get-main-ingresses-by-version "6.3.0" "$@"
-  elif check_ver "$ENTANDO_APPVER" "6.3.>=2"  "" "string"; then
-    app-get-main-ingresses-by-version "6.3.2" "$@"
-  else
-    local TMP1 TMP2 TMP3 TMP4
-    app-get-main-ingresses-by-version "6.3.2" TMP1 TMP2 TMP3 TMP4
-    _set_var "$1" "$TMP1"
-    if [ -z "$TMP2" ] ||[ -z "$TMP3" ]; then
-      # Before 6.3.2 the ingresses are marked with the same serviceName
-      # So all the values end up in TMP1 and TMP3 and TMP4 are empty
-      # shellcheck disable=SC2034
-      ENTANDO_LATEST_DETECTED_APPVER="6.3.0"
-      app-get-main-ingresses-by-version "6.3.0" "$@"
-    else
-      # From 6.3.2 instead they are properly marked
-      # shellcheck disable=SC2034
-      ENTANDO_LATEST_DETECTED_APPVER="6.3.2"
-      _set_var "$2" "$TMP2"
-      _set_var "$3" "$TMP3"
-      _set_var "$4" "$TMP4"
-    fi
-  fi
-}
-
-app-get-main-ingresses-by-version() {
-  local version="$1"
-  local res_var_scheme="$2"
-  local res_var_svc="$3"
-  local res_var_ecr="$4"
-  local res_var_apb="$5"
+  local res_var_scheme="$1"
+  local res_var_svc="$2"
+  local res_var_ecr="$3"
+  local res_var_apb="$4"
   shift
 
-  local JP='{range .items[?(@.metadata.name=="'"$ENTANDO_APPNAME-ingress"'")]}'
-
-  if [ "$version" = "6.3.0" ]; then
-    JP+='{"?"}{"\n"}'
-    JP+='{.spec.rules[0].host}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[1].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[2].path}{"\n"}'
-  elif [ "$version" = "6.3.2" ]; then
-    JP+='{"-"}{.spec.tls}{"\n"}'
-    JP+='{.spec.rules[0].host}{"\n"}'
-    # property detection: serviceName
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-server-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
-    # property detection: service.name
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-server-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
-  else
-    _FATAL "Unsupported version \"$version\""
-  fi
+  local OUT=()
+  local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
   
-  JP+='{end}'
-
-  local OUT
-  stdin_to_arr $'\n\r' OUT < <(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)
+  #~~~
+  local JQ=".items[] | select(.metadata.name=="$(_str_quote "$ENTANDO_APPNAME-ingress")").spec | .tls // \"-\", .rules[0].host"
+  stdin_to_arr $'\n\r' OUT < <(jq "$JQ" -r <<< "$JSON")
+  
+  #~~~
+  # property detection: serviceName
+  local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.serviceName=="
+  local E=").path"
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  
+  #~~~
+  # property detection: service.name
+  local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.service.name=="
+  local E=").path"
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
   
   if [ "${OUT[0]}" = "-" ]; then
     _set_var "$res_var_scheme" "http"
@@ -1010,16 +977,16 @@ app-get-main-ingresses-by-version() {
   _set_var "$res_var_ecr" ""
   _set_var "$res_var_apb" ""
   
-  [ "${OUT[2]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]:1}"
-  [ "${OUT[3]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[3]:1}"
-  [ "${OUT[6]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[6]:1}"
-  [ "${OUT[7]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[7]:1}"
+  [ "${OUT[2]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]:1}"
+  [ "${OUT[3]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[3]:1}"
+  [ "${OUT[6]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[6]:1}"
+  [ "${OUT[7]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[7]:1}"
   
-  [ "${OUT[4]}" != "-" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[4]:1}"
-  [ "${OUT[8]}" != "-" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[8]:1}"
+  [ "${OUT[4]}" != "" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[4]:1}"
+  [ "${OUT[8]}" != "" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[8]:1}"
   
-  [ "${OUT[5]}" != "-" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[5]:1}"
-  [ "${OUT[9]}" != "-" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[9]:1}"
+  [ "${OUT[5]}" != "" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[5]:1}"
+  [ "${OUT[9]}" != "" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[9]:1}"
 }
 
 # Concatenates two path parts
@@ -1367,6 +1334,28 @@ _url_remove_last_subpath() {
 
 _str_contains() {
   [[ "$1" = *"$2"* ]]
+}
+
+
+# prints a quoted version of the give value
+#
+# Params
+# $1 the string to manipulate
+#
+# Options
+# -s: simple mode; only escapes the string without surrounding it with the quotes
+#
+_str_quote() {
+  local _sq_simple_=false;[ "$1" = "-s" ] && { _sq_simple_=true; shift; }
+  local tmp="$1"
+  tmp="${tmp//\\/\\\\}"
+  tmp="${tmp//\"/\\\"}"
+  tmp="${tmp//$'\n'/"\$'\\n'"}"
+  if $_sq_simple_; then
+    echo "$tmp"
+  else
+    echo "\"$tmp\""
+  fi
 }
 
 _with_spinner() {
