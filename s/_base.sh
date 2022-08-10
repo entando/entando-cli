@@ -378,7 +378,7 @@ parse_global_args() {
       ;;
     "-d" | "--debug")
       shift;((ENTANDO_CONSUMED_ARGS++))
-      ENTANDO_DEBUG=true
+      ENTANDO_ENT_DEBUG=true
       ;;
     *)
       break
@@ -386,6 +386,7 @@ parse_global_args() {
     esac
   done
   
+  export ENTANDO_ENT_DEBUG
   export ENTANDO_ENT_FORCE_PROFILE
 }
 
