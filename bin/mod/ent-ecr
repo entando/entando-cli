@@ -36,12 +36,9 @@ RUN() {
       if "$DEBUG"; then
         app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
         _pp url_scheme main_ingress ecr_ingress ignored
-        ecr-prepare-action INGRESS_URL TOKEN
-        _pp INGRESS_URL TOKEN 
-        ecr-bundle-action --debug "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 
+        ecr-bundle-action --debug "" "GET" ""
       else
-        ecr-prepare-action INGRESS_URL TOKEN
-        ecr-bundle-action "" "GET" "" "$INGRESS_URL" "$TOKEN" "" 2>/dev/null \
+        ecr-bundle-action "" "GET" "" 2>/dev/null \
         | _jq -r ".payload[] | [ \
             .code, \
             .lastJob.status // \"(not-installed)\", \
@@ -51,16 +48,14 @@ RUN() {
       ;;
     "uninstall") #H: uninstalls a bundle
       end_help_parsing
-      ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
+      ecr-bundle-action "" "POST" "uninstall" "$1" 2>/dev/null
       ;;
     "install") #H: installs a bundle
       ent-ecr-install "$1" "$@"
       ;;
     "usage-report") #H: shows the usage status of the bundle
       end_help_parsing
-      ecr-prepare-action INGRESS_URL TOKEN
-      ecr-bundle-action "" "GET" "usage" "$INGRESS_URL" "$TOKEN" "$1" 2>/dev/null
+      ecr-bundle-action "" "GET" "usage" "$1" 2>/dev/null
       ;;
     "generate-cr"|"gen-cr"|"cr") #H: generates the deployment custom resource
       ecr-generate-custom-resource "$@"

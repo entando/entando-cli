@@ -14,12 +14,12 @@ ecr-prepare-action() {
   shift
   $VERBOSE && print_current_profile_info
   # shellcheck disable=SC2034
-  local main_ingress ecr_ingress ignored url_scheme
-  app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
+  local main_ingress ecr_ingress ignored _tmp_url_scheme
+  app-get-main-ingresses _tmp_url_scheme main_ingress ecr_ingress ignored
   [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
   [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
-  if [ -n "$url_scheme" ]; then
-    main_ingress="$url_scheme://$main_ingress"
+  if [ -n "$_tmp_url_scheme" ]; then
+    main_ingress="$_tmp_url_scheme://$main_ingress"
   else
     case "$FORCE_URL_SCHEME" in
       "http")
@@ -31,21 +31,21 @@ ecr-prepare-action() {
     esac
   fi
   [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
-  http-get-url-scheme url_scheme "$main_ingress"
-  save_cfg_value LATEST_URL_SCHEME "$url_scheme"
-  local token
-  keycloak-get-token token "$url_scheme"
-  _set_var "$var_url" "$url_scheme://$ecr_ingress"
-  _set_var "$var_token" "$token"
+  http-get-url-scheme _tmp_url_scheme "$main_ingress"
+  save_cfg_value LATEST_URL_SCHEME "$_tmp_url_scheme"
+  _set_var "$var_url" "$_tmp_url_scheme://$ecr_ingress"
+  _nn var_token && {
+    local _tmp_token
+    keycloak-get-token _tmp_token "$_tmp_url_scheme"
+    _set_var "$var_token" "$_tmp_token"
+  }
 }
 
 # Runs an ECR action for a bundle given:
 # $1: the received of the of the http status
 # $2: the http verb
 # $3: the action
-# $4: the ingress url
-# $5: the authentication token
-# $6: the bundle id
+# $4: the bundle id
 #
 # returns:
 # - the http status in $1
@@ -56,55 +56,79 @@ ecr-bundle-action() {
   local res_var="$1";shift
   local verb="$1";shift
   local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
   local bundle_id="$1";shift
   local raw_data="$1";shift
   
-  local url
-  path-concat url "${ingress}" ""
-  url+="components"
-  
   local http_status OUT
 
-  [ -n "$bundle_id" ] && url+="/$bundle_id"
-  [ -n "$action" ] && url+="/$action"
 
   local OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+  local i=0
   
-  # shellcheck disable=SC2155
-  if "$DEBUG"; then
-      local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-      local STATUS="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-      curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
-        -H 'Accept: */*' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer $token" \
-        -H "Origin: ${ingress}" \
-        ${raw_data:+--data "$raw_data"} \
-        1> "$STATUS" 2> "$ERR"
-      
-      # shellcheck disable=SC2155 disable=SC2034
-      {
-        local T_STATUS="$(cat "$STATUS")"
-        local T_OUT="$(cat "$OUT")"
-        local T_ERR="$(cat "$ERR")"
-        _pp T_STATUS T_OUT T_ERR
-      } > /dev/tty
-      
-    rm "$STATUS" "$ERR" "$OUT"
-    return
-  else
-    http_status=$(
-      curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
-        -H 'Accept: */*' \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer $token" \
-        -H "Origin: ${ingress}" \
-        ${raw_data:+--data "$raw_data"} \
-        2> /dev/null
-    )
-  fi
+  while [ "$i" -lt 2 ]; do
+    echo "" > "$OUT"
+    
+    if [ -z "$ENT_ECR_API_TOKEN" ]; then
+      ecr-prepare-action ENT_ECR_API_INGRESS ENT_ECR_API_TOKEN
+      save_cfg_value ENT_ECR_API_INGRESS "$ENT_ECR_API_INGRESS"
+      save_cfg_value ENT_ECR_API_TOKEN "$ENT_ECR_API_TOKEN"
+    elif [ -z "$ENT_ECR_API_INGRESS" ]; then
+      ecr-prepare-action ENT_ECR_API_INGRESS
+      save_cfg_value ENT_ECR_API_INGRESS "$ENT_ECR_API_INGRESS"
+    fi
+    
+    local url ingress="$ENT_ECR_API_INGRESS" token="$ENT_ECR_API_TOKEN"
+    path-concat url "${ingress}" ""
+    url+="components"
+    [ -n "$bundle_id" ] && url+="/$bundle_id"
+    [ -n "$action" ] && url+="/$action"
+    
+    # shellcheck disable=SC2155
+    if "$DEBUG"; then
+        local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+        local STATUS="$(mktemp /tmp/ent-auto-XXXXXXXX)"
+        curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
+          -H 'Accept: */*' \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer $token" \
+          -H "Origin: ${ingress}" \
+          ${raw_data:+--data "$raw_data"} \
+          1> "$STATUS" 2> "$ERR"
+        
+        # shellcheck disable=SC2155 disable=SC2034
+        {
+          local T_STATUS="$(cat "$STATUS")"
+          local T_OUT="$(cat "$OUT")"
+          local T_ERR="$(cat "$ERR")"
+          _pp T_STATUS T_OUT T_ERR
+        } > /dev/tty
+        
+      rm "$STATUS" "$ERR" "$OUT"
+      return
+    else
+      http_status=$(
+        curl --insecure -o "$OUT" -sL -w "%{http_code}\n" -X "$verb" -v "$url" \
+          -H 'Accept: */*' \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer $token" \
+          -H "Origin: ${ingress}" \
+          ${raw_data:+--data "$raw_data"} \
+          2> /dev/null
+      )
+    fi
+    
+    if [[ "$http_status" = "40"* ]]; then
+      ENT_ECR_API_TOKEN=""
+      save_cfg_value ENT_ECR_API_TOKEN "$ENT_ECR_API_TOKEN"
+    elif [[ "$http_status" != "20"* ]]; then
+      ENT_ECR_API_INGRESS=""
+      save_cfg_value ENT_ECR_API_INGRESS "$ENT_ECR_API_INGRESS"
+    else
+      break
+    fi
+
+    ((i++))
+  done
   
   if [ "$res_var" != "%" ]; then
     if [ "$res_var" != "" ]; then
@@ -133,8 +157,6 @@ ecr-bundle-action() {
 #
 ecr-watch-installation-result() {
   local action="$1";shift
-  local ingress="$1";shift
-  local token="$1";shift
   local bundle_id="$1";shift
   local http_res
 
@@ -145,7 +167,7 @@ ecr-watch-installation-result() {
 
   while true; do
     http_res=$(
-      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
+      ecr-bundle-action "%" "GET" "$action" "$bundle_id"
     )
     
     if [ "${http_res:0:1}" != '%' ]; then
@@ -347,8 +369,6 @@ ecr.install-bundle() {
   local BUNDLE_NAME="$1"; shift
   local VERSION_TO_INSTALL="${1:-latest}"
   local CONFLICT_STRATEGY="${2}"
-  local INGRESS_URL TOKEN
-  ecr-prepare-action INGRESS_URL TOKEN
   local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
   
   if [ -n "$CONFLICT_STRATEGY" ]; then
@@ -357,9 +377,9 @@ ecr.install-bundle() {
   fi
   DATA+="}"
   
-  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
+  ecr-bundle-action "" "POST" "install" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
     return $?
   _log_i "Installation of bundle \"$BUNDLE_NAME\" started"
 
-  ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
+  ecr-watch-installation-result "install" "$BUNDLE_NAME"
 }

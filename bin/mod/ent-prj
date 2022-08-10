@@ -336,11 +336,9 @@ ext_keycloak() {
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~
 
 prj_ecr_uninstall() {
-  local INGRESS_URL TOKEN
-  ecr-prepare-action INGRESS_URL TOKEN
   _log_i "Uninstallation of bundle \"$ENT_PRJ_NAME\" started"
-  ecr-bundle-action "" "POST" "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME" &>/dev/null || return $?
-  ecr-watch-installation-result "uninstall" "$INGRESS_URL" "$TOKEN" "$ENT_PRJ_NAME"
+  ecr-bundle-action "" "POST" "uninstall" "$ENT_PRJ_NAME" &>/dev/null || return $?
+  ecr-watch-installation-result "uninstall" "$ENT_PRJ_NAME"
 }
 
 prj_ecr_deploy() {
