@@ -220,20 +220,20 @@ fi
 #  Starts a cli command and applies compatibility workarouns if necessary
 #  (this is the null implementation see below for the full one)
 #
-SYS_CLI_PRE() { "$@"; }
-$OS_WIN && {
-  if command -v winpty &>/dev/null; then
-    if $SYS_IS_STDIN_A_TTY; then
-      SYS_CLI_PRE() {
-        if perl -e 'print -t STDOUT ? exit 0 : exit 1'; then
-        "winpty" "$@"
-        else
-          "winpty" -Xallow-non-tty -Xplain "$@"
-        fi
-      }
+if "$OS_WIN" && command -v winpty &>/dev/null; then
+  SYS_CLI_PRE() {
+    if perl -e 'print -t STDOUT ? exit 0 : exit 1'; then
+      "winpty" "$@"
+    else
+      "winpty" -Xallow-non-tty -Xplain "$@"
     fi
-  fi
-}
+  }
+else
+  SYS_CLI_PRE() {
+    "$@"
+  }
+fi
+
 
 function ent-init-project-dir() {
   [ -f "$C_ENT_PRJ_FILE" ] && {

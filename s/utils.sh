@@ -943,7 +943,7 @@ app-get-main-ingresses() {
   local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
   
   #~~~
-  local JQ=".items[] | select(.metadata.name=="$(_str_quote "$ENTANDO_APPNAME-ingress")").spec | .tls // \"-\", .rules[0].host"
+  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls // \"-\", .rules[0].host"
   stdin_to_arr $'\n\r' OUT < <(jq "$JQ" -r <<< "$JSON")
   
   #~~~
@@ -1284,14 +1284,14 @@ _pkg_k9s() {
   local CMD; _pkg_get_path --strict CMD "k9s"
   if [ -z "$1" ]; then
     if _nn DESIGNATED_KUBECTX; then
-      "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
+      SYS_CLI_PRE "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
     elif _nn DESIGNATED_KUBECONFIG; then
-      "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
+      SYS_CLI_PRE "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
     else
-      "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
+      SYS_CLI_PRE "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
     fi
   else
-    "$CMD" "$@"
+    SYS_CLI_PRE "$CMD" "$@"
   fi
 }
 

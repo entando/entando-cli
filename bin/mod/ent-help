@@ -46,7 +46,7 @@ for fn in $ENTANDO_HELP_FUNCTIONS_TO_LIST; do
   LIST+=("$cmd|$fn|F")
 done
 
-
+# shellcheck disable=SC2207
 LIST=($(printf '%s\n' "${LIST[@]}"|sort))
 
 for line in "${LIST[@]}"; do

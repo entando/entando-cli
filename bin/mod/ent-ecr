@@ -107,7 +107,7 @@ _ecr-deploy() {
 
   (
     export SYS_IS_STDOUT_A_TTY=false
-    ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" \
+    ecr.generate-custom-resource --plain "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" \
       | _kubectl apply -f -
   )
 }
