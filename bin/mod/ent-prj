@@ -33,9 +33,17 @@ RUN() {
     #H:> GLOBAL:
     # ~~~~~~~~~~~~~~~~~~~~
     "init") #H: initializes a project dir
-      require_develop_checked
-      print_entando_banner
-      init_project
+      bgn_help_parsing ":ent-prj" "$@"
+      args_or_ask -h "$HH" -n -F -- FROM_HUB '--from-hub///Initializes a bundle project from the Entando Hub' "$@"
+      end_help_parsing
+      
+      if "$FROM_HUB"; then
+        ENTANDO_BUNDLE_CLI_INIT_NO_JSON_WARNING=true ent bundle init "$@"
+      else
+        require_develop_checked
+        print_entando_banner
+        init_project
+      fi
       ;;
     "build" | "ba") #H: builds both frontend and backend
       simple_help_handler "parse_be_arguments" "$@" && return 0
