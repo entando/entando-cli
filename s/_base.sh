@@ -363,7 +363,7 @@ parse_global_args() {
   ENTANDO_CONSUMED_ARGS=0
   while [ $# -gt 0 ]; do
     case "$1" in
-    "--no-profile"|-n)
+    "--no-profile"|"-P")
       shift;((ENTANDO_CONSUMED_ARGS++))
       ENTANDO_ENT_FORCE_PROFILE="--none"
       ;;

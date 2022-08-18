@@ -83,7 +83,7 @@ cd ..
   echo ""
   echo "> Global options:"
   echo -e "  --profile|-p {profile}   forces the use of the given profile"
-  echo -e "  --no-profile|-n          forces the use of no profile"
+  echo -e "  --no-profile|-P          forces the use of no profile"
   echo -e "  --debug|-d               enables the debug mode for some command"
   echo -e "  --color                  disables the explicit suppression of the colors for some command"
 
