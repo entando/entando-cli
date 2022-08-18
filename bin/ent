@@ -21,7 +21,8 @@ RUN() {
   reload_cfg "$C_ENT_STATE_FILE"
   export ENTANDO_HELP_FUNCTIONS_TO_LIST="_ent-bundle _ent-bundler _ent-jhipster"
   export ENTANDO_HELP_MODULE_NOT_TO_LIST="host node-cmd-wrapper"
-
+  export ENTANDO_CLI_DEFAULT_DOCKER_REGISTRY
+  export ENTANDO_CLI_DEFAULT_HUB
   
   while true; do
     cmd="$1"
