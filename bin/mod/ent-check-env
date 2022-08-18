@@ -19,11 +19,12 @@ RUN() {
   trap "[ -f \"$RESULT_FILE\" ] && rm \"$RESULT_FILE\"" exit
   # COMMON REQS
   check-env.common.minimal-requirements
-  
+
   check-env.extention-modules "$ENTANDO_CLI_CHECKENV_MODE"
 
   export WAS_DEVELOP_CHECKED=true   # in order to allow to run the version command
 
+  
   # DEVELOP TOOLS
   $M_DEVL && check-env.develop.minimal-tools-requirements
 
@@ -64,6 +65,14 @@ check-env.common.minimal-requirements() {
   }
   check_ver "grep" "*.*.*" "--version | head -n 1" || DEPENDENCY_ERROR "$FAIL_MSG"
   check_ver "cat" "-" "-" || DEPENDENCY_ERROR "$FAIL_MSG"
+  
+  check_ver "_jq" "*.*.*" "--version" || {
+    if ask "Should I try to install it?" "y"; then
+      (_pkg_get "jq") || DEPENDENCY_ERROR "$FAIL_MSG"
+    else
+      DEPENDENCY_ERROR "$FAIL_MSG"
+    fi
+  }
 }
   
 check-env.runtime.minimal-sys-requirements() {
@@ -109,14 +118,6 @@ check-env.develop.minimal-tools-requirements() {
 
   check_ver "watch" "*.*.*" "-v" || {
     prompt "Recommended dependency not found, workaround will be applied.\nPress enter to continue.."
-  }
-  
-  check_ver "_jq" "*.*.*" "--version" || {
-    if ask "Should I try to install it?" "y"; then
-      (_pkg_get "jq") || DEPENDENCY_ERROR "$FAIL_MSG"
-    else
-      DEPENDENCY_ERROR "$FAIL_MSG"
-    fi
   }
   
   check_ver "_crane" "*.*.*" "version" || {

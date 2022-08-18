@@ -438,6 +438,7 @@ select_one() {
   }
 }
 
+
 # Sets a variable according with the value found in a variable definition and arguments
 # - variable name
 # - variable definition     arg-name/type/default/prompt
@@ -944,25 +945,25 @@ app-get-main-ingresses() {
   
   #~~~
   local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls // \"-\", .rules[0].host"
-  stdin_to_arr $'\n\r' OUT < <(jq "$JQ" -r <<< "$JSON")
+  stdin_to_arr $'\n\r' OUT < <(_jq "$JQ" -r <<< "$JSON")
   
   #~~~
   # property detection: serviceName
   local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.serviceName=="
   local E=").path"
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
   
   #~~~
   # property detection: service.name
   local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.service.name=="
   local E=").path"
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
-  OUT+=("$(jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
   
   if [ "${OUT[0]}" = "-" ]; then
     _set_var "$res_var_scheme" "http"
