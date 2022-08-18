@@ -563,7 +563,7 @@ QS.WATCH-DEPLOYMENT() {
     export ENTANDO_ENT_KUBECTL_CMD="$ENT_KUBECTL_CMD"
     ent-app-info watch || true
   else
-    echo -e "\n~~~\nUse the command:\n  - ent app-info.sh watch\nto check the status of the app"
+    echo -e "\n~~~\nUse the command:\n  - ent app status --watch\nto check the status of the app"
   fi
 }
 

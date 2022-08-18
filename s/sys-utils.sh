@@ -578,7 +578,7 @@ _pkg_download_and_install() {
       chmod +x "$CMD_NAME"
       _log_i "$_tmp_name \"$_tmp_ver\" downloaded$COMMENT"
     else
-      _log_i "I already have this version of $_tmp_name"
+      _log_i "I already have the binary for this version of $_tmp_name"
     fi
     
     echo "$PWD/$CMD_NAME" > "$RESFILE"
