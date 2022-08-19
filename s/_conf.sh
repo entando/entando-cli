@@ -75,11 +75,12 @@ ENTANDO_ENT_EXTENSIONS_MODULES_PATH="${ENTANDO_ENT_HOME}/bin/mod/ext"
 ENTANDO_CLI_FORCE_COLORS="false"
 
 ENTANDO_CLI_DEFAULT_DOCKER_REGISTRY="registry.hub.docker.com"
-ENTANDO_CLI_DEFAULT_HUB="https://entando.com/entando-hub-api/"
+ENTANDO_CLI_DEFAULT_HUB="https://entando.com/entando-hub-api"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
 XU_LOG_LEVEL=9
+FLAG_FZF_SELECT=false
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # EXTERNAL RESOURCES DEFAULTS

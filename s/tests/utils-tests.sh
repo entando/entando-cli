@@ -67,6 +67,7 @@ test_ask() {
 
 # HELPER "SELECT ONE"
 test_select_one() {
+  _flag_status -t "FZF_SELECT" false
   print_current_function_name "> " ".."
   local select_one_res select_one_res_alt
 
@@ -228,6 +229,19 @@ test_spinner() {
   RES="$(bash -c "testtmp" | wc -l)"
 
   [[ "$RES" -gt 1 ]] && FATAL "failed! $LINENO"
+}
+
+
+test_pkg_utils() {
+  print_current_function_name "> " ".."
+  
+  _pkg_get "jq"
+  _pkg_get "fzf"
+  _pkg_get "k9s"
+  
+  _pkg_run jq --version || FATAL "failed! $LINENO"
+  _pkg_run fzf --version || FATAL "failed! $LINENO"
+  _pkg_run k9s version || FATAL "failed! $LINENO"
 }
 
 true
