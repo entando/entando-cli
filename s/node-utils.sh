@@ -205,21 +205,57 @@ _ent-bundler() {
 
 # Runs the ent private installation of the entando-bundle-cli tool
 _ent-bundle() {
+  case "$1" in
+    "--ent-help") echo "Management of new generation entando bundles";return 0;;
+    "init") print_entando_banner;;
+    "deploy") _ent-bundle-deploy "$@"; return 0;;
+    "install") _ent-bundle-install "$@";return 0;;
+    "cr") shift;_ent-entando-bundle-cli generate-cr "$@";return 0;;
+  esac
+
   _ent-entando-bundle-cli "$@"
+  
+  if [[ "$1" = "--help" || -z "$1" ]]; then
+    echo "ADDITIONAL COMMANDS"
+    echo "  deploy       Generates the CR and deploys it to the currently attached EntandoApp"
+    echo "  install      Installs into currently attached EntandoApp the bundle in the current directory"
+    echo ""
+  fi
+}
+
+_ent-bundle-deploy() {
+  ecr.docker.generate-cr \
+  | _kubectl apply -f -
+}
+
+_ent-bundle-install() {
+  local VERSION_TO_INSTALL CONFLICT_STRATEGY
+  
+  HH="$(parse_help_option "$@")"
+  bgn_help_parsing ":bundle-cli-install" "$@"
+  args_or_ask -h "$HH" -n VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
+  args_or_ask -h "$HH" -n CONFLICT_STRATEGY \
+    '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+  end_help_parsing
+
+  require_develop_checked
+  
+  local bundle_info="$(ent bundle info)"
+  
+  ENT_PRJ_NAME="$(
+    ent bundle cr | grep "^metadata:" -A 100  | grep "\sname:" | head -n 1 | sed 's/.*:\s*//' | xargs
+  )"
+
+  if [ -z "$VERSION_TO_INSTALL" ]; then
+    VERSION_TO_INSTALL="$(
+      grep -i "Version:" <<< "$bundle_info" | head -n 1 | sed 's/.*:\s*//' | xargs
+    )"
+  fi
+  
+  ecr.install-bundle "$ENT_PRJ_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
 }
 
 _ent-entando-bundle-cli() {
-  if [ "$1" == "--ent-help" ]; then
-    echo "Management of new generation entando bundles"
-    return 0
-  fi
-  
-  ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG"
-  
-  if [ "$1" == "init" ]; then
-    print_entando_banner
-  fi
-
   if [ "$1" == "api" ]; then
     ecr-prepare-action INGRESS_URL TOKEN
     export ENTANDO_CLI_ECR_TOKEN="$TOKEN"
@@ -229,7 +265,7 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
-  
+
   ENTANDO_CLI_DEBUG="$ENTANDO_CLI_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
     _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }

@@ -216,15 +216,7 @@ ecr.generate-custom-resource() {
   
   if [[ "$REPOSITORY" = "docker://"* ]]; then
     if "$PLAIN"; then
-      (
-        tmp="$(mktemp)"
-        # shellcheck disable=SC2064
-        trap "rm \"$tmp\"" exit
-        _ent-bundle generate-cr \
-          --image "${REPOSITORY:9}" \
-          -o "$tmp" &>/dev/null
-          cat "$tmp"
-      )
+      ecr.docker.generate-cr "${REPOSITORY:9}"
     else
       _ent-bundle generate-cr \
         --image "${REPOSITORY:9}"
@@ -236,6 +228,21 @@ ecr.generate-custom-resource() {
       --repository "$REPOSITORY" \
       $OPT "$OPT_VALUE"
   fi
+}
+
+ecr.docker.generate-cr() {
+  (
+    REPO="$1"
+    tmp="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm \"$tmp\"" exit
+    
+    _ent-bundle generate-cr \
+      ${REPO:+--image "$REPO"} \
+      -o "$tmp" &>/dev/null
+      
+    cat "$tmp"
+  )
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
