@@ -1496,10 +1496,10 @@ print_fullsize_hbar() {
   local SEP="$CH$CH$CH$CH$CH$CH$CH$CH$CH$CH"
   SEP="$SEP$SEP$SEP$SEP$SEP$SEP$SEP$SEP"
   SEP="$SEP$SEP$SEP$SEP"
-  local W="$(
-    [ -z "$TERM" ] && TERM="xterm-256color"
-    tput cols
-  )"
+  local W=""
+  if perl -e 'print -t STDOUT ? exit 0 : exit 1'; then
+    W="$(tput cols)"
+  fi
   if [ "${W:-0}" -gt 1 ]; then
     echo "${SEP:0:$W}"
   else
