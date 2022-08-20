@@ -245,6 +245,8 @@ _ent-bundle-install() {
   ENT_PRJ_NAME="$(
     ent bundle cr | grep "^metadata:" -A 100  | grep "\sname:" | head -n 1 | sed 's/.*:\s*//' | xargs
   )"
+  
+  _nn ENT_PRJ_NAME || _FATAL "Unable to determine the bundle name"
 
   if [ -z "$VERSION_TO_INSTALL" ]; then
     VERSION_TO_INSTALL="$(
