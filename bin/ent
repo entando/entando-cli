@@ -300,29 +300,28 @@ handle_config_command() {
     THIS_PROFILE=""
   }
 
-  args_or_ask -h "$HH" -f -d -- '--print///print the configuration (default)' "$@" && {
-    if [ -n "$THIS_PROFILE" ]; then
-      _log_i "Configuration of the profile \"$THIS_PROFILE\":" 1>&2
-    else
-      _log_i "Default configuration of the current ent installation:" 1>&2
-    fi
-    [ -f "$ENT_WORK_DIR/.cfg" ] || _FATAL -s "Configuration file \"$ENT_WORK_DIR/.cfg\" not found"
-    cat "$ENT_WORK_DIR/.cfg"
+  args_or_ask -h "$HH" -F ENTANDO_NO_OBFUSCATION '--no-obfuscation///disables the obfuscation in the effective configuration' "$@"
+  args_or_ask -h "$HH" -f -- '--effective///prints the effective configuration' "$@" && {
+    print-effective-config
+    return 0
   }
-  
+
   args_or_ask -h "$HH" -f -- '--edit///edits the configuration' "$@" && {
     _edit "$ENT_WORK_DIR/.cfg"
+    return 0
   }
   
   args_or_ask -h "$HH" -f -- '--set///sets a specific configuration parameter' "$@" && {
     args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
     args_or_ask -a -n -h "$HH" "CFG_VALUE" "2///%sp the value to set" "$@"
     save_cfg_value "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
+    return 0
   }
   
   args_or_ask -h "$HH" -f -- '--del///deletes a specific configuration parameter' "$@" && {
     args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
     save_cfg_value "$CFG_KEY" "" "$CFG_FILE"
+    return 0
   }
   
   args_or_ask -h "$HH" -f -- '--get///gets a specific configuration parameter' "$@" && {
@@ -331,9 +330,18 @@ handle_config_command() {
       reload_cfg "$CFG_FILE"
       echo "${!CFG_KEY}"
     )
+    return 0
   }
-  
   end_help_parsing
+  
+  if [ -n "$THIS_PROFILE" ]; then
+    _log_i "Configuration of the profile \"$THIS_PROFILE\":" 1>&2
+  else
+    _log_i "Default configuration of the current ent installation:" 1>&2
+  fi
+  [ -f "$ENT_WORK_DIR/.cfg" ] || _FATAL -s "Configuration file \"$ENT_WORK_DIR/.cfg\" not found"
+  cat "$ENT_WORK_DIR/.cfg"
+  print-secrets-leak-warning
 }
 
 cmplt() {

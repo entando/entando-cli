@@ -83,6 +83,8 @@ save_cfg_value() {
 # $1: [cfg-file]    optional cfg file name; defaults to the project config file
 #
 reload_cfg() {
+  local PRINT=false;[ "$1" = "--print" ] && { PRINT="true"; shift; }
+  local PRE="";[ "$1" = "--pre" ] && { PRE="$2"; shift 2; }
   local config_file=${1:-$CFG_FILE}
   [ ! -f "$config_file" ] && return 0
   local sanitized=""
@@ -94,7 +96,11 @@ reload_cfg() {
       printf -v sanitized "%q" "$value"
       sanitized="${sanitized/\\r/}"
       sanitized="${sanitized/\\n/}"
-      eval "$var"="$sanitized"
+      if "$PRINT"; then
+        echo "${PRE}${var}=${sanitized}"
+      else
+        eval "${PRE}${var}=${sanitized}"
+      fi
     else
       _log_e "Skipped illegal var name $var"
     fi
@@ -1388,6 +1394,7 @@ _str_quote() {
 
 _with_spinner() {
   local OUTFILE="";[ "$1" = "--out" ] && { OUTFILE="$2"; shift 2; }
+
   (
     _spin "$1" &
     PID="$!"
@@ -1488,8 +1495,12 @@ print_fullsize_hbar() {
   local CH="~"; [ -n "$1" ] && { CH="$1"; shift; }
   local SEP="$CH$CH$CH$CH$CH$CH$CH$CH$CH$CH"
   SEP="$SEP$SEP$SEP$SEP$SEP$SEP$SEP$SEP"
-  local W="$(tput cols)"
-  if [ "$W" -gt 1 ]; then
+  SEP="$SEP$SEP$SEP$SEP"
+  local W="$(
+    [ -z "$TERM" ] && TERM="xterm-256color"
+    tput cols
+  )"
+  if [ "${W:-0}" -gt 1 ]; then
     echo "${SEP:0:$W}"
   else
     echo "${SEP:0:40}"
@@ -1527,4 +1538,49 @@ _flag_status() {
       return 1
     fi
   fi
+}
+
+print-effective-config() {
+  local ALL="$(
+    {
+      reload_cfg --print --pre 'PROF:' "$CFG_FILE"
+      reload_cfg --print --pre 'DIST:' "$ENT_DEFAULT_CFG_FILE"
+      for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
+    }
+  )"
+  
+  # shellcheck disable=SC2001
+  KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
+  
+  (
+    reload_cfg "$ENT_DEFAULT_CFG_FILE"
+    reload_cfg "$CFG_FILE"
+    for var in $KEYS; do
+      IFS=':' read -r tag var <<<"$var"
+      val="${!var}"
+      
+      if [[ "$var" != *"TOKEN"* || "$ENTANDO_NO_OBFUSCATION" = "true" ]]; then
+        echo "$tag> $var=$val"
+      else
+        echo -e "$tag> $var=\033[101m**OBFUSCATED**\033[0;37m"
+      fi
+    done
+  )
+  
+  sleep 0.1
+  
+  print-secrets-leak-warning
+  _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
+  echo "" 1>&2
+}
+
+print-secrets-leak-warning() {
+  {
+    echo ""
+    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+    echo -e "\033[101m▒▒ /!\ W A R N I N G /!\                                          ▒▒\033[0;37m"
+    echo -e "\033[101m▒▒ This output may contain secrets, think twice before sharing it ▒▒\033[0;37m"
+    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+    echo ""
+  } 1>&2
 }
