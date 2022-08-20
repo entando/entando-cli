@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 ENTANDO_VARS_DEFAULTS=(
-  ENTANDO_HOME ENTANDO_ENT_HOME ENTANDO_BINS ENTANDO_PROFILES ENTANDO_GLOBAL_CFG ENTANDO_VERSION_DIR
+  ENTANDO_HOME ENTANDO_ENT_HOME ENTANDO_BINS ENTANDO_PROFILES ENTANDO_GLOBAL_CFG ENTANDO_DIST_DIR
   ENT_WORK_DIR ENT_DEFAULT_CFG_FILE CFG_FILE ENT_KUBECONF_FILE_PATH ENT_OPTS
   ENTANDO_OPT_OVERRIDE_HOME_VAR ENTANDO_ENT_EXTENSIONS_MODULES_PATH ENTANDO_CLI_FORCE_COLORS
   ENTANDO_CLI_DEFAULT_DOCKER_REGISTRY ENTANDO_CLI_DEFAULT_HUB ENTANDO_RELEASE ENTANDO_NPM_REGISTRY_NO_SCHEMA
@@ -12,23 +12,30 @@ ENTANDO_VARS_DEFAULTS=(
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SHARED ENTANDO DIRS
 
-ENTANDO_HOME="$(
-  cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
-)"
+if [ "$ENTANDO_PIPELINE_EXECUTION" != "true" ]; then
+  ENTANDO_HOME="$(
+    cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
+  )"
+
+  ENTANDO_DIST_DIR="$(
+    __cd "$ENTANDO_ENT_HOME/../.."
+    pwd
+  )"
+else
+  ENTANDO_HOME="$HOME/.entando"
+  ENTANDO_DIST_DIR="$HOME/.entando/dis"
+  mkdir -p "$ENTANDO_DIST_DIR"
+fi
+
+  (
+    [ -z "$ENTANDO_DIST_DIR" ] && exit 1
+    __cd "$ENTANDO_DIST_DIR"
+  ) || _FATAL -s "Unable to determine the ent's base entando version dir"
+
 ENTANDO_BINS="$ENTANDO_HOME/bin"
 ENTANDO_PROFILES="$ENTANDO_HOME/profiles"
 
 ENTANDO_GLOBAL_CFG="$ENTANDO_HOME/.global-cfg"
-
-ENTANDO_VERSION_DIR="$(
-  __cd "$ENTANDO_ENT_HOME/../.."
-  pwd
-)"
-
-(
-  [ -z "$ENTANDO_VERSION_DIR" ] && exit 1
-  __cd "$ENTANDO_VERSION_DIR"
-) || _FATAL -s "Unable to determine the ent's base entando version dir"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ENT INSTALLATION DIRS
@@ -36,7 +43,7 @@ ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
 ENT_DEFAULT_CFG_FILE="$ENT_WORK_DIR/.cfg"
 CFG_FILE="$ENT_DEFAULT_CFG_FILE"
 ENT_KUBECONF_FILE_PATH="$ENT_WORK_DIR/.kubeconf"
-ENT_OPTS="$ENTANDO_VERSION_DIR/opt"
+ENT_OPTS="$ENTANDO_DIST_DIR/opt"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # CONSTS

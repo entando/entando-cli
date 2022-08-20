@@ -225,7 +225,7 @@ test_spinner() {
     done | _with_spinner
   }
   
-  export -f testtmp _with_spinner _spin
+  export -f testtmp _with_spinner _spin print_fullsize_hbar
   RES="$(bash -c "testtmp" | wc -l)"
 
   [[ "$RES" -gt 1 ]] && FATAL "failed! $LINENO"
@@ -239,9 +239,9 @@ test_pkg_utils() {
   _pkg_get "fzf"
   _pkg_get "k9s"
   
-  _pkg_run jq --version || FATAL "failed! $LINENO"
-  _pkg_run fzf --version || FATAL "failed! $LINENO"
-  _pkg_run k9s version || FATAL "failed! $LINENO"
+  _pkg_jq --version || FATAL "failed! $LINENO"
+  _pkg_fzf --version || FATAL "failed! $LINENO"
+  _pkg_k9s version || FATAL "failed! $LINENO"
 }
 
 true

@@ -12,30 +12,36 @@ cd "$DIR/../.." || {
 
 echo ""
 _log_i "Starting the unit tests for OSTYPE: $OSTYPE"
+(
+  ent pro new _ent_autotest autotest autotest 2>/dev/null
+  . ent pro use _ent_autotest
+  
+  ent config --effective
 
-. s/_base.sh
-. s/tests/essentials.sh
-. s/tests/sys-utils-tests.sh
-. s/tests/utils-tests.sh
-. s/tests/var-utils-tests.sh
-. s/tests/quickstart-mocks-tests.sh
+  . s/_base.sh
+  . s/tests/essentials.sh
+  . s/tests/sys-utils-tests.sh
+  . s/tests/utils-tests.sh
+  . s/tests/var-utils-tests.sh
+  . s/tests/quickstart-mocks-tests.sh
 
-. bin/mod/tests/ent-check-env-test.sh
+  . bin/mod/tests/ent-check-env-test.sh
 
-test_var_to_param
-test_check_ver_num
-test_is_ver_ge_ver
-test_map_functions
-test_index_of_arg
-test_path_functions
-test_shell_replacements
-test_utils_misc
-test_cfg_helper
-test_ask
-test_select_one
-test_args_or_ask
-test_asserters
-test_multipass_mocks
-test_spinner
-
+  test_var_to_param
+  test_check_ver_num
+  test_is_ver_ge_ver
+  test_map_functions
+  test_index_of_arg
+  test_path_functions
+  test_shell_replacements
+  test_utils_misc
+  test_cfg_helper
+  test_ask
+  test_select_one
+  test_args_or_ask
+  test_asserters
+  test_multipass_mocks
+  test_spinner
+  test_pkg_utils
+) || _SOE
 true
