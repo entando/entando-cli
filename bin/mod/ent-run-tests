@@ -14,8 +14,8 @@ echo ""
 _log_i "Starting the unit tests for OSTYPE: $OSTYPE"
 (
   ent pro new _ent_autotest autotest autotest 2>/dev/null
+  # shellcheck disable=SC1091
   . ent pro use _ent_autotest
-  
   ent config --effective
 
   . s/_base.sh

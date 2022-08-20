@@ -335,9 +335,9 @@ handle_config_command() {
   end_help_parsing
   
   if [ -n "$THIS_PROFILE" ]; then
-    _log_i "Configuration of the profile \"$THIS_PROFILE\":" 1>&2
+    _log_i "Configuration of the profile \"$THIS_PROFILE\" ($ENT_WORK_DIR/.cfg):" 1>&2
   else
-    _log_i "Default configuration of the current ent installation:" 1>&2
+    _log_i "Default configuration of the current entando distribution ($ENT_WORK_DIR/.cfg):" 1>&2
   fi
   [ -f "$ENT_WORK_DIR/.cfg" ] || _FATAL -s "Configuration file \"$ENT_WORK_DIR/.cfg\" not found"
   cat "$ENT_WORK_DIR/.cfg"
