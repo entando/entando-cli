@@ -10,38 +10,142 @@ cd "$DIR/../.." || {
 }
 [ "$1" = "--cmplt" ] && exit 0
 
-echo ""
-_log_i "Starting the unit tests for OSTYPE: $OSTYPE"
-(
-  ent pro new _ent_autotest autotest autotest 2>/dev/null
-  # shellcheck disable=SC1091
-  . ent pro use _ent_autotest
-  ent config --effective
+RUN-TESTS() {
+  echo ""
+  _log_i "Starting the unit tests for OSTYPE: $OSTYPE"
+  (
+    ent pro new _ent_autotest autotest autotest 2>/dev/null
+    # shellcheck disable=SC1091
+    . ent pro use _ent_autotest
+    ent config --effective
 
-  . s/_base.sh
-  . s/tests/essentials.sh
-  . s/tests/sys-utils-tests.sh
-  . s/tests/utils-tests.sh
-  . s/tests/var-utils-tests.sh
-  . s/tests/quickstart-mocks-tests.sh
+    . s/_base.sh
+    . s/tests/essentials.sh
+    . s/tests/sys-utils-tests.sh
+    . s/tests/utils-tests.sh
+    . s/tests/var-utils-tests.sh
+    . s/tests/quickstart-mocks-tests.sh
+    . s/tests/test-int-bundle.sh
 
-  . bin/mod/tests/ent-check-env-test.sh
+    . bin/mod/tests/ent-check-env-test.sh
+    
+    SEP="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    
+    echo -e "\n$SEP\n~ UNIT TESTS\n$SEP\n"
 
-  test_var_to_param
-  test_check_ver_num
-  test_is_ver_ge_ver
-  test_map_functions
-  test_index_of_arg
-  test_path_functions
-  test_shell_replacements
-  test_utils_misc
-  test_cfg_helper
-  test_ask
-  test_select_one
-  test_args_or_ask
-  test_asserters
-  test_multipass_mocks
-  test_spinner
-  test_pkg_utils
-) || _SOE
+    test_var_to_param
+    test_check_ver_num
+    test_is_ver_ge_ver
+    test_map_functions
+    test_index_of_arg
+    test_path_functions
+    test_shell_replacements
+    test_utils_misc
+    test_cfg_helper
+    test_ask
+    test_args_or_ask
+    test_asserters
+    test_multipass_mocks
+    
+    echo -e "\n$SEP\n~ INTEGRATION AND ACCEPTANCE TESTS\n$SEP\n"
+    test_select_one
+    test_spinner
+    test_pkg_utils
+    test_int_bundle    
+  ) || _SOE
+}
+
+# Verifies a condition
+#
+# Expects a value to match an expected value according with an operator.
+# If the verification fails an error and a callstack are printed.
+# The function assumes to be wrapped so it skips 2 levels of the callstack.
+#
+# Syntax1 - Params:
+# $1: The error messages prefix
+# $2: Name of the variable containing the value to test
+# $3: Operator
+# $4: expected value
+#
+# Syntax2 - Params:
+# $1: The error messages prefix
+# $2: -v
+# $3: A description of value
+# $4: A value to test
+# $5: Operator
+# $6: expected value
+#
+__VERIFY_EXPRESSION() {
+  local PREFIX="${1:+"$1>" }"; shift
+  local A B
+  local CENSOR=false;[ "$1" = "--censor" ] && { CENSOR=true; shift; }
+  if [ "$1" = "-v" ]; then
+    shift
+    N="$1"; E="$2"; O=$3; V=$4
+    shift 4
+  else
+    N="$1";
+    (E="${!N}") || _FATAL -S 2 "Invalid variable name"
+    E="${!N}"; O=$2; V=$3
+    shift 4
+  fi
+
+  case "$O" in
+    -eq) O="==";OD="TO:  ";  [[ "$E" -eq "$V" ]];;
+    -ne) O="!=";OD="TO:  ";  [[ "$E" -ne "$V" ]];;
+    -gt) O=">";OD="THAN:";   [[ "$E" -gt "$V" ]];;
+    -ge) O=">=";OD="THAN:";  [[ "$E" -ge "$V" ]];;
+    -lt) O="<";OD="THAN:";   [[ "$E" -lt "$V" ]];;
+    -le) O="<=";OD="THAN:";  [[ "$E" -le "$V" ]];;
+    =|==) O="=";OD="TO:  ";  [[ "$E" = "$V" ]];;
+    !=) O="!=";OD="TO:  ";  [[ "$E" != "$V" ]];;
+    =~) O="=~";OD="TO:  ";   [[ "$E" =~ $V ]];;
+    !=~) O="=~";OD="TO:  ";   [[ ! "$E" =~ $V ]];;
+    starts-with) O="=";OD="TO:  ";  [[ "$E" = "$V"* ]];;
+    *) _FATAL "Unknown operator \"$O\"";;
+  esac
+
+  if [ $? != 0 ]; then
+    #local ln fn fl
+    #read -r ln fn fl < <(caller "1")
+
+    echo ""
+
+    local MSG MSG2
+
+    if ! $CENSOR; then
+      _pp_adjust_var E 250
+      _pp_adjust_var V 250
+
+      if [ "${#E}" -gt 30 ] || [ "${#V}" -gt 30 ]; then
+        MSG="Validation Failed"
+        MSG2="\n${PREFIX}Validation Failed in:\n> EXPECTED:  $N"
+        MSG2+="\n> TO BE:     $O\n> $OD      $V\n\n> BUT WAS FOUND: $E"
+      else
+        MSG="Validation Failed"
+        MSG2="\n${PREFIX}Expected $N $O \"$V\" but instead I've found \"$E\""
+      fi
+    else
+        local B='\033[44m\033[1;37m'
+        local A='\033[0;39m'
+        MSG="Validation Failed"
+        MSG2="\n${PREFIX}Expected $N $O ${B}[[CENSORED]]${A} but instead I've found ${B}[[CENSORED]]${A}"
+    fi
+
+    [ -n "$MSG2" ] && echo -e "$MSG2" 1>&2
+    _FATAL -S 2 -99 "$MSG" 1>&2
+  fi
+}
+
+# See __VERIFY_EXPRESSION
+#
+__VERIFY() {
+  __VERIFY_EXPRESSION "" "$@"
+}
+
+ASSERT() {
+  __VERIFY_EXPRESSION "TEST" "$@"
+}
+
+RUN-TESTS "$@"
 true

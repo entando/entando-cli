@@ -155,7 +155,7 @@ _ecr-get-plugin-code() {
   }
   local RES
   NONNULL -s PLUGIN_NAME BUNDLE_ID
-  ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
+  ecr.calculate-plugin-code RES "$PLUGIN_NAME" "$BUNDLE_ID"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -163,8 +163,8 @@ _ecr-get-bundle-id() {
   local BUNDLE_PUB_REPO
   bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
   args_or_ask -h "$HH" -a -n -- BUNDLE_PUB_REPO '1///%sp bundle publication repository URL' "$@"
-  assert_any_url BUNDLE_PUB_REPO "$BUNDLE_PUB_REPO"
   end_help_parsing
+  assert_any_url BUNDLE_PUB_REPO "$BUNDLE_PUB_REPO"
   local RES
   NONNULL -s BUNDLE_PUB_REPO
   ecr.calculate-bundle-id RES "$BUNDLE_PUB_REPO"

@@ -60,6 +60,24 @@ _pp() {
   echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
 }
 
+# Adjust a variable for pretty printing
+#
+# Params:
+# $1: the variable to cut
+# $2: the max len
+#
+_pp_adjust_var() {
+  local _tmp_="${!1}"
+
+  local B='\033[44m\033[1;37m'
+  local A='\033[0;39m'
+
+  if [ ${#_tmp_} -gt "$2" ]; then
+    _tmp_="${_tmp_:0:$2}${B}[[CUTTED]]${A}"
+  fi
+  _set_var "$1" "$_tmp_"
+}
+
 function print_calltrace() {
   if [[ "$1" == "-d" && -n "$ENTANDO_DEBUG_TTY" ]]; then
     shuft

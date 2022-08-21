@@ -275,7 +275,7 @@ ecr.calculate-bundle-id() {
 #
 # if $2 is not provided it is taken from the repository
 #
-ecr.calculate-plugin-id() {
+ecr.calculate-plugin-code() {
   local _tmp_RESVAR="$1"
   local PLUGIN_NAME="$2"
   local BUNDLE_ID="$3"

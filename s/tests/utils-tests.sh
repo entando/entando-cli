@@ -231,17 +231,18 @@ test_spinner() {
   [[ "$RES" -gt 1 ]] && FATAL "failed! $LINENO"
 }
 
-
 test_pkg_utils() {
   print_current_function_name "> " ".."
   
   _pkg_get "jq"
   _pkg_get "fzf"
   _pkg_get "k9s"
+  _pkg_get "crane"
   
   _pkg_jq --version || FATAL "failed! $LINENO"
   _pkg_fzf --version || FATAL "failed! $LINENO"
-  _pkg_k9s version || FATAL "failed! $LINENO"
+  _pkg_k9s version  --short || FATAL "failed! $LINENO"
+  ent-pkg run crane version || FATAL "failed! $LINENO"
 }
 
 true

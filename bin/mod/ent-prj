@@ -298,7 +298,7 @@ prj_print_plugin_code() {
   }
   local RES
   NONNULL -s PLUGIN_NAME BUNDLE_ID
-  ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
+  ecr.calculate-plugin-code RES "$PLUGIN_NAME" "$BUNDLE_ID"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -306,7 +306,6 @@ prj_print_bundle_id() {
   local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
 
   bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
-  args_or_ask -h "$HH" -n -p NAME '--name///name of the bundle project' "$@"
   args_or_ask -h "$HH" -n -p REPOSITORY '--repo///url of the publication repository' "$@"
   args_or_ask -h "$HH" -n -F -- VERBOSE '--verbose/url//prints to the stderr additional info' "$@"
   $HH_HELP_REQUEST && echo -e "\n> Notes:\n  - all arguments are optional\n"
@@ -315,11 +314,10 @@ prj_print_bundle_id() {
   require_ent_project_dir
   require_pbs_initialized
   
-  _nn NAME "$ENT_PRJ_NAME" || _FATAL "Unable to determine the project name"
   _nn REPOSITORY "$(get_bundle_repo_url)" || _FATAL "Unable to determine the publication repo url"
 
   local RES
-  ecr.calculate-bundle-id RES "$NAME" "$REPOSITORY"
+  ecr.calculate-bundle-id RES "$REPOSITORY"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
