@@ -299,6 +299,13 @@ handle_config_command() {
     ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
     THIS_PROFILE=""
   }
+  args_or_ask -h "$HH" -f -- '--global///selects the global ent configuration' "$@" && {
+    # shellcheck disable=SC2034
+    _pp ENTANDO_GLOBAL_CFG
+    CFG_FILE="$ENTANDO_GLOBAL_CFG"
+    ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
+    THIS_PROFILE=""
+  }
 
   args_or_ask -h "$HH" -F ENTANDO_NO_OBFUSCATION '--no-obfuscation///disables the obfuscation in the effective configuration' "$@"
   args_or_ask -h "$HH" -f -- '--effective///prints the effective configuration' "$@" && {
@@ -307,7 +314,7 @@ handle_config_command() {
   }
 
   args_or_ask -h "$HH" -f -- '--edit///edits the configuration' "$@" && {
-    _edit "$ENT_WORK_DIR/.cfg"
+    _edit "$CFG_FILE"
     return 0
   }
   
@@ -335,12 +342,12 @@ handle_config_command() {
   end_help_parsing
   
   if [ -n "$THIS_PROFILE" ]; then
-    _log_i "Configuration of the profile \"$THIS_PROFILE\" ($ENT_WORK_DIR/.cfg):" 1>&2
+    _log_i "Configuration of the profile \"$THIS_PROFILE\" ($CFG_FILE):" 1>&2
   else
-    _log_i "Default configuration of the current entando distribution ($ENT_WORK_DIR/.cfg):" 1>&2
+    _log_i "Default configuration of the current entando distribution ($CFG_FILE):" 1>&2
   fi
-  [ -f "$ENT_WORK_DIR/.cfg" ] || _FATAL -s "Configuration file \"$ENT_WORK_DIR/.cfg\" not found"
-  cat "$ENT_WORK_DIR/.cfg"
+  [ -f "$CFG_FILE" ] || _FATAL -s "Configuration file \"$CFG_FILE\" not found"
+  cat "$CFG_FILE"
   print-secrets-leak-warning
 }
 

@@ -1544,11 +1544,17 @@ print-effective-config() {
   local ALL="$(
     {
       reload_cfg --print --pre 'PROF:' "$CFG_FILE"
-      reload_cfg --print --pre 'DIST:' "$ENT_DEFAULT_CFG_FILE"
+      reload_cfg --print --pre 'DFLT:' "$ENT_DEFAULT_CFG_FILE"
+      reload_cfg --print --pre 'GLOB:' "$ENTANDO_GLOBAL_CFG"
       for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
     }
   )"
-  
+
+  _log_i "Profile config location: \"$CFG_FILE\"" 1>&2
+  _log_i "Default config location: \"$ENT_DEFAULT_CFG_FILE\"" 1>&2
+  _log_i "Global config location:  \"$ENTANDO_GLOBAL_CFG\"" 1>&2
+  echo "" 1>&2
+
   # shellcheck disable=SC2001
   KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
   
