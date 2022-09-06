@@ -258,7 +258,11 @@ _ent-bundle-install() {
 }
 
 _ent-entando-bundle-cli() {
-  if [ "$1" == "api" ]; then
+  args_or_ask -a -n P1 '1///module' "$@"
+  args_or_ask -a -n P2 '2///command' "$@"
+  args_or_ask -F -n HELP_INVOKED '--help///help' "$@"
+
+  if [[ "$P1" == "api" && "$P2" == "add-ext" && "$HELP_INVOKED" == "false" ]]; then
     ecr-prepare-action INGRESS_URL TOKEN
     export ENTANDO_CLI_ECR_TOKEN="$TOKEN"
     export ENTANDO_CLI_ECR_URL="$INGRESS_URL"
