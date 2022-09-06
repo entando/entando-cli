@@ -5,7 +5,7 @@
 
 # HELP HEADER
 #H::
-#H:: Helper for managing Entando bundle projects
+#H:: Helper for managing the first generation of Entando bundle projects
 #H::
 #H:: Syntax:
 #H::  - {{TOOL-NAME}} {sub-command}
@@ -33,9 +33,17 @@ RUN() {
     #H:> GLOBAL:
     # ~~~~~~~~~~~~~~~~~~~~
     "init") #H: initializes a project dir
-      require_develop_checked
-      print_entando_banner
-      init_project
+      bgn_help_parsing ":ent-prj" "$@"
+      args_or_ask -h "$HH" -n -F -- FROM_HUB '--from-hub///Initializes a bundle project from the Entando Hub' "$@"
+      end_help_parsing
+      
+      if "$FROM_HUB"; then
+        ENTANDO_BUNDLE_CLI_INIT_SUPPRESS_NO_ENTANDO_JSON_WARNING=true ent bundle init "$@"
+      else
+        require_develop_checked
+        print_entando_banner
+        init_project
+      fi
       ;;
     "build" | "ba") #H: builds both frontend and backend
       simple_help_handler "parse_be_arguments" "$@" && return 0
@@ -217,7 +225,11 @@ RUN() {
       prj_print_bundle_id "$@"
       ;;
     "get-plugin-id"|"pid") #H: calculates and displays the plugin id
-      prj_print_plugin_id "$@"
+      _log_i "Deprecated, please use get-plugin-code" 1>&2
+      prj_print_plugin_code "$@"
+      ;;
+    "get-plugin-code"|"plc") #H: calculates and displays the plugin id
+      prj_print_plugin_code "$@"
       ;;
     "gen-secret"|"sec") #H: generates and displays a plugin secret skeleton
       prj_gen_secret "$@"
@@ -263,7 +275,7 @@ prj_gen_secret() {
   ecr.generate-and-print-secret "$SEC_NAME" "$BUNDLE_ID" "$EDIT" "$SAVE_TO" "$APPLY"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-prj_print_plugin_id() {
+prj_print_plugin_code() {
   local PLUGIN_NAME BUNDLE_PUB_REPO
 
   bgn_help_parsing ":ENT-PRJ-GET-PLUGIN-ID" "$@"
@@ -277,7 +289,7 @@ prj_print_plugin_id() {
   require_pbs_initialized
 
   if $AUTO_PLUGIN_NAME && [ -z "$PLUGIN_NAME" ]; then
-    _ecr_determine_bundle_plugin_name PLUGIN_NAME "." "" 
+    _ecr_determine_git_bundle_plugin_name PLUGIN_NAME "." "" 
   fi
 
   _nn BUNDLE_ID || {
@@ -286,7 +298,7 @@ prj_print_plugin_id() {
   }
   local RES
   NONNULL -s PLUGIN_NAME BUNDLE_ID
-  ecr.calculate-plugin-id RES "$PLUGIN_NAME" "$BUNDLE_ID"
+  ecr.calculate-plugin-code RES "$PLUGIN_NAME" "$BUNDLE_ID"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -294,7 +306,6 @@ prj_print_bundle_id() {
   local NAME REPOSITORY THUMBNAIL_FILE THUMBNAIL_URL
 
   bgn_help_parsing ":ENT-ECR-GET-BUNDLE-ID" "$@"
-  args_or_ask -h "$HH" -n -p NAME '--name///name of the bundle project' "$@"
   args_or_ask -h "$HH" -n -p REPOSITORY '--repo///url of the publication repository' "$@"
   args_or_ask -h "$HH" -n -F -- VERBOSE '--verbose/url//prints to the stderr additional info' "$@"
   $HH_HELP_REQUEST && echo -e "\n> Notes:\n  - all arguments are optional\n"
@@ -303,11 +314,10 @@ prj_print_bundle_id() {
   require_ent_project_dir
   require_pbs_initialized
   
-  _nn NAME "$ENT_PRJ_NAME" || _FATAL "Unable to determine the project name"
   _nn REPOSITORY "$(get_bundle_repo_url)" || _FATAL "Unable to determine the publication repo url"
 
   local RES
-  ecr.calculate-bundle-id RES "$NAME" "$REPOSITORY"
+  ecr.calculate-bundle-id RES "$REPOSITORY"
   echo "$RES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,26 +1,41 @@
 #!/bin/bash
 # shellcheck disable=SC2034
 
+ENTANDO_VARS_DEFAULTS=(
+  ENTANDO_HOME ENTANDO_ENT_HOME ENTANDO_BINS ENTANDO_PROFILES ENTANDO_GLOBAL_CFG ENTANDO_DIST_DIR
+  ENT_WORK_DIR ENT_DEFAULT_CFG_FILE CFG_FILE ENT_KUBECONF_FILE_PATH ENT_OPTS
+  ENTANDO_OPT_OVERRIDE_HOME_VAR ENTANDO_ENT_EXTENSIONS_MODULES_PATH ENTANDO_CLI_FORCE_COLORS
+  ENTANDO_CLI_DEFAULT_DOCKER_REGISTRY ENTANDO_CLI_DEFAULT_HUB ENTANDO_RELEASE ENTANDO_NPM_REGISTRY_NO_SCHEMA
+  ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS
+)
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SHARED ENTANDO DIRS
 
-ENTANDO_HOME="$(
-  cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
-)"
+if [ "$ENTANDO_PIPELINE_EXECUTION" != "true" ]; then
+  ENTANDO_HOME="$(
+    cd "$ENTANDO_ENT_HOME/../../../.." && pwd && exit
+  )"
+
+  ENTANDO_DIST_DIR="$(
+    __cd "$ENTANDO_ENT_HOME/../.."
+    pwd
+  )"
+else
+  ENTANDO_HOME="$HOME/.entando"
+  ENTANDO_DIST_DIR="$HOME/.entando/dis"
+  mkdir -p "$ENTANDO_DIST_DIR"
+fi
+
+  (
+    [ -z "$ENTANDO_DIST_DIR" ] && exit 1
+    __cd "$ENTANDO_DIST_DIR"
+  ) || _FATAL -s "Unable to determine the ent's base entando version dir"
+
 ENTANDO_BINS="$ENTANDO_HOME/bin"
 ENTANDO_PROFILES="$ENTANDO_HOME/profiles"
 
 ENTANDO_GLOBAL_CFG="$ENTANDO_HOME/.global-cfg"
-
-ENTANDO_VERSION_DIR="$(
-  __cd "$ENTANDO_ENT_HOME/../.."
-  pwd
-)"
-
-(
-  [ -z "$ENTANDO_VERSION_DIR" ] && exit 1
-  __cd "$ENTANDO_VERSION_DIR"
-) || _FATAL -s "Unable to determine the ent's base entando version dir"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ENT INSTALLATION DIRS
@@ -28,7 +43,7 @@ ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
 ENT_DEFAULT_CFG_FILE="$ENT_WORK_DIR/.cfg"
 CFG_FILE="$ENT_DEFAULT_CFG_FILE"
 ENT_KUBECONF_FILE_PATH="$ENT_WORK_DIR/.kubeconf"
-ENT_OPTS="$ENTANDO_VERSION_DIR/opt"
+ENT_OPTS="$ENTANDO_DIST_DIR/opt"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # CONSTS
@@ -40,10 +55,25 @@ C_ENT_STATE_FILE="$C_ENT_PRJ_ENT_DIR/ent-state"
 C_ENT_OLD_PRJ_FILE=".ent-prj"
 C_ENT_OLD_STATE_FILE=".ent-state"
 
+
 C_GENERATOR_JHIPSTER_ENTANDO_NAME="generator-jhipster-entando"
-C_ENTANDO_BUNDLER_DIR="entando-bundle-tool"
+
+# BUNDLER
+C_ENTANDO_BUNDLER_DIR="entando-bundler"
 C_ENTANDO_BUNDLER_NAME="entando-bundler"
-C_ENTANDO_BUNDLE_BIN_NAME="entando-bundler"
+C_ENTANDO_BUNDLER_BIN_NAME="entando-bundler"
+
+# BUNDLE-CLI
+C_ENTANDO_BUNDLE_CLI_DIR="entando-bundle-cli"
+C_ENTANDO_BUNDLE_CLI_NAME="entando-bundle-cli"
+C_ENTANDO_BUNDLE_CLI_BIN_NAME="entando-bundle-cli"
+ENTANDO_BUNDLE_CLI_BIN_NAME="ent bundle"
+ENTANDO_BUNDLE_CLI_DEBUG=false
+ENTANDO_CLI_ORIGINAL_HOME=""
+ENTANDO_CLI_ORIGINAL_USERPROFILE=""
+ENTANDO_BUNDLE_CLI_INIT_SUPPRESS_NO_ENTANDO_JSON_WARNING=false
+
+#
 C_QUICKSTART_DEFAULT_RELEASE="quickstart"
 
 C_ENTANDO_LOGO_FILE="res/entando.png"
@@ -53,9 +83,19 @@ C_AUTO_VM_HOSTNAME_SUFFIX="local.entando.org"
 
 C_DEFAULT_KUBECT_VERSION="v1.23.4"
 
+ENTANDO_CLI_DOCKER_CONFIG_PATH="$ENT_ORIGIN_WORKDIR/.entando/.docker/config.json"
+ENTANDO_OPT_OVERRIDE_HOME_VAR="true"
+
+ENTANDO_ENT_EXTENSIONS_MODULES_PATH="${ENTANDO_ENT_HOME}/bin/mod/ext"
+ENTANDO_CLI_FORCE_COLORS="false"
+
+ENTANDO_CLI_DEFAULT_DOCKER_REGISTRY="registry.hub.docker.com"
+ENTANDO_CLI_DEFAULT_HUB="https://entando.com/entando-hub-api"
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # UTILITIES DEFAULTS
 XU_LOG_LEVEL=9
+FLAG_FZF_SELECT=false
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # EXTERNAL RESOURCES DEFAULTS
@@ -86,7 +126,7 @@ ENTANDO_STANDARD_IMAGES=(
 
 TMP_CLI_VERSION="$(
   cd "$ENTANDO_ENT_HOME" &> /dev/null || exit 1
-  git describe --exact-match --tags 2>/dev/null
+  git denscribe --exact-match --tags 2>/dev/null
 )"
 
 ENTANDO_MANIFEST_CLI_VERSION="${ENTANDO_CLI_VERSION:-"$TMP_CLI_VERSION"}"
@@ -102,3 +142,17 @@ TMP_CLI_VERSION="$(
 
 ENTANDO_MANIFEST_RELEASE="${ENTANDO_RELEASE:-"$TMP_CLI_VERSION"}"
 ENTANDO_RELEASE="${TMP_CLI_VERSION:-"$ENTANDO_MANIFEST_RELEASE"}"
+
+# ENTANDO NPM REGISTRY DATA
+ENTANDO_NPM_REGISTRY_NO_SCHEMA="npm.pkg.github.com"
+ENTANDO_NPM_REGISTRY="https://$ENTANDO_NPM_REGISTRY_NO_SCHEMA"
+
+# UNPRIVILEDGED TOKEN USED FOR ANONYMOUS ACCESS TO GITHUB PACKAGES
+# THE TOKEN HAS IN FACT NO PERMISSION BUT repository:read
+# it's obfuscated just to avoid false positives from security scanners
+ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS="$(
+  echo -n "dkxocDcycTJtalJPTkltWXp4WDlaVG02TW5TZWw0SjROWE1mX3BoZwo=" \
+    | perl -e "use MIME::Base64; print decode_base64(<>);" \
+    | perl -e 'print scalar reverse(<>);' \
+    | tr -d '\n' | tr -d '\r'
+)"

@@ -33,29 +33,65 @@ SS=false; [ "$1" = "--ent-base-comp" ] && { SIMPLE=true;SS=true;shift; }
 
 
 cd bin || { echo "Unable to enter directory $PWD/bin"; exit 99; }
+
+
+LIST=()
 for file in mod/ent-*; do
   mod="${file//mod\/ent-/}"
-  if $SS; then
-    echo "$mod "
-  else
-    H=$($file --help --short)
-    if $SIMPLE; then
-      file="${file//m\/ent-/}"
-      printf "  - %-21s%s\n" "$mod" "$H"
-    else
-      printf "  - %-20s => %s\n" "$mod" "$H"
-    fi
-  fi
+  LIST+=("$mod|$file|M")
+done
+for fn in $ENTANDO_HELP_FUNCTIONS_TO_LIST; do
+  cmd="${fn//_ent-/}"
+  cmd="${cmd//ent-/}"
+  LIST+=("$cmd|$fn|F")
+done
+
+# shellcheck disable=SC2207
+LIST=($(printf '%s\n' "${LIST[@]}"|sort))
+
+for line in "${LIST[@]}"; do
+  IFS='|' read -r cmd full type <<< "$line"
+  
+  case "$type" in
+    M)
+      mod="$cmd"
+      if [[ "$ENTANDO_HELP_MODULE_NOT_TO_LIST" == *"$mod"* ]]; then
+        continue
+      fi
+
+      if $SS; then
+        echo "$mod "
+      else
+        H=$($full --help --short)
+        if $SIMPLE; then
+          printf "  - %-21s%s\n" "$mod" "$H"
+        else
+          printf "  - %-20s => %s\n" "$mod" "$H"
+        fi
+      fi
+      ;;
+    F)
+      H=$($full --ent-help)
+      printf "  - %-20s => %s\n" "$cmd" "$H"
+      ;;
+  esac
 done
 
 cd ..
 
 ! $SIMPLE && {
   echo ""
+  echo "> Global options:"
+  echo -e "  --profile|-p {profile}   forces the use of the given profile"
+  echo -e "  --no-profile|-P          forces the use of no profile"
+  echo -e "  --debug|-d               enables the debug mode for some command"
+  echo -e "  --color                  disables the explicit suppression of the colors for some command"
+
+  echo ""
   echo "> Further info about entando:"
   echo -e "  - $PWD/README.md"
   echo -e "  - https://www.entando.com/"
-  echo -e "  - https://dev.entando.org/"
+  echo -e "  - https://developer.entando.com"
 
   echo ""
   echo "> ⚠ RECOMMENDED FIRST STEP ⚠ :"

@@ -67,6 +67,7 @@ test_ask() {
 
 # HELPER "SELECT ONE"
 test_select_one() {
+  _flag_status -t "FZF_SELECT" false
   print_current_function_name "> " ".."
   local select_one_res select_one_res_alt
 
@@ -179,7 +180,6 @@ test_path_functions() {
   
   path-concat -t RES "a" "b"
   [ "$RES" = "a/b/" ] || FATAL "failed! $LINENO"
-
 }
 
 test_shell_replacements() {
@@ -198,6 +198,51 @@ test_shell_replacements() {
   [ "$RES" = "$encoded" ] || FATAL "failed! $LINENO"
   RES="$(echo "$encoded" | _base64_d)"
   [ "$RES" = "$plain" ] || FATAL "failed! $LINENO"
+}
+
+test_utils_misc() {
+  print_current_function_name "> " ".."
+  
+  RES="$(_upper "1x8299zzuiIO")"
+  [ "$RES" = "1X8299ZZUIIO" ] || FATAL "failed! $LINENO"
+  
+  RES="$(_url_remove_last_subpath "http://example.com/entando-de-app")"
+  [ "$RES" = "http://example.com" ] || FATAL "failed! $LINENO"
+  RES="$(_url_remove_last_subpath "http://example.com/subpath/entando-de-app")"
+  [ "$RES" = "http://example.com/subpath" ] || FATAL "failed! $LINENO"
+  RES="$(_url_remove_last_subpath "http://example.com/subpath/entando-de-app/")"
+  [ "$RES" = "http://example.com/subpath" ] || FATAL "failed! $LINENO"
+}
+
+test_spinner() {
+  print_current_function_name "> " ".."
+  
+  testtmp(){
+    local i=0
+    while [[ $((i++)) -lt 10 ]]; do
+      echo -e "line"
+      sleep 0.1
+    done | _with_spinner
+  }
+  
+  export -f testtmp _with_spinner _spin print_fullsize_hbar
+  RES="$(bash -c "testtmp" | wc -l)"
+
+  [[ "$RES" -gt 1 ]] && FATAL "failed! $LINENO"
+}
+
+test_pkg_utils() {
+  print_current_function_name "> " ".."
+  
+  _pkg_get "jq"
+  _pkg_get "fzf"
+  _pkg_get "k9s"
+  _pkg_get "crane"
+  
+  _pkg_jq --version || FATAL "failed! $LINENO"
+  _pkg_fzf --version || FATAL "failed! $LINENO"
+  _pkg_k9s version  --short || FATAL "failed! $LINENO"
+  ent-pkg run crane version || FATAL "failed! $LINENO"
 }
 
 true

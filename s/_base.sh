@@ -6,6 +6,13 @@
 ${ENTANDO_BASE_EXECUTED:-false} && return 0
 ENTANDO_BASE_EXECUTED=true
 
+# ----------------------------------------------------------------------------------------------------------------------
+# ESSENTIAL ENVIRONMENT
+. s/essentials.sh
+
+# ----------------------------------------------------------------------------------------------------------------------
+# BASE FUNCTIONS
+
 DDD() {
   local FULLTRACE=false
   [ "$1" = "-t" ] && {
@@ -51,6 +58,24 @@ _pp() {
   done
   echo "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"
   echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+}
+
+# Adjust a variable for pretty printing
+#
+# Params:
+# $1: the variable to cut
+# $2: the max len
+#
+_pp_adjust_var() {
+  local _tmp_="${!1}"
+
+  local B='\033[44m\033[1;37m'
+  local A='\033[0;39m'
+
+  if [ ${#_tmp_} -gt "$2" ]; then
+    _tmp_="${_tmp_:0:$2}${B}[[CUTTED]]${A}"
+  fi
+  _set_var "$1" "$_tmp_"
 }
 
 function print_calltrace() {
@@ -111,58 +136,6 @@ function print_current_function_name() {
   echo "${1}${FUNCNAME[1]}${2}"
 }
 
-# ----------------------------------------------------------------------------------------------------------------------
-# ENVIRONMENT
-. s/essentials.sh
-. s/sys-utils.sh
-
-$SYS_OS_UNKNOWN && {
-  echo "Unsupported operating system" 1>&2
-  exit 99
-}
-
-[ ! -d "$ENTANDO_ENT_HOME/w" ] && {
-  mkdir -p "$ENTANDO_ENT_HOME/w"
-  chmod 700 "$ENTANDO_ENT_HOME/w"
-  find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
-}
-
-. s/_conf.sh
-
-mkdir -p "$ENTANDO_PROFILES"
-mkdir -p "$ENTANDO_BINS"
-mkdir -p "$ENT_OPTS"
-
-# ----------------------------------------------------------------------------------------------------------------------
-# UTILS
-
-. s/utils.sh
-. s/var-utils.sh
-. s/logger.sh
-. s/ecr-utils.sh
-. s/attach-utils.sh
-. s/node-utils.sh
-. s/kube-utils.sh
-
-DESIGNATED_VM=""
-DESIGNATED_VM_NAMESPACE=""
-ENTANDO_NAMESPACE=""
-# shellcheck disable=SC2034
-{
-  ENT_KUBECTL_CMD=""
-  ENABLE_AUTOLOGIN=""
-}
-
-if [ -n "$DESIGNATED_PROFILE" ]; then
-  if assert_ext_ic_id "" "$DESIGNATED_PROFILE" "silent"; then
-    DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
-  else
-    FATAL "Illegal value provided in environment var DESIGNATED_PROFILE"
-  fi
-fi
-
-reload_cfg "$ENTANDO_GLOBAL_CFG"
-
 # activates the default workdir of the current ent installation
 #
 # the default workdir is not related t any profile
@@ -220,45 +193,19 @@ activate_designated_workdir() {
 }
 
 set_curr_profile() {
+  local TEMP=false;[ "$1" = "--temporary" ] && { TEMP=true; shift; }
   [ -z "$1" ] && _FATAL "Illegal profile name detected"
   DESIGNATED_PROFILE="$1"
   DESIGNATED_PROFILE_HOME="$2"
   [ -z "$DESIGNATED_PROFILE_HOME" ] && DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
-  save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
-  save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
+  ! $TEMP && {
+    save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
+    save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
+  }
 }
-
-if [ -n "$DESIGNATED_PROFILE" ]; then
-  activate_application_workdir
-else
-  activate_ent_default_workdir
-fi
-
-reload_cfg "$ENT_DEFAULT_CFG_FILE"
-reload_cfg
-rescan-sys-env
-reload_cfg
-mkdir -p "$ENT_WORK_DIR"
-
-# shellcheck disable=SC2034
-[ -n "$LOG_LEVEL" ] && XU_LOG_LEVEL="$LOG_LEVEL"
-[ -n "$DESIGNATED_JAVA_HOME" ] && export JAVA_HOME="$DESIGNATED_JAVA_HOME"
-
-setup_kubectl
-
-#ENT_RUN_TMP_DIR=$(mktemp /tmp/ent.run.XXXXXXXXXXXX)
-#[[ ! "$ENT_RUN_TMP_DIR" =~ /tmp/ ]] && {
-#  # keep this as simple as possible, only native commands
-#  echo "Internal Error: Unable to create the tmp dir" 2>&1
-#  exit 99
-#}
-
-mkdir -p "$ENT_WORK_DIR"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # ERROR AND EXIT MANAGEMENT
-
-XU_STATUS_FILE="$ENT_WORK_DIR/.status"
 
 # PROGRAM STATUS
 xu_clear_status() {
@@ -282,11 +229,10 @@ xu_set_status "-"
 
 # ----------------------------------------------------------------------------------------------------------------------
 
-
 # overrides the essential.sh base
 kubectl_update_once_options() {
   KUBECTL_ONCE_OPTIONS=""
-
+  
   determine_namespace NS "$@"
 
   local NS="${NS//$'\n'/}"
@@ -334,64 +280,20 @@ kubectl_mode() {
 }
 
 check_kubectl() { 
-  if [ "$WARN_KUBECTL" != "false" ]; then
-    local VER="$(
-      KUBECTL_SKIP_SUDO=true _kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs
-    )"
-    if [ -n "$VER" ]; then
-      if check_ver_ge "$VER" "1.22.0" 2>/dev/null; then
-        _log_w "this version of kubectl is not yet supported, replace it with a version < 1.22" \
-                 "or try running \"ent auto-align-kubectl\" against a kubernetes server." \
-                 "To suppress this message execute \"ent config --set WARN_KUBECTL false\"" \
-                 > /dev/stderr
-      fi
-    fi
-  fi
-}
-
-print_ent_general_status() {
-  print_hr
-  print_current_profile_info -v
-  setup_kubectl
-  kubectl_update_once_options ""
-  #print_hr
-  #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
-  #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
-  echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
-  if [ -z "$DESIGNATED_KUBECONFIG" ]; then
-    echo " - KUBECONFIG (ENV):  ${KUBECONFIG:-<DEFAULT>}"
-  fi
-  case "$ENTANDO_KUBECTL_MODE" in
-  "COMMAND")
-    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL:-<ERR-NO-FOUND>}"
-    ;;
-  "CONFIG")
-    echo " - KUBECTL CMD:       <DEFAULT>"
-    ;;
-  "AUTODETECT")
-    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL_AUTO_DETECTED:-<ERR-NO-FOUND>} (autodetected)"
-    ;;
-  *)
-    FATAL "Unknown kubectl mode"
-    ;;
-  esac
-  echo " - KUBECTL MODE:      $ENTANDO_KUBECTL_MODE"
-  print_hr
-  local TTY_ENV
-  TTY_ENV=$(
-    env | grep "ENTANDO_" | grep "_0e7e8d89_$ENTANDO_TTY_QUALIFIER" \
-    | sed "s/_0e7e8d89_$ENTANDO_TTY_QUALIFIER//" \
-    | sed "s/ENTANDO_FORCE_//" \
-    | sed "s/_/ /g" \
-    | sed "s/=/: /" \
-    | xargs -I {} echo " - TTY SESSION {}"
-  )
-  if [ -n "$TTY_ENV" ]; then
-    _log_i "TTY environment ($ENTANDO_DEV_TTY):"
-    echo -n "$TTY_ENV"
-    echo ""
-    print_hr
-  fi
+  true
+#   if [ "$WARN_KUBECTL" != "false" ]; then
+#     local VER="$(
+#       KUBECTL_SKIP_SUDO=true _kubectl version --client --short 2>/dev/null | cut -d ':' -f 2 | xargs
+#     )"
+#     if [ -n "$VER" ]; then
+#       if check_ver_ge "$VER" "1.23.0" 2>/dev/null; then
+#         _log_w "this version of kubectl ($VER) is not yet supported, replace it with a version < 1.23" \
+#                  "or try running \"ent auto-align-kubectl\" against a kubernetes server." \
+#                  "To suppress this message execute \"ent config --set WARN_KUBECTL false\"" \
+#                  > /dev/stderr
+#       fi
+#     fi
+#   fi
 }
 
 determine_namespace() {
@@ -400,11 +302,11 @@ determine_namespace() {
   local ns
 
   HH="$(parse_help_option "$@")"
-
-  if args_or_ask -h "$HH" -n ns "--namespace/ext_ic_id//" "$@" ||
-    args_or_ask -h "$HH" -n -s ns "-n/ext_ic_id//" "$@"; then
-    if args_or_ask -h "$HH" -n -f "--all-namespaces///" "$@" ||
-      args_or_ask -h "$HH"-n -f dummy "-A///" "$@"; then
+  
+  if args_or_ask -n ns "--namespace/ext_ic_id//" "$@" ||
+    args_or_ask -n -s ns "-n/ext_ic_id//" "$@"; then
+    if args_or_ask -n -f "--all-namespaces///" "$@" ||
+      args_or_ask -f dummy "-A///" "$@"; then
       ns="*"
     fi
     _set_var "$var_name" "$ns"
@@ -436,4 +338,127 @@ determine_namespace() {
   return 1
 }
 
+########################################################################################################################
+#
+# BASE INITIALIZATION
+#
+########################################################################################################################
+
+# ----------------------------------------------------------------------------------------------------------------------
+# BASE ENVIRONMENT SETUP
+
+# shellcheck disable=1094 disable=2154 disable=2115
+. s/sys-utils.sh
+
+$SYS_OS_UNKNOWN && {
+  echo "Unsupported operating system" 1>&2
+  exit 99
+}
+
+[ ! -d "$ENTANDO_ENT_HOME/w" ] && {
+  mkdir -p "$ENTANDO_ENT_HOME/w"
+  chmod 700 "$ENTANDO_ENT_HOME/w"
+  find "$ENTANDO_ENT_HOME/w" -maxdepth 1 -mindepth 1 -exec chmod 600 {} \;
+}
+
+. s/_conf.sh
+
+mkdir -p "$ENTANDO_PROFILES"
+mkdir -p "$ENTANDO_BINS"
+mkdir -p "$ENT_OPTS"
+mkdir -p "$ENT_WORK_DIR"
+
+DESIGNATED_VM=""
+DESIGNATED_VM_NAMESPACE=""
+ENTANDO_NAMESPACE=""
+# shellcheck disable=SC2034
+{
+  ENT_KUBECTL_CMD=""
+  ENABLE_AUTOLOGIN=""
+}
+
+parse_global_args() {
+  ENTANDO_CONSUMED_ARGS=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+    "--no-profile"|"-P")
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ENTANDO_ENT_FORCE_PROFILE="--none"
+      ;;
+    "-p" | "--profile")
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ENTANDO_ENT_FORCE_PROFILE="$1"
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ;;
+    "--color")
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ENTANDO_CLI_FORCE_COLORS=true
+      ;;
+    "-d" | "--debug")
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ENTANDO_ENT_DEBUG=true
+      ;;
+    *)
+      break
+      ;;
+    esac
+  done
+  
+  export ENTANDO_ENT_DEBUG
+  export ENTANDO_ENT_FORCE_PROFILE
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ALL LIRARIES
+
+. s/utils.sh
+. s/var-utils.sh
+. s/logger.sh
+. s/ecr-utils.sh
+. s/attach-utils.sh
+. s/node-utils.sh
+. s/kube-utils.sh
+
+# ----------------------------------------------------------------------------------------------------------------------
+# PROFILE ACTIVATION
+
+reload_cfg "$ENTANDO_GLOBAL_CFG"
+
 handle_forced_profile "$@"
+parse_global_args "$@"
+shift "$ENTANDO_CONSUMED_ARGS"
+
+case "$ENTANDO_ENT_FORCE_PROFILE" in
+  "--none") DESIGNATED_PROFILE="";DESIGNATED_PROFILE_HOME="";;
+  "") ;;
+  *) set_curr_profile --temporary "$ENTANDO_ENT_FORCE_PROFILE";;
+esac
+
+if [ -n "$DESIGNATED_PROFILE" ]; then
+  if assert_ext_ic_id "" "$DESIGNATED_PROFILE" "silent"; then
+    DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
+  else
+    FATAL "Illegal value provided in environment var DESIGNATED_PROFILE"
+  fi
+fi
+
+if [ -n "$DESIGNATED_PROFILE" ]; then
+  activate_application_workdir
+else
+  activate_ent_default_workdir
+fi
+
+reload_cfg "$ENT_DEFAULT_CFG_FILE"
+reload_cfg
+rescan-sys-env
+reload_cfg
+
+mkdir -p "$ENT_WORK_DIR"
+
+# shellcheck disable=SC2034
+XU_STATUS_FILE="$ENT_WORK_DIR/.status"
+[ -n "$LOG_LEVEL" ] && XU_LOG_LEVEL="$LOG_LEVEL"
+[ -n "$DESIGNATED_JAVA_HOME" ] && export JAVA_HOME="$DESIGNATED_JAVA_HOME"
+
+kubectl_update_once_options "$@"
+setup_kubectl

@@ -220,16 +220,20 @@ fi
 #  Starts a cli command and applies compatibility workarouns if necessary
 #  (this is the null implementation see below for the full one)
 #
-SYS_CLI_PRE() { "$@"; }
-$OS_WIN && {
-  if command -v winpty &>/dev/null; then
-    if $SYS_IS_STDIN_A_TTY; then
-      SYS_CLI_PRE() {
-        "winpty" "$@"
-      }
+if "$OS_WIN" && command -v winpty &>/dev/null; then
+  SYS_CLI_PRE() {
+    if perl -e 'print -t STDOUT ? exit 0 : exit 1'; then
+      "winpty" "$@"
+    else
+      "winpty" -Xallow-non-tty -Xplain "$@"
     fi
-  fi
-}
+  }
+else
+  SYS_CLI_PRE() {
+    "$@"
+  }
+fi
+
 
 function ent-init-project-dir() {
   [ -f "$C_ENT_PRJ_FILE" ] && {
@@ -337,8 +341,9 @@ git_clone_repo() {
         exit 92
       fi
     )
-
-    if [ "$?" == 0 ]; then
+    local EC="$?"
+    
+    if [ "$EC" == 0 ]; then
       ! $ENTER && {
         cd - >/dev/null || $ERRC "Unable to return back to the original path"
       }
@@ -346,7 +351,7 @@ git_clone_repo() {
     else
       cd - >/dev/null && {
         rm -rf "./${FLD:?}" 2>/dev/null
-        return "$?"
+        return "$EC"
       }
     fi
   fi
@@ -573,7 +578,7 @@ _pkg_download_and_install() {
       chmod +x "$CMD_NAME"
       _log_i "$_tmp_name \"$_tmp_ver\" downloaded$COMMENT"
     else
-      _log_i "I already have this version of $_tmp_name"
+      _log_i "I already have the binary for this version of $_tmp_name"
     fi
     
     echo "$PWD/$CMD_NAME" > "$RESFILE"
@@ -593,5 +598,97 @@ _pkg_download_and_install() {
 _pkg_is_command_available() {
   local MANDATORY=false;[ "$1" = "-m" ] && { MANDATORY=true; shift; }
   command -v "$1" >/dev/null || { "$MANDATORY" && _FATAL "Unable to find required command \"$1\""; }
+  return 0
 }
-return 0
+
+_remove_broken_symlink() {
+  find -L . -iname "$1" -type l -exec rm -- {} +
+}
+
+_dist_directory() {
+  (
+    __cd "$ENTANDO_ENT_HOME/../../dist"
+    echo "$PWD"
+  ) || _SOE
+}
+
+# STOP ON ERROR
+#
+# Options:
+# --pipe N  checks the result of the part #N of a pipe expression, can be specified up to 3 times
+#
+# shellcheck disable=SC2120
+_SOE() {
+  local R="$?" PPS=("${PIPESTATUS[@]}")
+  [ "$1" == "--pipe" ] && { shift; R="${PPS[$1]}"; shift; }
+  [ "$R" = 0 ] && return 0
+  [ "$1" == "--res-file" ] && {
+    shift
+    [ -f "$1" ] && {
+      local tmp="$(mktemp)"
+      cp "$1" "$tmp"
+      echo ""
+      echo "> An ERROR was detected ($R)"
+      echo "> Full log available in this file: \"$tmp\""
+      echo "> Tail of the log:"
+      echo "~~~"
+      tail -n 10 "$1"
+      rm "$1"
+    } 1>&2
+    shift
+  }
+  exit "$R"
+}
+
+_print_npm_rc() {
+  echo "//$ENTANDO_NPM_REGISTRY_NO_SCHEMA/:_authToken=$ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS"
+  echo "@entando:registry=$ENTANDO_NPM_REGISTRY"
+}
+
+_ent-setup_home_env_variables() {
+  export ENTANDO_CLI_HOME_OVERRIDE="$(_dist_directory)/opt/home"
+  mkdir -p "$ENTANDO_CLI_HOME_OVERRIDE"
+
+  if [ "$SYS_OS_TYPE" = "windows" ]; then
+    export ENTANDO_CLI_USERPROFILE_OVERRIDE="$(win_convert_existing_posix_path_to_win_path "$HOME")"
+    [[ -z "$ENTANDO_CLI_ORIGINAL_USERPROFILE" ]] && export ENTANDO_CLI_ORIGINAL_USERPROFILE="$USERPROFILE"
+    [[ "$ENTANDO_OPT_OVERRIDE_HOME_VAR" = "true" ]] && export USERPROFILE="$ENTANDO_CLI_USERPROFILE_OVERRIDE"
+  else
+    [[ -z "$ENTANDO_CLI_ORIGINAL_HOME" ]] && export ENTANDO_CLI_ORIGINAL_HOME="$HOME"
+    [[ "$ENTANDO_OPT_OVERRIDE_HOME_VAR" = "true" ]] && export HOME="$ENTANDO_CLI_HOME_OVERRIDE"
+  fi
+}
+
+_ent.extension-modules.list() {
+  if [ -d "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ]; then
+  (
+    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
+    # shellcheck disable=SC2010
+    ls ent-* -p 2>/dev/null | grep -v / | sed 's/^ent-//'
+  )
+  fi
+}
+
+_ent.extension-module.is-present() {
+  local module="$1";shift;
+  local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/ent-${module}"
+  [ -f "$mod_script" ]
+}
+
+_ent.extension-module.execute() {
+  (
+    local module="$1";shift;
+    local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/ent-${module}"
+    [ ! -f "$mod_script" ] && _FATAL "unable to find script \"$mod_script\" of extension module \"$module\""
+    # shellcheck disable=SC2034
+    ENTANDO_CLI_MODULE_NAME="$module"
+    RUN() { _FATAL "unable to load extension module \"$module\" from script \"$mod_script\""; }
+    # shellcheck disable=SC1090
+    source "$mod_script"
+    RUN "$@"
+  )
+}
+
+_ent.sys.is-stdout-tty() {
+  perl -e 'print -t STDOUT ? exit 0 : exit 1;'
+}

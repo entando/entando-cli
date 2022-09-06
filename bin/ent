@@ -10,6 +10,7 @@
 
 # shellcheck disable=SC2034
 ENT_ORIGIN_WORKDIR="$PWD"
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -18,9 +19,15 @@ RUN() {
   reload_cfg "$C_ENT_PRJ_FILE"
   upgrade_project_file "$C_ENT_STATE_FILE" "$C_ENT_OLD_STATE_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
+  export ENTANDO_HELP_FUNCTIONS_TO_LIST="_ent-bundle _ent-bundler _ent-jhipster"
+  export ENTANDO_HELP_MODULE_NOT_TO_LIST="host node-cmd-wrapper"
+  export ENTANDO_CLI_DEFAULT_DOCKER_REGISTRY
+  export ENTANDO_CLI_DEFAULT_HUB
   
   while true; do
     cmd="$1"
+    export ENTANDO_CLI_COMMAND="$1"
+
     shift
     case "$cmd" in
       "version") #H: shows the version of the current ent
@@ -112,14 +119,20 @@ RUN() {
       "node"|"npm")
         _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
-      "jhipster"|"bundler")
-        _ent node-cmd-wrapper --banner "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
+      "jhipster"|"bundler"|"bundle")
+        _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "pkg") #H: helps dealing with the ent bin tools
         ent-pkg "$@"
         ;;
+      "crane"|"docker"|"jq"|"k9s")
+        ent-pkg run "$cmd" "$@"
+        ;;
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
+        ;;
+      "load-module")
+        ent-load-extension-module "$@"
         ;;
       "")
         # shellcheck disable=SC1091
@@ -131,13 +144,27 @@ RUN() {
       *)
         [ "$cmd" = "k" ] && cmd="kubectl"
 
+        local FOUND=false
+
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
-        [ ! -f "$mod_script" ] && {
-          _log_i "Unrecognized ent command \"$cmd\""
-          return 0
+
+        if [ -f "$mod_script" ]; then
+          FOUND=true
+          # shellcheck disable=SC1090
+          source "$mod_script" "$@"
+        else
+          local ext_mod_script="$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-${cmd}"
+          if _ent.extension-module.is-present "$cmd"; then
+            FOUND=true
+            _ent.extension-module.execute "${cmd}" "$@"
+          fi
+        fi
+
+        ! $FOUND && {
+          _log_e "Unrecognized ent command \"$cmd\""
+          return 33
         }
-        # shellcheck disable=SC1090
-        source "$mod_script" "$@"
+
         ;;
     esac
     index_of_arg "--AND" "$@"
@@ -147,6 +174,30 @@ RUN() {
 }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ent-load-extension-module() {
+  (
+    local REPO NAME BRANCH
+    args_or_ask -h "$HH" -a -n -- REPO '1/git_repo//%sp repository of the module' "$@"
+    args_or_ask -h "$HH" -n -- NAME '--name/strict_file_name//%sp name of the module' "$@"
+    args_or_ask -h "$HH" -n -- BRANCH '--branch/dn//%sp branch to use instead of the default one' "$@"
+    end_help_parsing
+
+    DIRNAME="$(basename "$REPO")"
+    [ -z "$NAME" ] && NAME="$DIRNAME"
+
+    local EXT_DIR="${ENTANDO_ENT_HOME}/bin/mod/ext"
+    mkdir -p "$EXT_DIR"
+    __cd "$EXT_DIR"
+    if [[ "$PWD" = *".entando"* ]]; then
+      [ -d "$DIRNAME" ] && rm -rf "$DIRNAME"
+      git clone --depth=1 ${BRANCH:+-b "$BRANCH"} --single-branch "$REPO"
+      cp -p -- "$PWD/$DIRNAME/mod/"* .
+    else
+      _FATAL "Extension module cleanup: Refusing to delete a non entando-cli dir"
+    fi
+  )
+}
+
 ent-pkg() {
   bgn_help_parsing ":ENT-PKG" "$@"
   CMD="$1"; shift;
@@ -188,7 +239,7 @@ ent-pkg() {
     "rm"|"delete")
       args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
       shift 1
-      _pkg_get_path RES "$PKG"
+      _pkg_get_path --strict RES "$PKG"
       ask "Are you sure?" "n" && rm "$RES"
       ;;
     "--help")
@@ -203,13 +254,13 @@ ent-pkg() {
 }
 
 which_ent() {
-  case "$1" in
-    version) echo "${ENTANDO_CLI_VERSION}"; exit;;
-    which) echo "${ENTANDO_CLI_VERSION}";;
-    home) echo "$ENTANDO_ENT_HOME"; exit;;
-  esac
-  
   (
+    case "$1" in
+      version) echo "${ENTANDO_CLI_VERSION}"; exit;;
+      which) echo "${ENTANDO_CLI_VERSION}";;
+      home) echo "$ENTANDO_ENT_HOME"; exit;;
+    esac
+  
     echo ""
     echo "---"
     echo ""
@@ -219,19 +270,18 @@ which_ent() {
     echo ""
     cd "$ENTANDO_ENT_HOME"
     echo "- DIR: $ENTANDO_ENT_HOME"
-    echo "- TAG: $(git describe --exact-match --tags 2>/dev/null)"
+    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
     echo ""
     
     # RELEASE INFO
-    
+    __cd "$(_dist_directory)"
     echo "## RELEASE:"
     echo ""
-    cd "dist"
-    echo "- DIR: $(cd ../../../dist;pwd)"
-    echo "- TAG: $(git describe --tags "$(git rev-list --tags --max-count=1)" 2>/dev/null)"
+    echo "- DIR: $PWD"
+    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
@@ -249,30 +299,36 @@ handle_config_command() {
     ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
     THIS_PROFILE=""
   }
-
-  args_or_ask -h "$HH" -f -d -- '--print///print the configuration (default)' "$@" && {
-    if [ -n "$THIS_PROFILE" ]; then
-      _log_i "Configuration of the profile \"$THIS_PROFILE\":" 1>&2
-    else
-      _log_i "Default configuration of the current ent installation:" 1>&2
-    fi
-    [ -f "$ENT_WORK_DIR/.cfg" ] || _FATAL -s "Configuration file \"$ENT_WORK_DIR/.cfg\" not found"
-    cat "$ENT_WORK_DIR/.cfg"
+  args_or_ask -h "$HH" -f -- '--global///selects the global ent configuration' "$@" && {
+    # shellcheck disable=SC2034
+    _pp ENTANDO_GLOBAL_CFG
+    CFG_FILE="$ENTANDO_GLOBAL_CFG"
+    ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
+    THIS_PROFILE=""
   }
-  
+
+  args_or_ask -h "$HH" -F ENTANDO_NO_OBFUSCATION '--no-obfuscation///disables the obfuscation in the effective configuration' "$@"
+  args_or_ask -h "$HH" -f -- '--effective///prints the effective configuration' "$@" && {
+    print-effective-config
+    return 0
+  }
+
   args_or_ask -h "$HH" -f -- '--edit///edits the configuration' "$@" && {
-    _edit "$ENT_WORK_DIR/.cfg"
+    _edit "$CFG_FILE"
+    return 0
   }
   
   args_or_ask -h "$HH" -f -- '--set///sets a specific configuration parameter' "$@" && {
     args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
     args_or_ask -a -n -h "$HH" "CFG_VALUE" "2///%sp the value to set" "$@"
     save_cfg_value "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
+    return 0
   }
   
   args_or_ask -h "$HH" -f -- '--del///deletes a specific configuration parameter' "$@" && {
     args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
     save_cfg_value "$CFG_KEY" "" "$CFG_FILE"
+    return 0
   }
   
   args_or_ask -h "$HH" -f -- '--get///gets a specific configuration parameter' "$@" && {
@@ -281,9 +337,18 @@ handle_config_command() {
       reload_cfg "$CFG_FILE"
       echo "${!CFG_KEY}"
     )
+    return 0
   }
-  
   end_help_parsing
+  
+  if [ -n "$THIS_PROFILE" ]; then
+    _log_i "Configuration of the profile \"$THIS_PROFILE\" ($CFG_FILE):" 1>&2
+  else
+    _log_i "Default configuration of the current entando distribution ($CFG_FILE):" 1>&2
+  fi
+  [ -f "$CFG_FILE" ] || _FATAL -s "Configuration file \"$CFG_FILE\" not found"
+  cat "$CFG_FILE"
+  print-secrets-leak-warning
 }
 
 cmplt() {
@@ -296,11 +361,25 @@ cmplt() {
     echo "$mod"
   done
 
+  [ -z "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ] && ENTANDO_ENT_EXTENSIONS_MODULES_PATH="$ENTANDO_ENT_HOME/bin/mod/ext"
+  if [ -d "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ]; then
+  (
+    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
+    for file in ent-*; do
+      [ -f "$file" ] && {
+        mod="${file//ent-/}"
+        echo "$mod"
+      }
+    done
+  )
+  fi
+
   local topcmd+=(
     "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
       "kubectl-cmd" "reset-kubectl-mode" "status"
       "attach-kubeconfig" "detach-kubeconfig" "namespace" "appname" "pkg"
       "attach-kubectx" "detach-kubectx" "list-kubectx"
+      "bundle" "bundler" "jhipster"
   )
 
   for tc in "${topcmd[@]}"; do
@@ -321,6 +400,7 @@ _source_ent() {
 # ######################################################################################################################
 # ######################################################################################################################
 # ######################################################################################################################
+# shellcheck disable=SC2296
 
 if (
  [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
@@ -348,6 +428,7 @@ if (
       ;;
     "help")
       shift
+      ENTANDO_HELP_FUNCTIONS_TO_LIST="_ent-bundle _ent-bundler _ent-jhipster"
       "$ENTANDO_ENT_HOME/bin/mod/ent-help" "$@"
       ;;
     *)

@@ -83,6 +83,8 @@ save_cfg_value() {
 # $1: [cfg-file]    optional cfg file name; defaults to the project config file
 #
 reload_cfg() {
+  local PRINT=false;[ "$1" = "--print" ] && { PRINT="true"; shift; }
+  local PRE="";[ "$1" = "--pre" ] && { PRE="$2"; shift 2; }
   local config_file=${1:-$CFG_FILE}
   [ ! -f "$config_file" ] && return 0
   local sanitized=""
@@ -94,7 +96,11 @@ reload_cfg() {
       printf -v sanitized "%q" "$value"
       sanitized="${sanitized/\\r/}"
       sanitized="${sanitized/\\n/}"
-      eval "$var"="$sanitized"
+      if "$PRINT"; then
+        echo "${PRE}${var}=${sanitized}"
+      else
+        eval "${PRE}${var}=${sanitized}"
+      fi
     else
       _log_e "Skipped illegal var name $var"
     fi
@@ -402,8 +408,10 @@ select_one() {
   local SELECTED=""
   local ALL=false
   local AUTO_SET_IF_SINGLE=false
+  local PREVIEW_CMD=""
   [ "$1" = "-s" ] && AUTO_SET_IF_SINGLE=true && shift
   [ "$1" = "-a" ] && ALL=true && shift
+  [ "$1" = "-p" ] && { shift; PREVIEW_CMD="$1" && shift; }
   P="$1"
   shift
   select_one_res=""
@@ -415,28 +423,42 @@ select_one() {
     return 0
   fi
 
-  for item in "$@"; do
-    echo "$i) $item"
-    i=$((i + 1))
-  done
-  ${ALL:-false} && echo "a) all"
-  echo "q) to quit"
+  if _flag_status -s FZF_SELECT; then
+    # shellcheck disable=SC2034
+    {
+      select_one_res_alt="$(
+        printf '%s\n' "$@" | _pkg_fzf --height=20 ${P:+--header $'\n'"|| $P ||"} --history="./tmpf" \
+        ${PREVIEW_CMD:+--preview="$PREVIEW_CMD"}
+      )"
+      [ "$?" = "130" ] && EXIT_UE "User interrupted"
+      select_one_res="$(_index_in_array "$select_one_res_alt" "$@")"
+      [ -n "$select_one_res" ] && ((select_one_res++))
+    }
+  else
+    for item in "$@"; do
+      echo "$i) $item"
+      i=$((i + 1))
+    done
+    ${ALL:-false} && echo "a) all"
+    echo "q) to quit"
 
-  while true; do
-    printf "%s" "$P"
-    set_or_ask "SELECTED" "" ""
-    [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
-    [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
-    [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
-    [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
-  done
+    while true; do
+      printf "%s" "$P"
+      set_or_ask "SELECTED" "" ""
+      [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
+      [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
+      [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
+      [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
+    done
 
-  # shellcheck disable=SC2034
-  {
-    select_one_res="$SELECTED"
-    select_one_res_alt="${!SELECTED}"
-  }
+    # shellcheck disable=SC2034
+    {
+      select_one_res="$SELECTED"
+      select_one_res_alt="${!SELECTED}"
+    }
+  fi
 }
+
 
 # Sets a variable according with the value found in a variable definition and arguments
 # - variable name
@@ -564,7 +586,7 @@ args_or_ask() {
     val_name="Argument #$((val_name))"
 
     if [ $found_at -ne 255 ]; then
-      val_from_args="$(echo "${!found_at}" | cut -d'=' -f 2)"
+      val_from_args="${!found_at}"
     else
       val_from_args=""
     fi
@@ -933,69 +955,36 @@ http-get-working-url() {
 # $4: var for the application builder ingress
 #
 app-get-main-ingresses() {
-  if check_ver "$ENTANDO_APPVER" "6.3.0" "" "string"; then
-    app-get-main-ingresses-by-version "6.3.0" "$@"
-  elif check_ver "$ENTANDO_APPVER" "6.3.>=2"  "" "string"; then
-    app-get-main-ingresses-by-version "6.3.2" "$@"
-  else
-    local TMP1 TMP2 TMP3 TMP4
-    app-get-main-ingresses-by-version "6.3.2" TMP1 TMP2 TMP3 TMP4
-    _set_var "$1" "$TMP1"
-    if [ -z "$TMP2" ] ||[ -z "$TMP3" ]; then
-      # Before 6.3.2 the ingresses are marked with the same serviceName
-      # So all the values end up in TMP1 and TMP3 and TMP4 are empty
-      # shellcheck disable=SC2034
-      ENTANDO_LATEST_DETECTED_APPVER="6.3.0"
-      app-get-main-ingresses-by-version "6.3.0" "$@"
-    else
-      # From 6.3.2 instead they are properly marked
-      # shellcheck disable=SC2034
-      ENTANDO_LATEST_DETECTED_APPVER="6.3.2"
-      _set_var "$2" "$TMP2"
-      _set_var "$3" "$TMP3"
-      _set_var "$4" "$TMP4"
-    fi
-  fi
-}
-
-app-get-main-ingresses-by-version() {
-  local version="$1"
-  local res_var_scheme="$2"
-  local res_var_svc="$3"
-  local res_var_ecr="$4"
-  local res_var_apb="$5"
+  local res_var_scheme="$1"
+  local res_var_svc="$2"
+  local res_var_ecr="$3"
+  local res_var_apb="$4"
   shift
 
-  local JP='{range .items[?(@.metadata.name=="'"$ENTANDO_APPNAME-ingress"'")]}'
-
-  if [ "$version" = "6.3.0" ]; then
-    JP+='{"?"}{"\n"}'
-    JP+='{.spec.rules[0].host}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[0].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[1].path}{"\n"}'
-    JP+='{.spec.rules[0].http.paths[2].path}{"\n"}'
-  elif [ "$version" = "6.3.2" ]; then
-    JP+='{"-"}{.spec.tls}{"\n"}'
-    JP+='{.spec.rules[0].host}{"\n"}'
-    # property detection: serviceName
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-server-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.serviceName=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
-    # property detection: service.name
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-server-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-cm-service")].path}{"\n"}'
-    JP+='-{.spec.rules[0].http.paths[?(@.backend.service.name=="'"$ENTANDO_APPNAME"'-ab-service")].path}{"\n"}'
-  else
-    _FATAL "Unsupported version \"$version\""
-  fi
+  local OUT=()
+  local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
   
-  JP+='{end}'
-
-  local OUT
-  stdin_to_arr $'\n\r' OUT < <(_kubectl get ingress -o jsonpath="$JP" 2> /dev/null)
+  #~~~
+  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls // \"-\", .rules[0].host"
+  stdin_to_arr $'\n\r' OUT < <(_jq "$JQ" -r <<< "$JSON")
+  
+  #~~~
+  # property detection: serviceName
+  local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.serviceName=="
+  local E=").path"
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  
+  #~~~
+  # property detection: service.name
+  local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.service.name=="
+  local E=").path"
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-cm-service")${E}" -r 2>/dev/null <<< "$JSON")")
+  OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-ab-service")${E}" -r 2>/dev/null <<< "$JSON")")
   
   if [ "${OUT[0]}" = "-" ]; then
     _set_var "$res_var_scheme" "http"
@@ -1010,16 +999,16 @@ app-get-main-ingresses-by-version() {
   _set_var "$res_var_ecr" ""
   _set_var "$res_var_apb" ""
   
-  [ "${OUT[2]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]:1}"
-  [ "${OUT[3]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[3]:1}"
-  [ "${OUT[6]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[6]:1}"
-  [ "${OUT[7]}" != "-" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[7]:1}"
+  [ "${OUT[2]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[2]:1}"
+  [ "${OUT[3]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[3]:1}"
+  [ "${OUT[6]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[6]:1}"
+  [ "${OUT[7]}" != "" ] && path-concat -t "$res_var_svc" "${base_url}" "${OUT[7]:1}"
   
-  [ "${OUT[4]}" != "-" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[4]:1}"
-  [ "${OUT[8]}" != "-" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[8]:1}"
+  [ "${OUT[4]}" != "" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[4]:1}"
+  [ "${OUT[8]}" != "" ] && path-concat -t "$res_var_ecr" "${base_url}" "${OUT[8]:1}"
   
-  [ "${OUT[5]}" != "-" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[5]:1}"
-  [ "${OUT[9]}" != "-" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[9]:1}"
+  [ "${OUT[5]}" != "" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[5]:1}"
+  [ "${OUT[9]}" != "" ] && path-concat -t "$res_var_apb" "${base_url}" "${OUT[9]:1}"
 }
 
 # Concatenates two path parts
@@ -1147,9 +1136,10 @@ keycloak-get-token() {
 # 1) In order to avoid interferences between ttys 
 # 2) The qualifiers allows to prevent from reusing the same environment variables on forked ttys
 #
+# shellcheck disable=SC2296
 handle_forced_profile() {
-  local pv="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
-  local phv="ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local pv="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local phv="ENTANDO_ENT_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   if [[ "$1" =~ --profile=.* ]]; then
     args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
@@ -1218,9 +1208,9 @@ __exist() {
 # Removes a directory only if it's marked a disposable
 #
 __rm_disdir() {
-  [ ! -d "$1" ] && _FATAL -S 1 "Not found or not a dir (\"$1\") "
+  [ ! -d "$1" ] && _FATAL -S 1 "Not found or not a dir (\"$1\") " 1>&2
   if [ -f "$1/.entando-disdir" ]; then
-    rm -rf "$1" || _FATAL -S 1 "Unable to delete the dir (\"$1\") "
+    rm -rf "$1" || _FATAL -S 1 "Unable to delete the dir (\"$1\") " 1>&2
   else
     _FATAL -S 1 "I won't delete a directory (\"$1\") that is not marked as disposable" 1>&2
   fi
@@ -1272,6 +1262,20 @@ _pkg_get() {
         "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
         "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
       ;;
+    crane)
+      var="CRANE_PATH";ver="${ver:-v0.9.0}";url="https://github.com/google/go-containerregistry/releases/download/$ver/"
+      _pkg_download_and_install "$var" "crane" "$ver" \
+        "$url/go-containerregistry_Linux_x86_64.tar.gz" "crane" "" \
+        "$url/go-containerregistry_Darwin_x86_64.tar.gz" "crane" "" \
+        "$url/go-containerregistry_Windows_x86_64.tar.gz" "crane.exe" "";
+      ;;
+    fzf)
+      var="FZF_PATH";ver="${ver:-0.30.0}";url="https://github.com/junegunn/fzf/releases/download/$ver"
+      _pkg_download_and_install "$var" "fzf" "$ver" \
+        "$url/fzf-$ver-linux_amd64.tar.gz" "fzf" "" \
+        "$url/fzf-$ver-darwin_amd64.zip" "fzf" "" \
+        "$url/fzf-$ver-windows_amd64.zip" "fzf.exe" "";
+      ;;
     *)
       _FATAL -s "Unknown package \"$pkg\""
       ;;
@@ -1290,34 +1294,44 @@ _jq() {
   _pkg_jq "$@"
 }
 
+_crane() {
+  local CMD; _pkg_get_path --strict CMD "crane"
+  "$CMD" "$@"
+}
+
 _pkg_jq() {
-  local CMD; _pkg_get_path CMD "jq"
+  local CMD; _pkg_get_path --strict CMD "jq"
   "$CMD" "$@"
 }
 
 _pkg_ok() {
-  local CMD; _pkg_get_path CMD "k9s"
+  local CMD; _pkg_get_path --strict CMD "$1"
   test -n "$CMD"
 }
 
 _pkg_k9s() {
-  local CMD; _pkg_get_path CMD "k9s"
+  local CMD; _pkg_get_path --strict CMD "k9s"
   if [ -z "$1" ]; then
     if _nn DESIGNATED_KUBECTX; then
-      "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
+      SYS_CLI_PRE "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
     elif _nn DESIGNATED_KUBECONFIG; then
-      "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
+      SYS_CLI_PRE "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
     else
-      "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
+      SYS_CLI_PRE "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
     fi
   else
-    "$CMD" "$@"
+    SYS_CLI_PRE "$CMD" "$@"
   fi
+}
+
+_pkg_fzf() {
+  local CMD; _pkg_get_path CMD "fzf"
+  "$CMD" "$@"
 }
 
 _pkg_get_path() {
   local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
-  local _tmp_PKGPATH="${2^^}_PATH"
+  local _tmp_PKGPATH="$(_upper "${2}_PATH")"
   _tmp_PKGPATH="${!_tmp_PKGPATH}"
   if command -v "$_tmp_PKGPATH" &> /dev/null; then
     _set_or_print "$1" "$_tmp_PKGPATH"
@@ -1339,3 +1353,240 @@ _column() {
   fi
 }
 
+_upper() {
+  echo "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+_url_remove_last_subpath() {
+  local url="$1"
+  if [[ "$url" = */ ]]; then
+    local len="${#url}"
+    url="${url:0:((len-1))}"
+  fi
+  echo "${url%/*}"
+}
+
+_str_contains() {
+  [[ "$1" = *"$2"* ]]
+}
+
+
+# prints a quoted version of the give value
+#
+# Params
+# $1 the string to manipulate
+#
+# Options
+# -s: simple mode; only escapes the string without surrounding it with the quotes
+#
+_str_quote() {
+  local _sq_simple_=false;[ "$1" = "-s" ] && { _sq_simple_=true; shift; }
+  local tmp="$1"
+  tmp="${tmp//\\/\\\\}"
+  tmp="${tmp//\"/\\\"}"
+  tmp="${tmp//$'\n'/"\$'\\n'"}"
+  if $_sq_simple_; then
+    echo "$tmp"
+  else
+    echo "\"$tmp\""
+  fi
+}
+
+_with_spinner() {
+  local OUTFILE="";[ "$1" = "--out" ] && { OUTFILE="$2"; shift 2; }
+
+  (
+    _spin "$1" &
+    PID="$!"
+    # shellcheck disable=SC2064
+    trap "kill -- $PID &>/dev/null" SIGINT SIGTERM EXIT SIGQUIT
+    # shellcheck disable=SC2030
+    while read -r line;do
+      [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
+    done
+    echo -ne $'\r'"$(print_fullsize_hbar " ")"$'\r'
+  )
+}
+
+# Intercepts the stdin and instead prints an summary
+#
+_spin() {
+  local count=0
+  local started_at="$SECONDS"
+  local TITLE="$1"
+  [ -n "$TITLE" ] && TITLE="$TITLE "
+  
+  SPC="$(print_fullsize_hbar " ")"
+  
+  while true; do
+    # shellcheck disable=SC2031
+    [[ "${line:0:20}" = *" ERROR "* ]] && ((_stat_ne++))
+    elapsed="$((SECONDS - started_at))"
+    
+    local ch    
+    case "$((count%8))" in
+      0) ch="#    ";;
+      1) ch=" #   ";;
+      2) ch="  #  ";;
+      3) ch="   # ";;
+      4) ch="    #";;
+      5) ch="   # ";;
+      6) ch="  #  ";;
+      7) ch=" #   ";;
+    esac
+    
+    echo -ne "$SPC"$'\r'
+    printf "${TITLE}|%s| (%ds)" "$ch" "$elapsed"
+    
+    sleep 0.2
+    ((count++))
+  done
+  echo -ne $'\r'"$SPC"$'\r'
+}
+
+# Prints general information about the currently activated ent instance
+#
+print_ent_general_status() {
+  print_hr
+  print_current_profile_info -v
+  setup_kubectl
+  kubectl_update_once_options ""
+  #print_hr
+  #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
+  #echo " - The designated kubeconfig is: ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
+  echo " - KUBECONFIG:        ${DESIGNATED_KUBECONFIG:-<ENVIRONMENT>}"
+  if [ -z "$DESIGNATED_KUBECONFIG" ]; then
+    echo " - KUBECONFIG (ENV):  ${KUBECONFIG:-<DEFAULT>}"
+  fi
+  case "$ENTANDO_KUBECTL_MODE" in
+  "COMMAND")
+    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL:-<ERR-NO-FOUND>}"
+    ;;
+  "CONFIG")
+    echo " - KUBECTL CMD:       <DEFAULT>"
+    ;;
+  "AUTODETECT")
+    echo " - KUBECTL CMD:       ${ENTANDO_KUBECTL_AUTO_DETECTED:-<ERR-NO-FOUND>} (autodetected)"
+    ;;
+  *)
+    FATAL "Unknown kubectl mode"
+    ;;
+  esac
+  echo " - KUBECTL MODE:      $ENTANDO_KUBECTL_MODE"
+  print_hr
+  local TTY_ENV
+  TTY_ENV=$(
+    env | grep "ENTANDO_" | grep "_0e7e8d89_$ENTANDO_TTY_QUALIFIER" \
+    | sed "s/_0e7e8d89_$ENTANDO_TTY_QUALIFIER//" \
+    | sed "s/ENTANDO_FORCE_//" \
+    | sed "s/_/ /g" \
+    | sed "s/=/: /" \
+    | xargs -I {} echo " - TTY SESSION {}"
+  )
+  if [ -n "$TTY_ENV" ]; then
+    _log_i "TTY environment ($ENTANDO_DEV_TTY):"
+    echo -n "$TTY_ENV"
+    echo ""
+    print_hr
+  fi
+}
+
+print_fullsize_hbar() {
+  local CH="~"; [ -n "$1" ] && { CH="$1"; shift; }
+  local SEP="$CH$CH$CH$CH$CH$CH$CH$CH$CH$CH"
+  SEP="$SEP$SEP$SEP$SEP$SEP$SEP$SEP$SEP"
+  SEP="$SEP$SEP$SEP$SEP"
+  local W=""
+  if perl -e 'print -t STDOUT ? exit 0 : exit 1'; then
+    W="$(tput cols)"
+  fi
+  if [ "${W:-0}" -gt 1 ]; then
+    echo "${SEP:0:$W}"
+  else
+    echo "${SEP:0:40}"
+  fi
+}
+
+_index_in_array() {
+  local i=0 f="$1"; shift
+  for e in "$@"; do
+    if [ "$e" == "$f" ]; then
+      echo "$i"
+    fi
+    ((i++))
+  done
+  echo ""
+}
+
+_flag_status() {
+  local temporary=false; [ "$1" = "-t" ] && { temporary=true; shift; }
+  local silent=false; [ "$1" = "-s" ] && { silent=true; shift; }
+  local flag_name="$1"
+  local new_flag_status="$2"
+  local flag_var="FLAG_$(_upper "$flag_name")"
+
+  if [ -n "$new_flag_status" ]; then
+    _set_var "$flag_var" "$new_flag_status"
+    ! $temporary && save_cfg_value "$flag_var" "$new_flag_status"
+    return 0
+  else
+    if [ "${!flag_var}" = "true" ]; then
+      ! $silent && echo "true"
+      return 0
+    else
+      ! $silent && echo "false"
+      return 1
+    fi
+  fi
+}
+
+print-effective-config() {
+  local ALL="$(
+    {
+      reload_cfg --print --pre 'PROF:' "$CFG_FILE"
+      reload_cfg --print --pre 'DFLT:' "$ENT_DEFAULT_CFG_FILE"
+      reload_cfg --print --pre 'GLOB:' "$ENTANDO_GLOBAL_CFG"
+      for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
+    }
+  )"
+
+  _log_i "Profile config location: \"$CFG_FILE\"" 1>&2
+  _log_i "Default config location: \"$ENT_DEFAULT_CFG_FILE\"" 1>&2
+  _log_i "Global config location:  \"$ENTANDO_GLOBAL_CFG\"" 1>&2
+  echo "" 1>&2
+
+  # shellcheck disable=SC2001
+  KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
+  
+  (
+    reload_cfg "$ENT_DEFAULT_CFG_FILE"
+    reload_cfg "$CFG_FILE"
+    for var in $KEYS; do
+      IFS=':' read -r tag var <<<"$var"
+      val="${!var}"
+      
+      if [[ "$var" != *"TOKEN"* || "$ENTANDO_NO_OBFUSCATION" = "true" ]]; then
+        echo "$tag> $var=$val"
+      else
+        echo -e "$tag> $var=\033[101m**OBFUSCATED**\033[0;37m"
+      fi
+    done
+  )
+  
+  sleep 0.1
+  
+  print-secrets-leak-warning
+  _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
+  echo "" 1>&2
+}
+
+print-secrets-leak-warning() {
+  {
+    echo ""
+    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+    echo -e "\033[101m▒▒ /!\ W A R N I N G /!\                                          ▒▒\033[0;37m"
+    echo -e "\033[101m▒▒ This output may contain secrets, think twice before sharing it ▒▒\033[0;37m"
+    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+    echo ""
+  } 1>&2
+}

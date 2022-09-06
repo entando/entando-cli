@@ -48,7 +48,7 @@ RUN() {
     [ -n "$HH" ] && exit 0
 
     if [ -z "$COMMAND_FILE" ]; then
-      local V="ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER"
+      local V="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER"
       [ -n "${!V}" ] && {
         local MSG="This SHELL SESSION is currently bound to a specific profile, "
         MSG+="in order to use another profile during this session you need to source-run this command"
@@ -171,8 +171,8 @@ use_profile() {
     else
       # shellcheck disable=SC2016
       {
-        echo "export ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"-\""
-        echo "export ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"-\""
+        echo "export ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"-\""
+        echo "export ENTANDO_ENT_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"-\""
         echo 'if [ "$1" = "--full" ]; then'
         echo "  DESIGNATED_PROFILE=\"\""
         echo "  DESIGNATED_PROFILE_HOME=\"\""
@@ -234,8 +234,8 @@ _activate_command_in_source_mode() {
   # shellcheck disable=SC2016
   {
     local profile_name="$1" profile_dir="$2"
-    echo "export ENTANDO_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${profile_name}\""
-    echo "export ENTANDO_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${profile_dir}\""
+    echo "export ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${profile_name}\""
+    echo "export ENTANDO_ENT_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER=\"${profile_dir}\""
     echo 'if [ "$1" = "--full" ]; then'
     echo "  DESIGNATED_PROFILE=\"${profile_name}\""
     echo "  DESIGNATED_PROFILE_HOME=\"${profile_dir}\""
@@ -448,8 +448,12 @@ list_profiles() {
 }
 
 profile_link_context() {
-  local kube_context use_def
-  if args_or_ask -h "$HH" -F -n -- use_def '--default///selects the default kubectx' "$@"; then
+  local kube_context use_def=false
+  if args_or_ask -h "$HH" -f -- '--current///attaches the current kubectx' "$@"; then
+    kube_context="$(kubectl config current-context)"
+    _nn kube_context || _FATAL "Unable to extract the currently selected context"
+    _log_i "Attaching context \"$kube_context\""
+  elif args_or_ask -h "$HH" -F -n -- use_def '--default///selects the default kubectx' "$@"; then
     args_or_ask -n -a -- kube_context '1///' "$@" && {
       FATAL "It's not allowed to provide \"--default\" and an explicit kube context simultaneously"
     }

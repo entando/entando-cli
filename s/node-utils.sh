@@ -80,6 +80,8 @@ node.activate_environment() {
   # shellcheck disable=SC2154
   export PATH="$PATH:${sENT_NODE_DIR}bin"
   
+  _ent-npm-init-rc
+  
   case "$SYS_OS_TYPE" in
     windows)
       ENT_NODE_CMDEXT=".cmd"
@@ -117,35 +119,65 @@ _ent-node() {
 }
 
 _ent-npm() {
-  activate_shell_login_environment
-  node.activate_environment
-  
-  local GLOBAL=false
-  args_or_ask -p -F GLOBAL "--global" "$@"
-  args_or_ask -p -F GLOBAL "-g" "$@"
-  if $GLOBAL; then
-    "$ENT_NPM_BIN_NATIVE" --prefix "$ENT_NODE_DIR" "$@"
-  else
-    "$ENT_NPM_BIN_NATIVE" "$@"
+  require_develop_checked
+  _ent-npm_direct "$@"
+}
+
+_ent-npm-init-rc() {
+  if [ -d "$ENT_NODE_DIR" ]; then
+  (
+    _ent-setup_home_env_variables
+    D="$ENT_NODE_DIR/etc/"
+    F="${D}npmrc"
+    mkdir -p "$D"
+    echo -n "" > "$F"
+    chmod 600 "$F"
+    _print_npm_rc >> "$F"
+  )
   fi
+}
+
+_ent-npm_direct() {
+  (
+    _ent-setup_home_env_variables
+    activate_shell_login_environment
+    node.activate_environment
+
+    local GLOBAL=false
+    args_or_ask -p -F GLOBAL "--global" "$@"
+    args_or_ask -p -F GLOBAL "-g" "$@"
+    if $GLOBAL; then
+      "$ENT_NPM_BIN_NATIVE" --prefix "$ENT_NODE_DIR" "$@"
+    else
+      "$ENT_NPM_BIN_NATIVE" "$@"
+    fi
+  )
 }
 
 # Runs the ent private installation of jhipster
 _ent-jhipster() {
+  if [ "$1" == "--ent-help" ]; then
+    echo "Wrapper of the ent-internal installation of jhipster"
+    return 0
+  fi
+  
   node.activate_environment
   if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
     _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
-  else
-    require_develop_checked
-    [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
-      ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
-        ent-init-project-dir
-      }
-    }
-
-    # RUN
-    _mp_node_exec jhipster "$@"
+    return 0
   fi
+  
+  print_entando_banner
+  
+  require_develop_checked
+  [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
+    ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
+      ent-init-project-dir
+    }
+  }
+
+  # RUN
+  _mp_node_exec jhipster "$@"
 }
 
 # Executes a node command in any of the sypported platforms
@@ -157,32 +189,138 @@ _mp_node_exec() {
 
 # Runs the ent private installation of the entando bundle tool
 _ent-bundler() {
+  if [ "$1" == "--ent-help" ]; then
+    echo "Export of resources from a running instance and generation old-generation bundle deployment CRs"
+    return 0
+  fi
+  if [ "$1" == "--help" ]; then
+    _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLER_BIN_NAME" --help
+    return 0
+  fi
+  
+  print_entando_banner
+  
+  _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLER_BIN_NAME" "$@"
+}
+
+# Runs the ent private installation of the entando-bundle-cli tool
+_ent-bundle() {
+  case "$1" in
+    "--ent-help") echo "Management of new generation entando bundles";return 0;;
+    "init") print_entando_banner;;
+    "deploy") _ent-bundle-deploy "$@"; return 0;;
+    "install") _ent-bundle-install "$@";return 0;;
+    "cr") shift;_ent-entando-bundle-cli generate-cr "$@";return 0;;
+  esac
+
+  _ent-entando-bundle-cli "$@"
+  
+  if [[ "$1" = "--help" || -z "$1" ]]; then
+    echo "ADDITIONAL COMMANDS"
+    echo "  deploy       Generates the CR and deploys it to the currently attached EntandoApp"
+    echo "  install      Installs into currently attached EntandoApp the bundle in the current directory"
+    echo ""
+  fi
+}
+
+_ent-bundle-deploy() {
+  ecr.docker.generate-cr \
+  | _kubectl apply -f -
+}
+
+_ent-bundle-install() {
+  local VERSION_TO_INSTALL CONFLICT_STRATEGY
+  
+  HH="$(parse_help_option "$@")"
+  bgn_help_parsing ":bundle-cli-install" "$@"
+  args_or_ask -h "$HH" -n VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
+  args_or_ask -h "$HH" -n CONFLICT_STRATEGY \
+    '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+  end_help_parsing
+
+  require_develop_checked
+  
+  local bundle_info="$(ent bundle info)"
+  
+  ENT_PRJ_NAME="$(
+    ent bundle cr | grep "^metadata:" -A 100  | grep "\sname:" | head -n 1 | sed 's/.*:\s*//' | xargs
+  )"
+  
+  _nn ENT_PRJ_NAME || _FATAL "Unable to determine the bundle name"
+
+  if [ -z "$VERSION_TO_INSTALL" ]; then
+    VERSION_TO_INSTALL="$(
+      grep -i "Version:" <<< "$bundle_info" | head -n 1 | sed 's/.*:\s*//' | xargs
+    )"
+  fi
+  
+  ecr.install-bundle "$ENT_PRJ_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
+}
+
+_ent-entando-bundle-cli() {
+  if [ "$1" == "api" ]; then
+    ecr-prepare-action INGRESS_URL TOKEN
+    export ENTANDO_CLI_ECR_TOKEN="$TOKEN"
+    export ENTANDO_CLI_ECR_URL="$INGRESS_URL"
+    export ENTANDO_CLI_BASE_URL="$(_url_remove_last_subpath "$INGRESS_URL")"
+  fi
+  export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
+  export ENTANDO_CLI_DOCKER_CONFIG_PATH
+  export ENTANDO_BUNDLE_CLI_BIN_NAME
+
+  ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
+    _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
+}
+
+# Runs the ent private installation of an internal npm-based entando tool
+_ent-run-internal-npm-tool() {
+  local TOOL_NAME="$1"; shift
+  
   require_develop_checked
   node.activate_environment
 
+  local BIN_PATH
+  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
+
   if [ "$1" == "--ent-get-version" ]; then
-    if $OS_WIN; then
-      "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" --version
-    else
-      "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" --version
-    fi
+    "$BIN_PATH" --version
   else
     # RUN
     if $OS_WIN; then
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        SYS_CLI_PRE "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+        SYS_CLI_PRE "$BIN_PATH" "$@"
       else
-        SYS_CLI_PRE -Xallow-non-tty -Xplain "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME.cmd" "$@"
+        SYS_CLI_PRE -Xallow-non-tty -Xplain "$BIN_PATH" "$@"
       fi
     else
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
-        "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" "$@"
+        "$BIN_PATH" "$@"
       else
-        "$ENT_NODE_BINS/$C_ENTANDO_BUNDLE_BIN_NAME" "$@" | _strip_colors
+        "$BIN_PATH" "$@" | _strip_colors
       fi
     fi
   fi
 }
+
+_ent-npm.get-internal-tool-path() {
+  if $OS_WIN; then
+    _set_var "$1" "$ENT_NODE_BINS/${2}.cmd"
+  else
+    _set_var "$1" "$ENT_NODE_BINS/${2}" "$@"
+  fi
+}
+
+_ent-npm.delete-internal-tool-bin() {
+  local BIN_PATH
+  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
+  if [[ "$BIN_PATH" = *"/.entando/"* ]]; then
+    rm "$BIN_PATH"
+  else
+    _log_e "Error determining the internal tool path while trying delete it"
+  fi
+}
+
+
 
 node.command_wrapper() {
   CMD="$1"

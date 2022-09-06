@@ -81,7 +81,7 @@ ecr-bundle-action() {
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $token" \
         -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
+        ${raw_data:+--data "$raw_data"} \
         1> "$STATUS" 2> "$ERR"
       
       # shellcheck disable=SC2155 disable=SC2034
@@ -101,7 +101,7 @@ ecr-bundle-action() {
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $token" \
         -H "Origin: ${ingress}" \
-        ${raw_data:+--data-raw "$raw_data"} \
+        ${raw_data:+--data "$raw_data"} \
         2> /dev/null
     )
   fi
@@ -196,6 +196,7 @@ ecr-watch-installation-result() {
 # $4: the thumbnail url (alternative to $3)
 #
 ecr.generate-custom-resource() {
+  local PLAIN="false"; [ "$1" = "--plain" ] && { PLAIN=true; shift; }
   local NAME="$1"
   local REPOSITORY="$2"
   local THUMBNAIL_FILE="$3"
@@ -212,12 +213,36 @@ ecr.generate-custom-resource() {
     OPT="--thumbnail-url"
     OPT_VALUE="$THUMBNAIL_URL"
   fi
+  
+  if [[ "$REPOSITORY" = "docker://"* ]]; then
+    if "$PLAIN"; then
+      ecr.docker.generate-cr "${REPOSITORY:9}"
+    else
+      _ent-bundle generate-cr \
+        --image "${REPOSITORY:9}"
+    fi
+  else
+    _ent-bundler from-git \
+      --dry-run \
+      ${NAME:+--name "$NAME"} \
+      --repository "$REPOSITORY" \
+      $OPT "$OPT_VALUE"
+  fi
+}
 
-  _ent-bundler from-git \
-    --dry-run \
-    ${NAME:+--name "$NAME"} \
-    --repository "$REPOSITORY" \
-    $OPT "$OPT_VALUE"
+ecr.docker.generate-cr() {
+  (
+    REPO="$1"
+    tmp="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm \"$tmp\"" exit
+    
+    _ent-bundle generate-cr \
+      ${REPO:+--image "$REPO"} \
+      -o "$tmp" &>/dev/null
+      
+    cat "$tmp"
+  )
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -250,7 +275,7 @@ ecr.calculate-bundle-id() {
 #
 # if $2 is not provided it is taken from the repository
 #
-ecr.calculate-plugin-id() {
+ecr.calculate-plugin-code() {
   local _tmp_RESVAR="$1"
   local PLUGIN_NAME="$2"
   local BUNDLE_ID="$3"
@@ -265,7 +290,7 @@ ecr.calculate-plugin-id() {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-_ecr_determine_bundle_plugin_name() {
+_ecr_determine_git_bundle_plugin_name() {
     local _tmp_RES="$(
     local BUNDLE_PUB_REPO="$2" BUNDLE_VERSION="$3"
 
@@ -345,13 +370,13 @@ ecr.install-bundle() {
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
   local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
-
+  
   if [ -n "$CONFLICT_STRATEGY" ]; then
     assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
     DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
   fi
   DATA+="}"
-
+  
   ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
     return $?
   _log_i "Installation of bundle \"$BUNDLE_NAME\" started"
