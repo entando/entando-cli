@@ -1404,7 +1404,7 @@ _with_spinner() {
     while read -r line;do
       [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
     done
-    echo -ne $'\r'"$(print_fullsize_hbar " ")"$'\r'
+    echo -ne $'\r'"$(print_fullsize_hbar ' ')"$'\r'
   )
 }
 
@@ -1416,7 +1416,7 @@ _spin() {
   local TITLE="$1"
   [ -n "$TITLE" ] && TITLE="$TITLE "
   
-  SPC="$(print_fullsize_hbar " ")"
+  SPC="$(print_fullsize_hbar ' ')"
   
   while true; do
     # shellcheck disable=SC2031
