@@ -196,7 +196,6 @@ ecr-watch-installation-result() {
 # $4: the thumbnail url (alternative to $3)
 #
 ecr.generate-custom-resource() {
-  local PLAIN="false"; [ "$1" = "--plain" ] && { PLAIN=true; shift; }
   local NAME="$1"
   local REPOSITORY="$2"
   local THUMBNAIL_FILE="$3"
@@ -215,12 +214,7 @@ ecr.generate-custom-resource() {
   fi
   
   if [[ "$REPOSITORY" = "docker://"* ]]; then
-    if "$PLAIN"; then
-      ecr.docker.generate-cr "${REPOSITORY:9}"
-    else
-      _ent-bundle generate-cr \
-        --image "${REPOSITORY:9}"
-    fi
+    ecr.docker.generate-cr "${REPOSITORY:9}"
   else
     _ent-bundler from-git \
       --dry-run \
@@ -238,8 +232,8 @@ ecr.docker.generate-cr() {
     trap "rm \"$tmp\"" exit
     
     _ent-bundle generate-cr \
-      ${REPO:+--image "$REPO"} \
-      -o "$tmp" &>/dev/null
+      -f -o "$tmp" 1>&2 \
+      ${REPO:+--image "$REPO"}
       
     cat "$tmp"
   )
