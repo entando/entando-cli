@@ -136,10 +136,10 @@ auto_align_with_server() {
   if (_kubectl version --client &> /dev/null); then
     _auto_align_with_server
   else
-    _auto_align_with_server "$C_DEFAULT_KUBECT_VERSION" "default" &> /dev/null
     (
-      ENT_KUBECTL_CMD="$ENTANDO_BINS/kubectl.default"
-      ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
+      _auto_align_with_server "$C_DEFAULT_KUBECT_VERSION" "default" &> /dev/null
+      reload_cfg
+      ENT_KUBECTL_CMD="$ENT_DEFAULT_KUBECTL_CMD" setup_kubectl
       _auto_align_with_server
     )
   fi
@@ -157,7 +157,15 @@ _auto_align_with_server() {
     local_name="$ver"
   }
   
-  [[ -z "$ver" ]] && FATAL "Unable to determine the server version number"
+  [[ -z "$ver" ]] && {
+    _log_w "Unable to determine the server version number"
+    if ask "Should I assume the default kubectl version?"; then
+      save_cfg_value "ENT_KUBECTL_CMD" "$ENT_DEFAULT_KUBECTL_CMD"
+      return 0
+    else
+      _FATAL "Error providing kubectl"
+    fi
+  }
 
   (
     mkdir -p "$ENTANDO_BINS"
@@ -222,7 +230,11 @@ _auto_align_with_server() {
       _log_i "I already have a good version for this server (\"$ver\")"
     fi
     
-    [ "$local_name" != "default" ] && set_kubectl_command "$PWD/$KUBECTL_NAME"
+    if [ "$local_name" != "default" ]; then
+      set_kubectl_command "$PWD/$KUBECTL_NAME"
+    else
+      save_cfg_value "ENT_DEFAULT_KUBECTL_CMD" "$PWD/$KUBECTL_NAME"
+    fi
     
     _log_i "Ent profile configuration updated (run \"ent status\" for details)"
   ) || exit "$?"
