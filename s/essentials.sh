@@ -143,6 +143,12 @@
   # Overwritten by utils.sh
   kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
   kubectl_mode() { :; }
+  
+  kubectl_must_be_ok() {
+    ("$1" version --client &> /dev/null) || {
+      _FATAL -s 'Unable to execute "'"$1"'", please run "ent k ent-auto-align"' 1>&2
+    }
+  }
 
   # KUBECTL
   # shellcheck disable=SC2034
@@ -166,6 +172,7 @@
       fi
 
       _kubectl() {
+        kubectl_must_be_ok "$ENTANDO_KUBECTL_BASE"
         kubectl_update_once_options "$@"
         local CMD
         if "$KUBECTL_CMD_SUDO" && ! "$KUBECTL_SKIP_SUDO"; then
@@ -173,6 +180,7 @@
         else
           CMD="$ENTANDO_KUBECTL_BASE"
         fi
+        
         # shellcheck disable=SC2086
         if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
           _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
@@ -183,6 +191,7 @@
     elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
       ENTANDO_KUBECTL_MODE="CONFIG"
       _kubectl() {
+        kubectl_must_be_ok kubectl
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
         KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
@@ -195,6 +204,7 @@
       if $OS_WIN || [[ -n "$DESIGNATED_KUBECTX" || -n "$DESIGNATED_KUBECONFIG" ]]; then
         ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL"
         _kubectl() {
+          kubectl_must_be_ok kubectl
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
@@ -203,6 +213,7 @@
       else
         ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL-PRIVILEGED"
         _kubectl() {
+          kubectl_must_be_ok kubectl
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           if $ENT_KUBECTL_NO_AUTO_SUDO; then
