@@ -730,7 +730,7 @@ parse_help_option() {
   case "${!#}" in
     "--help") echo "--help";;
     "--cmplt") echo "--cmplt";;
-    *) echo ""
+    *) echo "";;
   esac
 }
 
@@ -1404,7 +1404,10 @@ _with_spinner() {
     while read -r line;do
       [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
     done
-    echo -ne $'\r'"$(print_fullsize_hbar " ")"$'\r'
+
+    echo -ne $'\r'
+    echo -ne "$(print_fullsize_hbar ' ')"
+    echo -ne $'\r'
   )
 }
 
@@ -1416,7 +1419,7 @@ _spin() {
   local TITLE="$1"
   [ -n "$TITLE" ] && TITLE="$TITLE "
   
-  SPC="$(print_fullsize_hbar " ")"
+  SPC="$(print_fullsize_hbar ' ')"
   
   while true; do
     # shellcheck disable=SC2031
@@ -1568,7 +1571,7 @@ print-effective-config() {
       if [[ "$var" != *"TOKEN"* || "$ENTANDO_NO_OBFUSCATION" = "true" ]]; then
         echo "$tag> $var=$val"
       else
-        echo -e "$tag> $var=\033[101m**OBFUSCATED**\033[0;37m"
+        echo -e "$tag> $var=\033[101m**OBFUSCATED**\033[0m"
       fi
     done
   )
