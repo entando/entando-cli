@@ -1404,7 +1404,7 @@ _with_spinner() {
     while read -r line;do
       [ -n "$OUTFILE" ] && echo "$line" >> "$OUTFILE"
     done
-    echo -ne $'\r'"$(print_fullsize_hbar ' ')"$'\r'
+    echo -ne $'\r'"$(print_fullsize_hbar ' ')" $'\r'
   )
 }
 
