@@ -144,27 +144,20 @@ RUN() {
       *)
         [ "$cmd" = "k" ] && cmd="kubectl"
 
-        local FOUND=false
-
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
 
         if [ -f "$mod_script" ]; then
-          FOUND=true
           # shellcheck disable=SC1090
           source "$mod_script" "$@"
-        else
+          return "$?"
+        elif _ent.extension-module.is-present "$cmd"; then
           local ext_mod_script="$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-${cmd}"
-          if _ent.extension-module.is-present "$cmd"; then
-            FOUND=true
-            _ent.extension-module.execute "${cmd}" "$@"
-          fi
-        fi
-
-        ! $FOUND && {
+          _ent.extension-module.execute "${cmd}" "$@"
+          return "$?"
+        else
           _log_e "Unrecognized ent command \"$cmd\""
           return 33
-        }
-
+        fi
         ;;
     esac
     index_of_arg "--AND" "$@"

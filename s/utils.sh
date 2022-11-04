@@ -427,7 +427,7 @@ select_one() {
     # shellcheck disable=SC2034
     {
       select_one_res_alt="$(
-        printf '%s\n' "$@" | _pkg_fzf --height=20 ${P:+--header $'\n'"|| $P ||"} --history="./tmpf" \
+        printf '%s\n' "$@" | _pkg_fzf --height=10 ${P:+--header $'\n'"|| $P ||"} --history="./tmpf" \
         ${PREVIEW_CMD:+--preview="$PREVIEW_CMD"}
       )"
       [ "$?" = "130" ] && EXIT_UE "User interrupted"
