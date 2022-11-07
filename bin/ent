@@ -254,13 +254,13 @@ ent-pkg() {
 }
 
 which_ent() {
-  (
-    case "$1" in
-      version) echo "${ENTANDO_CLI_VERSION}"; exit;;
-      which) echo "${ENTANDO_CLI_VERSION}";;
-      home) echo "$ENTANDO_ENT_HOME"; exit;;
-    esac
+  case "$1" in
+    version) echo "${ENTANDO_CLI_VERSION}"; return;;
+    which) echo "${ENTANDO_CLI_VERSION}";;
+    home) echo "$ENTANDO_ENT_HOME"; return;;
+  esac
   
+  (
     echo ""
     echo "---"
     echo ""
