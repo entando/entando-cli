@@ -145,7 +145,9 @@
   kubectl_mode() { :; }
   
   kubectl_must_be_ok() {
-    ("$1" version --client &> /dev/null) || {
+    local a b c d
+    read -r a b c d <<< "$1"
+    (${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} version --client &> /dev/null) || {
       _FATAL -s 'Unable to execute "'"$1"'", please run "ent k ent-auto-align"' 1>&2
     }
   }
@@ -182,10 +184,13 @@
         fi
         
         # shellcheck disable=SC2086
+        local a b c d
+        read -r a b c d <<< "$CMD"
         if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
-          _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
+          _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         else
-          KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" \
+            _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         fi
       }
     elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
