@@ -214,6 +214,7 @@ _ent-bundle() {
   esac
 
   _ent-entando-bundle-cli "$@"
+  local rv="$?"
   
   if [[ "$1" = "--help" || -z "$1" ]]; then
     echo "ADDITIONAL COMMANDS"
@@ -221,6 +222,8 @@ _ent-bundle() {
     echo "  install      Installs into currently attached EntandoApp the bundle in the current directory"
     echo ""
   fi
+  
+  return "$rv"
 }
 
 _ent-bundle-deploy() {
