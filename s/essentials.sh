@@ -183,12 +183,13 @@
           CMD="$ENTANDO_KUBECTL_BASE"
         fi
         
-        # shellcheck disable=SC2086
         local a b c d
         read -r a b c d <<< "$CMD"
         if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
+          # shellcheck disable=SC2086
           _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         else
+          # shellcheck disable=SC2086
           KUBECONFIG="$DESIGNATED_KUBECONFIG" \
             _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         fi

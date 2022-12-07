@@ -1549,6 +1549,7 @@ print-effective-config() {
       reload_cfg --print --pre 'PROF:' "$CFG_FILE"
       reload_cfg --print --pre 'DFLT:' "$ENT_DEFAULT_CFG_FILE"
       reload_cfg --print --pre 'GLOB:' "$ENTANDO_GLOBAL_CFG"
+      # shellcheck disable=SC2048
       for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
     }
   )"
