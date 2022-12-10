@@ -1,0 +1,3 @@
+SHPKG_ADDRESS="/home/wrt/work/prj/entando/main/common/shell-project-tools"
+#SHPKG_VERSION="v1.0"
+SHPKG_FILES=".:*.sh"

@@ -1,17 +1,17 @@
 #!/bin/bash
 # shellcheck disable=SC2155
 
-TEST_WORKDIR="/tmp/entando-test-u$UID/ent/mocks-state"
-rm -r "$TEST_WORKDIR"
-mkdir -p "$TEST_WORKDIR"
+XDEV_TEST_WORK_DIR="/tmp/entando-test-u$UID/ent/mocks-state"
+[ -f "$XDEV_TEST_WORK_DIR" ] && rm -r "$XDEV_TEST_WORK_DIR"
+mkdir -p "$XDEV_TEST_WORK_DIR"
 # shellcheck disable=SC2034
-CFG_FILE="$TEST_WORKDIR/ent-cfg"
+CFG_FILE="$XDEV_TEST_WORK_DIR/ent-cfg"
 MOCK_CALL_NUM=0
 MOCK_CALL_ID=""
 
 mock-log() {
-  debug-print --title "$(B)######## MOCK: [$MOCK_CALL_ID]" "$1"
-  echo -e "######## MOCK: [$MOCK_CALL_ID]\n$1" >> "$TEST_WORKDIR/mock.log"
+  debug-print --title "######## MOCK: [$MOCK_CALL_ID]" "$1"
+  echo -e "######## MOCK: [$MOCK_CALL_ID]\n$1" >> "$XDEV_TEST_WORK_DIR/mock.log"
   print_hr 1>&2
 }
 
@@ -27,11 +27,11 @@ mock-log-param() {
 
 multipass() {
   new-mock-call-id
-
+  
   case "$1" in
     "info")
       local VMNAME="$2"
-      if [ -d "$TEST_WORKDIR/multipass/$VMNAME" ]; then
+      if [ -d "$XDEV_TEST_WORK_DIR/multipass/$VMNAME" ]; then
         mock-log "VM \"$VMNAME\" found"
         return 0
       else
@@ -42,7 +42,7 @@ multipass() {
     "launch")
       local VMNAME RES
       args_or_ask -n -s VMNAME '--name' "$@"
-      local VMMK="$TEST_WORKDIR/multipass/$VMNAME"
+      local VMMK="$XDEV_TEST_WORK_DIR/multipass/$VMNAME"
       [ -d "$VMMK" ] && FATAL "MOCK: VM \"$VMMK\" already exists"
       mkdir -p "$VMMK/_volume_/tmp" -p "$VMMK/_volume_/home/user" || FATAL "MOCK: Error creating VM \"$VMMK\""
 
@@ -57,7 +57,7 @@ multipass() {
       local SRC="$2"
       local DST_VMNAME="${3//:*/}"
       local DST_PATH="${3//*:/}"
-      local VMMK="$TEST_WORKDIR/multipass/$DST_VMNAME"
+      local VMMK="$XDEV_TEST_WORK_DIR/multipass/$DST_VMNAME"
       [ -d "$VMMK" ] || FATAL "MOCK: VM \"$VMMK\" doesn't exists"
       if [ "${DST_PATH:0:1}" = "/" ]; then
         cp -r "$SRC" "$VMMK/_volume_/$DST_PATH"
@@ -100,12 +100,12 @@ _kubectl() {
   case "$1::$2" in
     "create::-f")
       mock-log "## $KD executing \"Create\" on resource(s) from source file/dir \"$3\"\n## ($*)"
-      cp -r "$3" "$TEST_WORKDIR/kubectl-create-${MOCK_CALL_NUM}"
+      cp -r "$3" "$XDEV_TEST_WORK_DIR/kubectl-create-${MOCK_CALL_NUM}"
       ;;
     "apply::-f")
       mock-log "## $KD executing \"Apply\" on resource(s) from source file/dir \"$3\"\n## ($*)"
       mock-log "($*)"
-      cp -r "$3" "$TEST_WORKDIR/kubectl-apply-${MOCK_CALL_NUM}"
+      cp -r "$3" "$XDEV_TEST_WORK_DIR/kubectl-apply-${MOCK_CALL_NUM}"
       ;;
     "create::namespace")
       mock-log "## $KD executing \"Create\" of namespace \"$3\""

@@ -201,61 +201,6 @@ ent-load-extension-module() {
   )
 }
 
-ent-pkg() {
-  bgn_help_parsing ":ENT-PKG" "$@"
-  CMD="$1"; shift;
-  case "$CMD" in
-    "list"|"ls") 
-      end_help_parsing
-      # shellcheck disable=SC2010
-      ls -l "$ENTANDO_BINS" | grep -v "^.*\.tmp$";;
-    "get")
-      args_or_ask -h "$HH" -a -n -- PKG '1///%sp name of the package' "$@"
-      args_or_ask -h "$HH" -n -- VER '--version///%sp version of the package' "$@"
-      end_help_parsing
-      shift 1
-      NONNULL -s PKG
-      assert_strict_file_name "PKG" "$PKG" fatal-nst
-      _nn VER && assert_acceptable_version_tag "VER" "$VER" fatal-nst
-      [ "$PKG" = "ent" ] && _FATAL -s "Denied"
-      _pkg_get --verbose "$PKG" "$VER"
-      ;;
-    "which")
-      args_or_ask -h "$HH" -a -n -- PKG '2/strict_file_name//%sp name of the package' "$@"
-      end_help_parsing
-      shift 1
-      end_help_parsing
-      _pkg_get_path RES "$PKG"
-      echo "$RES"
-      ;;
-    "run")
-      args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
-      shift 1
-
-      if type -t "_pkg_$PKG" > /dev/null; then
-        "_pkg_$PKG" "$@"
-      else
-        _pkg_get_path RES "$PKG"
-        "$RES" "$@"
-      fi
-      ;;
-    "rm"|"delete")
-      args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
-      shift 1
-      _pkg_get_path --strict RES "$PKG"
-      ask "Are you sure?" "n" && rm "$RES"
-      ;;
-    "--help")
-      args_or_ask -h "$HH" -a -n -- CMD '1///%sp command (ls|get|run|which|rm)' "$@"
-      end_help_parsing
-      ;;
-    *)
-      simple_cmplt_handler "ls get run which rm"
-      [ -n "$CMD" ] && _FATAL "Unknown command \"$CMD\""
-      ;;
-  esac
-}
-
 which_ent() {
   case "$1" in
     version) echo "${ENTANDO_CLI_VERSION}"; return;;
