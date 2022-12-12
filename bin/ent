@@ -123,10 +123,10 @@ RUN() {
         _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "pkg") #H: helps dealing with the ent bin tools
-        ent-pkg "$@"
+        _ent.pkg "$@"
         ;;
       "crane"|"docker"|"jq"|"k9s")
-        ent-pkg run "$cmd" "$@"
+        _ent.pkg run "$cmd" "$@"
         ;;
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
@@ -218,7 +218,6 @@ which_ent() {
     echo ""
     cd "$ENTANDO_ENT_HOME"
     echo "- DIR: $ENTANDO_ENT_HOME"
-    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
@@ -229,7 +228,6 @@ which_ent() {
     echo "## RELEASE:"
     echo ""
     echo "- DIR: $PWD"
-    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"

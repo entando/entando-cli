@@ -412,6 +412,7 @@ parse_global_args() {
 # ALL LIRARIES
 
 . s/utils.sh
+. s/pkg.sh
 . s/var-utils.sh
 . s/logger.sh
 . s/ecr-utils.sh
