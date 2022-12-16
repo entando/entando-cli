@@ -13,7 +13,7 @@ ecr-prepare-action() {
   local var_token="$1"
   shift
   $VERBOSE && print_current_profile_info
-  [ -z "$(kube.utils.has_api_server)" ] && _FATAL -s 1 "Unable to connect to the Entando platform" 
+  kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress ignored url_scheme
   app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored

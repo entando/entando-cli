@@ -19,7 +19,6 @@ kube.utils.url_path_to_identifier() {
   echo "$res"
 }
 
-kube.utils.has_api_server(){
-  local tmp="$(_kubectl version --short -o yaml 2>&1 |grep serverVersion)"
-  echo "$tmp"
+kube.utils.is_api_server_reachable() {
+  _kubectl version -o yaml &>/dev/null
 }
