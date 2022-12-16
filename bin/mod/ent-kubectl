@@ -26,9 +26,6 @@ RUN() {
   reload_cfg "$C_ENT_PRJ_FILE"
   reload_cfg "$C_ENT_STATE_FILE"
 
-  has_api_server=$(_kubectl version --short -o yaml 2>&1 |grep serverVersion)
-  [ -z "$has_api_server" ] && _FATAL -s 1 "Unable to connect to the Entando platform"
-
   case "$1" in
     "ent-print-kubeconfig") #H: prints the command for setting the kubectl configuration
       shift
