@@ -361,6 +361,7 @@ ecr.install-bundle() {
   local BUNDLE_NAME="$1"; shift
   local VERSION_TO_INSTALL="${1:-latest}"
   local CONFLICT_STRATEGY="${2}"
+  local MSGPRE="Installation of bundle \"$BUNDLE_NAME\""
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
   local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
@@ -371,9 +372,27 @@ ecr.install-bundle() {
   fi
   DATA+="}"
   
-  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
-    return $?
-  _log_i "Installation of bundle \"$BUNDLE_NAME\" started"
-
-  ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
+  ecr-bundle-action "%" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null
+  local RV="$?"
+  case "$RV" in
+    2*)
+      _log_i "$MSGPRE started"
+      ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
+      ;;
+    401)
+      _FATAL "$MSGPRE failed because authentication is required but none was found in the request"
+      ;;
+    401)
+      _FATAL "$MSGPRE failed because authentication is required but none was found in the request"
+      ;;
+    403)
+      _FATAL "$MSGPRE failed because the request was not authorized"
+      ;;
+    409)
+      _FATAL "$MSGPRE failed because it already exists in the remote ststem"
+      ;;
+    *)
+      _FATAL "$MSGPRE failed with status \"$RV\""
+      ;;
+  esac
 }
