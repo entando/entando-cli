@@ -224,6 +224,7 @@ _ent-bundle() {
 }
 
 _ent-bundle-deploy() {
+  kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
   ecr.docker.generate-cr \
   | _kubectl apply -f -
 }
