@@ -267,7 +267,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
     [ -f "$script_file" ] && rm "$script_file"
     {
       echo "#!/bin/bash"
-      echo ". $ENT_HOME/activate \"\$@\""
+      echo ". \"$ENT_HOME/activate\" \"\$@\""
     } > "$script_file"
     chmod u=rx "$script_file"
   done
@@ -318,7 +318,7 @@ ENT_RUNNER_DC7C420E09B4492D() {
 
   if ! "$CURR_DIR"; then
     local CMD
-    CMD="source $TGT_DIR/$ENTANDO_DIR/activate --quiet --force 2>/dev/null"
+    CMD="source \"$TGT_DIR/$ENTANDO_DIR/activate\" --quiet --force 2>/dev/null"
     if [ ! -f "$HOME/.bashrc" ]; then
       touch "$HOME/.bash_profile"
       ent_cli_register_rc_DC7C420E09B4492D "$HOME/.bash_profile" "$CMD"
