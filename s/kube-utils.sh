@@ -18,3 +18,7 @@ kube.utils.url_path_to_identifier() {
   res="${res//\//-}"
   echo "$res"
 }
+
+kube.utils.is_api_server_reachable() {
+  _kubectl version -o yaml &>/dev/null
+}
