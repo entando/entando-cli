@@ -302,9 +302,14 @@ _ecr_determine_git_bundle_plugin_name() {
     else
       cd bundle || _FATAL "Unable to enter bundle dir" 1>&2
     fi
-    RES="$(find plugins -maxdepth 1 -type f | head -1)"
+
+    local desc="$(find plugins -maxdepth 1 -type f | head -1)"
     # shellcheck disable=SC2002
-    RES=$(cat "$RES" | grep "image:[[:space:]]*" | sed 's/image:[[:space:]]\([^:]*\).*/\1/')
+    local RES=$(grep "deploymentBaseName:[[:space:]]*" < "$desc" | tr -d '"' | tr -d \"\'\" | sed 's/deploymentBaseName:[[:space:]]\([^:]*\).*/\1/')
+    [ -z "$RES" ] && {
+      RES=$(grep "image:[[:space:]]*" < "$desc" | tr -d '"' | tr -d \"\'\" | sed 's/image:[[:space:]]\([^:]*\).*/\1/')
+    }
+
     echo "$RES"
   )"
   _nn _tmp_RES || exit 1
