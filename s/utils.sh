@@ -935,7 +935,7 @@ app-get-main-ingresses() {
   local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
   
   #~~~
-  local JQ=".items[0] | select(.metadata.name=$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
+  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
   stdin_to_arr $'\n\r' OUT < <(_jq "$JQ" -r <<< "$JSON")
   
   #~~~
