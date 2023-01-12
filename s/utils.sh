@@ -858,7 +858,6 @@ stdin_to_arr() {
 print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if $VERBOSE; then
-    _log_i "Current profile info:"
     echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
     echo " - PROFILE HOME:      ${DESIGNATED_PROFILE_HOME}"
     _nn PROFILE_ORIGIN && echo " - PROFILE ORIGIN:    ${PROFILE_ORIGIN}"
@@ -1329,9 +1328,13 @@ _spin() {
 # Prints general information about the currently activated ent instance
 #
 print_ent_general_status() {
+  local FULL=false; [ "$1" == "--full" ] && { FULL=true; shift; }
   print_hr
+  _log_i "Current profile info:"
   print_current_profile_info -v
   setup_kubectl
+  print_hr
+  _log_i "Current environment info:"
   kubectl_update_once_options ""
   #print_hr
   #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
@@ -1355,6 +1358,12 @@ print_ent_general_status() {
     ;;
   esac
   echo " - KUBECTL MODE:      $ENTANDO_KUBECTL_MODE"
+  echo " - DETECTED OS:       $SYS_OS_TYPE ($OSTYPE)"
+  if "$FULL"; then
+    print_hr
+    _log_i "Current installation info:"
+    ent which
+  fi
   print_hr
   local TTY_ENV
   TTY_ENV=$(

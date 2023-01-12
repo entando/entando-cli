@@ -111,7 +111,11 @@ RUN() {
         kubectl_mode --reset-cfg
         ;;
       "status") #H: shows the ent general status
-        print_ent_general_status
+        bgn_help_parsing ":ENT-STATUS" "$@"
+        local FULL=""
+        args_or_ask -h "$HH" -n -p -f "--full///prints the full version of the status info" "$@" %% FULL="--full"
+        end_help_parsing
+        print_ent_general_status ${FULL:+"$FULL"} "$@"
         ;;
       "auto-align-kubectl") #H: automaticall align the kubectl version to the server version
         _ent kubectl "ent-auto-align" "$@"
