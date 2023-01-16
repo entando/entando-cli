@@ -72,9 +72,9 @@ RUN() {
       fi
 
       if [ -n "$CMD" ]; then
-        _kubectl "$CMD" -n "$NAMESPACE" "$@"
+        ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT=true _kubectl "$CMD" -n "$NAMESPACE" "$@"
       else
-        _kubectl "$@"
+        ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT=true _kubectl "$@"
       fi
       ;;
   esac

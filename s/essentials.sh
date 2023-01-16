@@ -194,6 +194,7 @@
           KUBECONFIG="$DESIGNATED_KUBECONFIG" \
             _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         fi
+        _kubectl_handle_error "$?"
       }
     elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
       ENTANDO_KUBECTL_MODE="CONFIG"
@@ -202,6 +203,7 @@
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
         KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+        _kubectl_handle_error "$?"
       }
       _kubectl-pre-sudo() { :; }
     else
@@ -215,6 +217,7 @@
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          _kubectl_handle_error "$?"
         }
         _kubectl-pre-sudo() { :; }
       else
@@ -228,16 +231,26 @@
           else
             _trace "kubectl" sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
           fi
+          _kubectl_handle_error "$?"
         }
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       fi
     fi
 
+    _kubectl_handle_error() {
+      local RV="$1"
+      if [[ "$RV" != "0" && "$ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT" != "true" ]]; then
+        kube.require_kube_reachable
+      fi
+      return "$RV"
+    }
+    
+    ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT=false
     check_kubectl
   }
 
   setup_kubectl
-
+  
   # NOP
   nop() {
     :

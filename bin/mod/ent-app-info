@@ -60,6 +60,7 @@ $WATCH && {
 }
 
 _kubectl-pre-sudo -m
+kube.require_kube_reachable
 
 _log_i "NODES:"
 _kubectl get nodes
