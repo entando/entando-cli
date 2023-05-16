@@ -12,9 +12,18 @@ XDEV_TEST.BEFORE_FILE() {
   # shellcheck disable=SC2034
   SYS_IS_STDOUT_A_TTY=true;
   mkdir -p workdir/bin
-  cp "$PROJECT_DIR"/res/test-fail workdir/bin/test-fail
-  cp "$PROJECT_DIR"/res/test-success workdir/bin/test-success
+  extension=$(get_file_extension)
+  cp "$PROJECT_DIR"/res/test-fail workdir/bin/test-fail"$extension"
+  cp "$PROJECT_DIR"/res/test-success workdir/bin/test-success"$extension"
   node.activate_environment() { :; }
+}
+
+get_file_extension(){
+    local extension=""
+    if $OS_WIN; then
+      extension=".cmd"
+    fi
+    echo "$extension"
 }
 
 #TEST:unit,lib,ent_run_internal_npm_tool
