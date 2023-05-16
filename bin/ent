@@ -111,7 +111,11 @@ RUN() {
         kubectl_mode --reset-cfg
         ;;
       "status") #H: shows the ent general status
-        print_ent_general_status
+        bgn_help_parsing ":ENT-STATUS" "$@"
+        local FULL=""
+        args_or_ask -h "$HH" -n -p -f "--full///prints the full version of the status info" "$@" %% FULL="--full"
+        end_help_parsing
+        print_ent_general_status ${FULL:+"$FULL"} "$@"
         ;;
       "auto-align-kubectl") #H: automaticall align the kubectl version to the server version
         _ent kubectl "ent-auto-align" "$@"
@@ -123,10 +127,10 @@ RUN() {
         _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
       "pkg") #H: helps dealing with the ent bin tools
-        ent-pkg "$@"
+        _ent.pkg "$@"
         ;;
       "crane"|"docker"|"jq"|"k9s")
-        ent-pkg run "$cmd" "$@"
+        _ent.pkg run "$cmd" "$@"
         ;;
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
@@ -144,7 +148,7 @@ RUN() {
       *)
         [ "$cmd" = "k" ] && cmd="kubectl"
 
-        local FOUND=false
+        local FOUND=false RV=0
 
         local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
 
@@ -152,6 +156,7 @@ RUN() {
           FOUND=true
           # shellcheck disable=SC1090
           source "$mod_script" "$@"
+          RV="$?"
         else
           local ext_mod_script="$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-${cmd}"
           if _ent.extension-module.is-present "$cmd"; then
@@ -164,9 +169,11 @@ RUN() {
           _log_e "Unrecognized ent command \"$cmd\""
           return 33
         }
-
+        
+        (exit "$RV")
         ;;
     esac
+    _SOE
     index_of_arg "--AND" "$@"
     if [ $? -eq 255 ]; then shift $#; else shift $?; fi
     [ -z "$1" ] && break
@@ -198,61 +205,6 @@ ent-load-extension-module() {
   )
 }
 
-ent-pkg() {
-  bgn_help_parsing ":ENT-PKG" "$@"
-  CMD="$1"; shift;
-  case "$CMD" in
-    "list"|"ls") 
-      end_help_parsing
-      # shellcheck disable=SC2010
-      ls -l "$ENTANDO_BINS" | grep -v "^.*\.tmp$";;
-    "get")
-      args_or_ask -h "$HH" -a -n -- PKG '1///%sp name of the package' "$@"
-      args_or_ask -h "$HH" -n -- VER '--version///%sp version of the package' "$@"
-      end_help_parsing
-      shift 1
-      NONNULL -s PKG
-      assert_strict_file_name "PKG" "$PKG" fatal-nst
-      _nn VER && assert_acceptable_version_tag "VER" "$VER" fatal-nst
-      [ "$PKG" = "ent" ] && _FATAL -s "Denied"
-      _pkg_get --verbose "$PKG" "$VER"
-      ;;
-    "which")
-      args_or_ask -h "$HH" -a -n -- PKG '2/strict_file_name//%sp name of the package' "$@"
-      end_help_parsing
-      shift 1
-      end_help_parsing
-      _pkg_get_path RES "$PKG"
-      echo "$RES"
-      ;;
-    "run")
-      args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
-      shift 1
-
-      if type -t "_pkg_$PKG" > /dev/null; then
-        "_pkg_$PKG" "$@"
-      else
-        _pkg_get_path RES "$PKG"
-        "$RES" "$@"
-      fi
-      ;;
-    "rm"|"delete")
-      args_or_ask -h "$HH" -a -n -- PKG '1/strict_file_name//%sp name of the package' "$@"
-      shift 1
-      _pkg_get_path --strict RES "$PKG"
-      ask "Are you sure?" "n" && rm "$RES"
-      ;;
-    "--help")
-      args_or_ask -h "$HH" -a -n -- CMD '1///%sp command (ls|get|run|which|rm)' "$@"
-      end_help_parsing
-      ;;
-    *)
-      simple_cmplt_handler "ls get run which rm"
-      [ -n "$CMD" ] && _FATAL "Unknown command \"$CMD\""
-      ;;
-  esac
-}
-
 which_ent() {
   case "$1" in
     version) echo "${ENTANDO_CLI_VERSION}"; return;;
@@ -270,7 +222,6 @@ which_ent() {
     echo ""
     cd "$ENTANDO_ENT_HOME"
     echo "- DIR: $ENTANDO_ENT_HOME"
-    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"
@@ -281,7 +232,6 @@ which_ent() {
     echo "## RELEASE:"
     echo ""
     echo "- DIR: $PWD"
-    echo "- TAG: $(git tag -l --contains HEAD 2>/dev/null | tr '\n' ',' | perl -ple 'chop')"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
     echo "- UPD: $time"

@@ -28,7 +28,7 @@ cd "$DIR/../.." || {
 
 RUN() {
   HH="$(parse_help_option "$@")"
-
+  
   show_help_option "$HH" ":main"
   args_or_ask -h "$HH" -a -n -- "CMD" '1///%sp command' "$@"
   args_or_ask -h "$HH" -n -F "ENTANDO_OPT_YES_FOR_ALL" "--yes///Assumes yes for all yes-no questions" "$@"
@@ -108,7 +108,7 @@ multi_pod_action() {
   local ACTION="$1"
   local LOG_PATT
   local IGNORE_CASE=true
-
+  
   [ "$ACTION" = "grep" ] && {
     args_or_ask -h "$HH-only" -a -- LOG_PATT "2/any?//%sp the log grep pattern" "$@"
     args_or_ask -h "$HH-only" -n -p -F IGNORE_CASE '--ignore-case/any?//%sp the log filter pattern' "$@"
@@ -122,6 +122,7 @@ multi_pod_action() {
   [ -n "$HH" ] && exit 0
 
   _kubectl-pre-sudo
+  kube.require_kube_reachable
   
   pod_action.log_action "$ACTION"
 
@@ -154,6 +155,7 @@ pod_list() {
   [ -n "$HH" ] && exit 0
 
   _kubectl-pre-sudo
+  kube.require_kube_reachable
 
   if $WITH_CONTAINERS; then
     for pod in $(read_pod_list); do
@@ -178,6 +180,7 @@ pod_action() {
   local SELECTED_POD SELECTED_CONTAINER
 
   _kubectl-pre-sudo
+  kube.require_kube_reachable
 
   local select_one_res_alt
 

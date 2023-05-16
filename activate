@@ -28,7 +28,7 @@ ENTANDO_ENT_HOME_NEW=$(
 [ "$ENTANDO_ENT_HOME" != "" ] && {
   if [[ "$1" = "--force" || "$2" = "--force" || "$3" = "--force" ]]; then
     [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && echo "FORCING ACTIVATION AS REQUESTED"
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090 disable=SC1091
     . "$ENTANDO_ENT_HOME_NEW/deactivate" -p --force > /dev/null 2>&1
   else
     [[ "$1" != "--quiet" && "$2" != "--quiet" && "$3" != "--quiet" ]] && \

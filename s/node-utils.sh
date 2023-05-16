@@ -214,6 +214,7 @@ _ent-bundle() {
   esac
 
   _ent-entando-bundle-cli "$@"
+  local rv="$?"
   
   if [[ "$1" = "--help" || -z "$1" ]]; then
     echo "ADDITIONAL COMMANDS"
@@ -221,9 +222,12 @@ _ent-bundle() {
     echo "  install      Installs into currently attached EntandoApp the bundle in the current directory"
     echo ""
   fi
+  
+  return "$rv"
 }
 
 _ent-bundle-deploy() {
+  kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
   ecr.docker.generate-cr \
   | _kubectl apply -f -
 }

@@ -60,6 +60,7 @@ $WATCH && {
 }
 
 _kubectl-pre-sudo -m
+kube.require_kube_reachable
 
 _log_i "NODES:"
 _kubectl get nodes
@@ -68,7 +69,7 @@ _log_i "PODS:"
 _kubectl get pods ${NAMESPACE:+-n "$NAMESPACE"}
 
 _log_i "Application Ingress path:"
-
+kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
 app-get-main-ingresses ENTANDO_URL_SCHEME svc_ingress ignored ignored
 # shellcheck disable=SC2154
 [ -z "$svc_ingress" ] && FATAL "Unable to determine the app-builder ingress url"
