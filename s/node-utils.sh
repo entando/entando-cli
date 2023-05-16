@@ -305,6 +305,7 @@ _ent-run-internal-npm-tool() {
         "$BIN_PATH" "$@"
       else
         "$BIN_PATH" "$@" | _strip_colors
+        (_SOE --pipe 0)
       fi
     fi
   fi
