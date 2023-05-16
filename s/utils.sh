@@ -218,36 +218,6 @@ ask() {
   done
 }
 
-# Stops the execution with a fatal error
-# and prints the callstack
-#
-# Options
-# [-s]  simple: omits the stacktrace
-# [-S n] skips n levels of the call stack
-# [-99] uses 99 as exit code, which indicates test assertion
-#
-# Params:
-# $1  error message
-#
-_FATAL() {
-  local rv=77
-  if [ "$1" != "-s" ]; then
-    SKIP=1;[ "$1" = "-S" ] && { SKIP="$((SKIP+$2))"; shift 2; }
-    [ "$1" = "-99" ] && shift && rv=99
-    CALL_TRACE_LOGGER() { _log_e "$*" 1>&2; }
-    print_calltrace "$SKIP" 5 "" CALL_TRACE_LOGGER "$@" 1>&2
-  else
-    shift
-    [ "$1" = "-99" ] && shift && rv=99
-    _log_e "$@" 1>&2
-  fi
-  exit "$rv"
-}
-
-FATAL() {
-  _FATAL -s "$@"
-}
-
 # Validates for non-null a list of mandatory variables
 # Fatals if a violation is found
 #
@@ -888,7 +858,6 @@ stdin_to_arr() {
 print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if $VERBOSE; then
-    _log_i "Current profile info:"
     echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
     echo " - PROFILE HOME:      ${DESIGNATED_PROFILE_HOME}"
     _nn PROFILE_ORIGIN && echo " - PROFILE ORIGIN:    ${PROFILE_ORIGIN}"
@@ -965,7 +934,7 @@ app-get-main-ingresses() {
   local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
   
   #~~~
-  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls // \"-\", .rules[0].host"
+  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
   stdin_to_arr $'\n\r' OUT < <(_jq "$JQ" -r <<< "$JSON")
   
   #~~~
@@ -1244,52 +1213,6 @@ _base64_d() {
   perl -e "use MIME::Base64; print decode_base64(<>);" 
 }
 
-_pkg_get() {
-  local VERBOSE=false;[ "$1" = "--verbose" ] && { VERBOSE=true;shift; }
-  local pkg="$1" ver="$2" var="" url=""
-  case "$pkg" in
-    jq)
-      var="JQ_PATH";ver="${ver:-1.6}";url="https://github.com/stedolan/jq/releases/download/jq-$ver"
-      _pkg_download_and_install "$var" "jq" "$ver" \
-        "$url/jq-linux64" "jq-linux64" "" \
-        "$url/jq-osx-amd64" "jq-osx-amd64" "" \
-        "$url/jq-win64.exe" "jq-win64.exe" "";
-      ;;
-    k9s)
-      var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver/"
-      _pkg_download_and_install "$var" "k9s" "$ver" \
-        "$url/k9s_Linux_x86_64.tar.gz" "k9s" "" \
-        "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
-        "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
-      ;;
-    crane)
-      var="CRANE_PATH";ver="${ver:-v0.9.0}";url="https://github.com/google/go-containerregistry/releases/download/$ver/"
-      _pkg_download_and_install "$var" "crane" "$ver" \
-        "$url/go-containerregistry_Linux_x86_64.tar.gz" "crane" "" \
-        "$url/go-containerregistry_Darwin_x86_64.tar.gz" "crane" "" \
-        "$url/go-containerregistry_Windows_x86_64.tar.gz" "crane.exe" "";
-      ;;
-    fzf)
-      var="FZF_PATH";ver="${ver:-0.30.0}";url="https://github.com/junegunn/fzf/releases/download/$ver"
-      _pkg_download_and_install "$var" "fzf" "$ver" \
-        "$url/fzf-$ver-linux_amd64.tar.gz" "fzf" "" \
-        "$url/fzf-$ver-darwin_amd64.zip" "fzf" "" \
-        "$url/fzf-$ver-windows_amd64.zip" "fzf.exe" "";
-      ;;
-    *)
-      _FATAL -s "Unknown package \"$pkg\""
-      ;;
-  esac
-  
-  [ -n "$var" ] && {
-    $VERBOSE && {
-      _log_i "Config var: ${var}"
-      _log_i "Location: ${!var}"
-    }
-    save_cfg_value "$var" "${!var}" "$ENT_DEFAULT_CFG_FILE"
-  }
-}
-
 _jq() {
   _pkg_jq "$@"
 }
@@ -1299,51 +1222,6 @@ _crane() {
   "$CMD" "$@"
 }
 
-_pkg_jq() {
-  local CMD; _pkg_get_path --strict CMD "jq"
-  "$CMD" "$@"
-}
-
-_pkg_ok() {
-  local CMD; _pkg_get_path --strict CMD "$1"
-  test -n "$CMD"
-}
-
-_pkg_k9s() {
-  local CMD; _pkg_get_path --strict CMD "k9s"
-  if [ -z "$1" ]; then
-    if _nn DESIGNATED_KUBECTX; then
-      SYS_CLI_PRE "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
-    elif _nn DESIGNATED_KUBECONFIG; then
-      SYS_CLI_PRE "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
-    else
-      SYS_CLI_PRE "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
-    fi
-  else
-    SYS_CLI_PRE "$CMD" "$@"
-  fi
-}
-
-_pkg_fzf() {
-  local CMD; _pkg_get_path CMD "fzf"
-  "$CMD" "$@"
-}
-
-_pkg_get_path() {
-  local STRICT=false;[ "$1" = "--strict" ] && { STRICT=true;shift; }
-  local _tmp_PKGPATH="$(_upper "${2}_PATH")"
-  _tmp_PKGPATH="${!_tmp_PKGPATH}"
-  if command -v "$_tmp_PKGPATH" &> /dev/null; then
-    _set_or_print "$1" "$_tmp_PKGPATH"
-    return 0
-  elif command -v "$2" &> /dev/null; then
-    ! $STRICT && {
-      _set_or_print "$1" "$(command -v "$2")"
-      return 0
-    }
-  fi
-  _FATAL -s "Package \"$2\" not found" 1>&2
-}
 
 _column() {
   if command -v column &>/dev/null; then
@@ -1450,9 +1328,13 @@ _spin() {
 # Prints general information about the currently activated ent instance
 #
 print_ent_general_status() {
+  local FULL=false; [ "$1" == "--full" ] && { FULL=true; shift; }
   print_hr
+  _log_i "Current profile info:"
   print_current_profile_info -v
   setup_kubectl
+  print_hr
+  _log_i "Current environment info:"
   kubectl_update_once_options ""
   #print_hr
   #_log_i "Current kubectl mode is: \"$ENTANDO_KUBECTL_MODE\""
@@ -1476,6 +1358,12 @@ print_ent_general_status() {
     ;;
   esac
   echo " - KUBECTL MODE:      $ENTANDO_KUBECTL_MODE"
+  echo " - DETECTED OS:       $SYS_OS_TYPE ($OSTYPE)"
+  if "$FULL"; then
+    print_hr
+    _log_i "Current installation info:"
+    ent which
+  fi
   print_hr
   local TTY_ENV
   TTY_ENV=$(
@@ -1549,6 +1437,7 @@ print-effective-config() {
       reload_cfg --print --pre 'PROF:' "$CFG_FILE"
       reload_cfg --print --pre 'DFLT:' "$ENT_DEFAULT_CFG_FILE"
       reload_cfg --print --pre 'GLOB:' "$ENTANDO_GLOBAL_CFG"
+      # shellcheck disable=SC2048
       for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
     }
   )"

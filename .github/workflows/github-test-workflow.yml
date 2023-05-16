@@ -13,15 +13,15 @@ jobs:
   static-code-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 
       - name: prepare
-        run: bash -c "sudo apt update && sudo apt install shellcheck"
+        run: pwd && find . && sudo apt update && sudo apt install shellcheck
       - name: "shellcheck main"
-        run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" $(find bin -maxdepth 3 -type f) $(find s -maxdepth 2 -type f -not -name "*.zsh" -not -name "*.cmd") hr/auto activate deactivate'
+        run: ./prj/run-shellcheck.sh
       - name: "shellcheck standalones"
-        run: bash -c 'shellcheck --exclude "SC2181,SC2155,SC2119" activate && shellcheck --exclude "SC2181,SC2155,SC2119" deactivate'
+        run: shellcheck --exclude "SC2181,SC2155,SC2119,SC2031" activate && shellcheck --exclude "SC2181,SC2155,SC2119,SC2031" deactivate
   tests:
     strategy:
       matrix:
@@ -30,12 +30,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       ENTANDO_PIPELINE_EXECUTION: "true"
-      ENTANDO_TEST_SYS: "true"
+      XDEV_TEST_ENABLE_SYSTEM_TESTS: "true"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
-          fetch-depth: 0 
-      - name: "unit tests windows"
+          fetch-depth: 0
+      - name: "windows tests"
         if: matrix.os == 'windows-latest'
         run: |
           cd ..
@@ -43,7 +43,8 @@ jobs:
           cmd /C ".\inst.exe -o . -y"
           echo @"
             export ENTANDO_PIPELINE_EXECUTION="true"
-            { 
+            export XDEV_TEST_ENABLE_SYSTEM_TESTS="true"
+            {
               source ./entando-cli/activate
               ent run-tests || touch test-error
             } &> test-log
@@ -52,7 +53,7 @@ jobs:
           cat test-log
           if (Test-Path -Path test-error){ exit 1; }
           exit 0
-      - name: "unit tests"
+      - name: "posix tests"
         if: matrix.os != 'windows-latest'
         run: |
           bash -c "source ./activate && ent run-tests"

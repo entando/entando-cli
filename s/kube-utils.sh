@@ -18,3 +18,12 @@ kube.utils.url_path_to_identifier() {
   res="${res//\//-}"
   echo "$res"
 }
+
+kube.utils.is_api_server_reachable() {
+  ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT=true \
+    _kubectl version -o yaml &>/dev/null
+}
+
+kube.require_kube_reachable() {
+  kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the designated kubernetes cluster"
+}

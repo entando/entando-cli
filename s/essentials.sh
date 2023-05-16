@@ -3,6 +3,7 @@
 
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
+  _ESS_FATAL_EXIT_CODE=""
 
   # TTY DETECT
   SYS_IS_STDIN_A_TTY=true;SYS_IS_STDOUT_A_TTY=true
@@ -143,6 +144,14 @@
   # Overwritten by utils.sh
   kubectl_update_once_options() { KUBECTL_ONCE_OPTIONS=""; }
   kubectl_mode() { :; }
+  
+  kubectl_must_be_ok() {
+    local a b c d
+    read -r a b c d <<< "$1"
+    (${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} version --client &> /dev/null) || {
+      _FATAL -s 'Unable to execute "'"$1"'", please run "ent k ent-auto-align"' 1>&2
+    }
+  }
 
   # KUBECTL
   # shellcheck disable=SC2034
@@ -166,6 +175,7 @@
       fi
 
       _kubectl() {
+        kubectl_must_be_ok "$ENTANDO_KUBECTL_BASE"
         kubectl_update_once_options "$@"
         local CMD
         if "$KUBECTL_CMD_SUDO" && ! "$KUBECTL_SKIP_SUDO"; then
@@ -173,19 +183,27 @@
         else
           CMD="$ENTANDO_KUBECTL_BASE"
         fi
-        # shellcheck disable=SC2086
+        
+        local a b c d
+        read -r a b c d <<< "$CMD"
         if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
-          _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
+          # shellcheck disable=SC2086
+          _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         else
-          KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" $CMD $KUBECTL_ONCE_OPTIONS "$@"
+          # shellcheck disable=SC2086
+          KUBECONFIG="$DESIGNATED_KUBECONFIG" \
+            _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
         fi
+        _kubectl_handle_error "$?"
       }
     elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
       ENTANDO_KUBECTL_MODE="CONFIG"
       _kubectl() {
+        kubectl_must_be_ok kubectl
         kubectl_update_once_options "$@"
         # shellcheck disable=SC2086
         KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+        _kubectl_handle_error "$?"
       }
       _kubectl-pre-sudo() { :; }
     else
@@ -195,14 +213,17 @@
       if $OS_WIN || [[ -n "$DESIGNATED_KUBECTX" || -n "$DESIGNATED_KUBECONFIG" ]]; then
         ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL"
         _kubectl() {
+          kubectl_must_be_ok kubectl
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          _kubectl_handle_error "$?"
         }
         _kubectl-pre-sudo() { :; }
       else
         ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL-PRIVILEGED"
         _kubectl() {
+          kubectl_must_be_ok kubectl
           kubectl_update_once_options "$@"
           # shellcheck disable=SC2086
           if $ENT_KUBECTL_NO_AUTO_SUDO; then
@@ -210,16 +231,26 @@
           else
             _trace "kubectl" sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
           fi
+          _kubectl_handle_error "$?"
         }
         _kubectl-pre-sudo() { prepare_for_privileged_commands "$1"; }
       fi
     fi
 
+    _kubectl_handle_error() {
+      local RV="$1"
+      if [[ "$RV" != "0" && "$ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT" != "true" ]]; then
+        kube.require_kube_reachable
+      fi
+      return "$RV"
+    }
+    
+    ENT_KUBECTL_NO_CUSTOM_ERROR_MANAGEMENT=false
     check_kubectl
   }
 
   setup_kubectl
-
+  
   # NOP
   nop() {
     :
@@ -328,6 +359,179 @@
     else
       vim "$@"
     fi
+  }
+  
+  _ess.log() {
+    local level="$1";shift
+    printf "➤ %-5s | %s | %s\n" "$level" "$(date +'%Y-%m-%d %H-%M-%S')" "$*" 1>&2
+    return 0
+  }
+  
+  # Prints the current callstack
+  #
+  # Options
+  # [-d] to debug tty
+  # [-n] doesn't print the decoration frame
+  #
+  # Params:
+  # $1  start from this element of the start
+  # $2  number of start
+  # $3  title
+  # $4  print command to use
+  #
+  _sys.print_callstack() {
+    if [[ "$1" == "-d" && -n "$ENTANDO_DEBUG_TTY" ]]; then
+      shift
+      _sys.print_callstack "$@" >"$ENTANDO_DEBUG_TTY"
+    fi
+    local NOFRAME=false
+    [ "$1" = "-n" ] && {
+      NOFRAME=true
+      shift
+    }
+
+    local start=0
+    local steps=999
+    local title=""
+    [ -n "$1" ] && start="$1"
+    [ -n "$2" ] && steps="$2"
+    [ -n "$3" ] && title=" $3 "
+    ((start++))
+
+    local frame=0 fn ln fl
+    if [ -n "$4" ]; then
+      ! $NOFRAME && {
+        echo ""
+        [ -n "$title" ] && echo " ▕ $title ▏"
+        echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+      }
+      cmd="$4"
+      shift 4
+      "$cmd" "$@"
+    else
+      ! $NOFRAME && {
+        echo -e "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁"
+        [ -n "$title" ] && echo " ▕ $title ▏"
+      }
+    fi
+    ! $NOFRAME && echo "▁"
+    while read -r ln fn fl < <(caller "$frame"); do
+      ((frame++))
+      [ "$frame" -lt "$start" ] && continue
+      printf "▒- %s in %s on line %s\n" "${fn}" "${fl}" "${ln}" 2>&1
+      ((steps--))
+      [ "$steps" -eq 0 ] && break
+    done
+    echo "▔"
+    ! $NOFRAME && {
+      echo "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔"
+    }
+  }
+
+  # Stops the execution with a fatal error
+  # and prints the callstack
+  #
+  # Options
+  # [-s]  simple: omits the stacktrace
+  # [-S n] skips n levels of the call stack
+  # [-99] uses 99 as exit code, which indicates test assertion
+  #
+  # Params:
+  # $1  error message
+  #
+  # Alias: 
+  # _FATAL() { ... }
+  #
+  _sys.fatal() {
+    set +x
+    local SKIP=1;[ "$1" = "-S" ] && { ((SKIP+=$2)); shift 2; }
+    local rv=77
+    
+    if [ "$_ESS_SILENCE_ERRORS" != "true" ]; then
+      {
+        # shellcheck disable=SC2076
+        if [[ -n "$XDEV_TEST_EXPECTED_ERROR" && "$*" =~ "$XDEV_TEST_EXPECTED_ERROR" ]]; then
+          LOGGER() { _ess.log "DEBUG" "==== EXPECTED ERROR DETECTED ====: $*" 1>&2; }
+        else
+          LOGGER() { _ess.log "ERROR" "$*" 1>&2; }
+        fi
+        
+        if [ "$1" != "-s" ]; then
+          [ "$1" = "-99" ] && shift && rv=99
+          _sys.print_callstack "$SKIP" 5 "" LOGGER "$@"  1>&2
+        else
+          shift
+          [ "$1" = "-99" ] && shift && rv=99
+          LOGGER "$@"
+        fi
+      }
+    fi
+    
+    _ESS_FATAL_EXIT_CODE="$rv"
+    _exit "$rv"
+  }
+
+  _FATAL() {
+    local SKIP=1;[ "$1" = "-S" ] && { ((SKIP+=$2)); shift 2; }
+    _sys.fatal -S "$SKIP" "$@"
+  }
+
+  FATAL() {
+    local SKIP=1;[ "$1" = "-S" ] && { ((SKIP+=$2)); shift 2; }
+    _sys.fatal -S "$SKIP" -s "$@"
+  }
+    
+  # Loads a shell module and avoid reloading it
+  #
+  # Params:
+  # $1:   the module file path
+  #
+  # Options:
+  # -s    module file path is relative to the script path
+  #
+  # Alias: 
+  # _require() { ... }
+  #
+  _sys.require() {
+    local SKIP=1;[ "$1" = "-S" ] && { ((SKIP+=$2)); shift 2; }
+    local BASEDIR="$PWD";[ "$1" = "--base" ] && { BASEDIR="$2"; shift 2; }
+
+    local module="$1"
+
+    if [ "${module:0:1}" != "/" ]; then
+      # This is a devex trick.
+      # It's required to make calltraces clickable, in particular when running tests.
+      # It also work with relative formats like "./mypath" although it can be improved in this regard.
+      module="$BASEDIR/$module"
+    fi
+    
+    [ ! -f "$module" ] && _sys.fatal -S "$SKIP" "Unable to find script \"$module\""
+
+    # shellcheck disable=SC2012
+    local module_inode="$(ls -li "$module" | cut -d' ' -f 1)"
+    [[ "$_SYS_LOADED_MODULES" == *"|$module_inode|"* ]] && return 0
+    _SYS_LOADED_MODULES+="|$module_inode|"
+    
+    # shellcheck disable=SC1090
+    . "$module"
+    
+    return 0
+  }
+  
+  # Stops the execution of the program
+  # In normal conditions is just equivalent to exit
+  # but if XDEV_STOP_ON_EXIT is true it uses a SIGING
+  #
+  _sys.exit() {
+    if [ "$XDEV_STOP_ON_EXIT" == "true" ]; then
+      kill -INT $$
+    else
+      exit "$@"
+    fi
+  }
+  
+  _exit() {
+    _sys.exit "$@"
   }
 
   #~ END OF FILE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

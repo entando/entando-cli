@@ -13,6 +13,7 @@ ecr-prepare-action() {
   local var_token="$1"
   shift
   $VERBOSE && print_current_profile_info
+  kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
   # shellcheck disable=SC2034
   local main_ingress ecr_ingress ignored url_scheme
   app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
@@ -301,9 +302,14 @@ _ecr_determine_git_bundle_plugin_name() {
     else
       cd bundle || _FATAL "Unable to enter bundle dir" 1>&2
     fi
-    RES="$(find plugins -maxdepth 1 -type f | head -1)"
+
+    local desc="$(find plugins -maxdepth 1 -type f | head -1)"
     # shellcheck disable=SC2002
-    RES=$(cat "$RES" | grep "image:[[:space:]]*" | sed 's/image:[[:space:]]\([^:]*\).*/\1/')
+    local RES=$(grep "deploymentBaseName:[[:space:]]*" < "$desc" | tr -d '"' | tr -d \"\'\" | sed 's/deploymentBaseName:[[:space:]]\([^:]*\).*/\1/')
+    [ -z "$RES" ] && {
+      RES=$(grep "image:[[:space:]]*" < "$desc" | tr -d '"' | tr -d \"\'\" | sed 's/image:[[:space:]]\([^:]*\).*/\1/')
+    }
+
     echo "$RES"
   )"
   _nn _tmp_RES || exit 1
@@ -361,6 +367,7 @@ ecr.install-bundle() {
   local BUNDLE_NAME="$1"; shift
   local VERSION_TO_INSTALL="${1:-latest}"
   local CONFLICT_STRATEGY="${2}"
+  local MSGPRE="Installation of bundle \"$BUNDLE_NAME\""
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
   local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
@@ -368,12 +375,27 @@ ecr.install-bundle() {
   if [ -n "$CONFLICT_STRATEGY" ]; then
     assert_ext_ic_id "CONFLICT_STRATEGY" "$CONFLICT_STRATEGY" fatal
     DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
-  fi
+  fi  
   DATA+="}"
   
-  ecr-bundle-action "" "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null ||
-    return $?
-  _log_i "Installation of bundle \"$BUNDLE_NAME\" started"
-
-  ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
+  local RV
+  ecr-bundle-action RV "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null
+  case "$RV" in
+    2*)
+      _log_i "$MSGPRE started"
+      ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
+      ;;
+    401)
+      _FATAL -s "$MSGPRE failed because authentication is required but none was found in the request"
+      ;;
+    403)
+      _FATAL -s "$MSGPRE failed because the request was not authorized"
+      ;;
+    409)
+      _FATAL -s "$MSGPRE failed because it already exists in the remote entando application"
+      ;;
+    *)
+      _FATAL -s "$MSGPRE failed with status \"$RV\""
+      ;;
+  esac
 }
