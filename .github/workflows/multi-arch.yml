@@ -4,13 +4,6 @@ on:
   push:
     tags:
       - "v*"
-    branches:
-      - develop
-      - release/*
-      - ENG-*
-      - ENGPM-*
-      - IT-*
-
 permissions: write-all
 
 jobs:
@@ -69,12 +62,12 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile.GitHub
           push: true
           tags: ${{ steps.meta-ent-cli-github.outputs.tags }}
           build-args: |
-            ENT_VERSION=${{ env.ENTANDO_RELEASE }}
-            ENT_CLI_VERSION=${{ env.GITHUB_REF_NAME }}
+            ENTANDO_VERSION=${{ env.ENTANDO_RELEASE }}
+            ENT_VERSION=${{ env.GITHUB_REF_NAME }}
           labels: ${{ steps.meta-ent-cli-github.outputs.labels }}
           platforms: linux/amd64
 
@@ -82,11 +75,12 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile.OCP
           push: true
           tags: ${{ steps.meta-ent-cli-ocp.outputs.tags }}
           build-args: |
             ENT_VERSION=${{ env.ENTANDO_RELEASE }}
             ENT_CLI_VERSION=${{ env.GITHUB_REF_NAME }}
+            KUBECTL_RELEASE=${{ env.KUBECTL_RELEASE }}
           labels: ${{ steps.meta-ent-cli-ocp.outputs.labels }}
           platforms: linux/amd64
