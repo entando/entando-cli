@@ -66,8 +66,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-ent-cli-github.outputs.tags }}
           build-args: |
-            ENTANDO_VERSION=${{ env.ENTANDO_RELEASE }}
-            ENT_VERSION=${{ env.GITHUB_REF_NAME }}
+            ENTANDO_VERSION=${{ vars.ENTANDO_RELEASE }}
+            ENT_VERSION=$GITHUB_REF_NAME
           labels: ${{ steps.meta-ent-cli-github.outputs.labels }}
           platforms: linux/amd64
 
@@ -79,8 +79,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-ent-cli-ocp.outputs.tags }}
           build-args: |
-            ENT_VERSION=${{ env.ENTANDO_RELEASE }}
-            ENT_CLI_VERSION=${{ env.GITHUB_REF_NAME }}
-            KUBECTL_RELEASE=${{ env.KUBECTL_RELEASE }}
+            ENT_VERSION=${{ vars.ENTANDO_RELEASE }}
+            ENT_CLI_VERSION=$GITHUB_REF_NAME
+            KUBECTL_RELEASE=${{ vars.KUBECTL_RELEASE }}
           labels: ${{ steps.meta-ent-cli-ocp.outputs.labels }}
           platforms: linux/amd64
