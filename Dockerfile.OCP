@@ -7,9 +7,9 @@ ARG KUBECTL_RELEASE
 
 ENV BASH_ENV=/usr/local/bin/scl_enable \
     ENT_VERSION=$ENT_VERSION \
-    PATH=$PATH:/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_VERSION/bin:/home/ent/.entando/ent/$ENT_VERSION/opt/node-v14.20.0/bin \
+    PATH=$PATH:/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_CLI_VERSION/bin:/home/ent/.entando/ent/$ENT_VERSION/opt/node-v14.20.0/bin \
     ENTANDO_VERSION=1.0.1 \
-    ENTANDO_ENT_HOME=/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_VERSION \
+    ENTANDO_ENT_HOME=/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_CLI_VERSION \
     ENV=/usr/local/bin/scl_enable \
     KUBECTL_RELEASE=$KUBECTL_RELEASE
 
