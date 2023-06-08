@@ -275,6 +275,7 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
+  export ENTANDO_BUNDLE_CLI_ETC="$ENTANDO_HOME/etc/bundle-cli"
 
   ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
     _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
