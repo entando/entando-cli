@@ -275,7 +275,6 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
-  export ENTANDO_BUNDLE_CLI_ETC="$ENTANDO_HOME/etc/bundle-cli"
 
   ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
     _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
@@ -296,12 +295,14 @@ _ent-run-internal-npm-tool() {
   else
     # RUN
     if $OS_WIN; then
+      export ENTANDO_BUNDLE_CLI_ETC="$(cygpath -w "${ENTANDO_HOME}"/etc/bundle-cli)"
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
         SYS_CLI_PRE "$BIN_PATH" "$@"
       else
         SYS_CLI_PRE -Xallow-non-tty -Xplain "$BIN_PATH" "$@"
       fi
     else
+      export ENTANDO_BUNDLE_CLI_ETC="${ENTANDO_HOME}/etc/bundle-cli"
       if "$SYS_IS_STDIN_A_TTY" && "$SYS_IS_STDOUT_A_TTY"; then
         "$BIN_PATH" "$@"
       else
