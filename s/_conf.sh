@@ -126,7 +126,7 @@ ENTANDO_STANDARD_IMAGES=(
 
 TMP_CLI_VERSION="$(
   cd "$ENTANDO_ENT_HOME" &> /dev/null || exit 1
-  git denscribe --exact-match --tags 2>/dev/null
+  git describe --exact-match --tags 2>/dev/null
 )"
 
 ENTANDO_MANIFEST_CLI_VERSION="${ENTANDO_CLI_VERSION:-"$TMP_CLI_VERSION"}"
