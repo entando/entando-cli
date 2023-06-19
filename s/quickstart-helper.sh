@@ -138,7 +138,7 @@ QS.PARSE_ARGS() {
   _nn ENTANDO_APPNAME || FATAL "Please provide the appname"
 
   _nn ENTANDO_VM_CPU "4"
-  _nn ENTANDO_VM_MEM "5G"
+  _nn ENTANDO_VM_MEM "6G"
   _nn ENTANDO_VM_DISK "15G"
 }
 
