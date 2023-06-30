@@ -10,7 +10,7 @@ ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/b
     ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
     HOME=$APP
 
-RUN apt-get update && apt-get install openjdk-11-jdk maven perl bash git tree jq curl grep libstdc++ docker \
+RUN apt-get update && apt-get install openjdk-11-jdk maven perl bash git tree jq curl grep docker \
 && apt-get clean
 
 WORKDIR $APP
