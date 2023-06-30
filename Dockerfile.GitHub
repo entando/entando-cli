@@ -1,4 +1,4 @@
-FROM alpine:3.17
+FROM prantlf/alpine-glibc:3.16
 
 ARG ENT_VERSION
 ARG ENTANDO_VERSION
@@ -8,7 +8,7 @@ ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/b
     ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
     HOME=$APP
 
-RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl grep gcompat libstdc++ docker nodejs npm
+RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl grep libstdc++ docker nodejs npm
 
 WORKDIR $APP
 
