@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:lts-bullseye-slim
+FROM --platform=$BUILDPLATFORM node:lts-alpine
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -10,8 +10,7 @@ ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/b
     ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
     HOME=$APP
 
-RUN apt-get update && apt-get -y install openjdk-11-jdk maven perl git jq curl grep docker --no-install-recommends \
-&& rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openjdk11 maven perl git bash jq curl grep gcompat libstdc++ docker
 
 WORKDIR $APP
 
