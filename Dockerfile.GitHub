@@ -10,7 +10,7 @@ ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/b
     ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
     HOME=$APP
 
-RUN apk add --no-cache openjdk11 maven perl git bash jq curl grep gcompat libstdc++ docker
+RUN apk add --no-cache openjdk11 maven perl git bash jq curl grep docker
 
 WORKDIR $APP
 
@@ -19,6 +19,9 @@ COPY utils/activate-ent.sh $APP
 RUN chmod +x $APP/activate-ent.sh
 
 RUN bash <(curl -sfL https://get.entando.org/cli) --update --release="$ENTANDO_VERSION" --cli-version="$ENT_VERSION" && \
-    bash $APP/activate-ent.sh
+    bash $APP/activate-ent.sh && \
+    cd $APP/.entando/ent/$ENTANDO_VERSION/opt/node-`node --version`/bin/ && \
+    rm node && \
+    ln -s /usr/local/bin/node node
 
 CMD ["/bin/bash"]
