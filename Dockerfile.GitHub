@@ -10,7 +10,7 @@ ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/b
     ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
     HOME=$APP
 
-RUN apk add --no-cache openjdk11 maven perl git bash jq curl grep docker
+RUN apk add --no-cache openjdk17 maven perl git bash jq curl grep docker
 
 WORKDIR $APP
 
