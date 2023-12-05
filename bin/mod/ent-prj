@@ -70,15 +70,17 @@ RUN() {
     "install") #H: installs the current project bundle
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
-      local VERSION_TO_INSTALL CONFLICT_STRATEGY
+      local VERSION_TO_INSTALL CONFLICT_STRATEGY $TENANT_CODE
       args_or_ask -n ${HH:+"$HH"} VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
       args_or_ask -n ${HH:+"$HH"} CONFLICT_STRATEGY \
         '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
       [ -n "$HH" ] && return 0
-
+      args_or_ask -h "$HH" -n TENANT_CODE '--tenant///the tenant code' "$@" || {
+        TENANT_CODE="primary"
+      }
       require_develop_checked
       require_ent_project_dir
-      ecr.install-bundle "$ENT_PRJ_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
+      ecr.install-bundle "$ENT_PRJ_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY" "$TENANT_CODE"
       ;;
     "uninstall") #H: uninstalls the current project bundle
       HH="$(parse_help_option "$@")"

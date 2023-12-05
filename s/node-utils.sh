@@ -233,13 +233,16 @@ _ent-bundle-deploy() {
 }
 
 _ent-bundle-install() {
-  local VERSION_TO_INSTALL CONFLICT_STRATEGY
+  local VERSION_TO_INSTALL CONFLICT_STRATEGY TENANT_CODE
   
   HH="$(parse_help_option "$@")"
   bgn_help_parsing ":bundle-cli-install" "$@"
   args_or_ask -h "$HH" -n VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
   args_or_ask -h "$HH" -n CONFLICT_STRATEGY \
     '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
+  args_or_ask -h "$HH" -n TENANT_CODE '--tenant///the tenant code' "$@" || {
+    TENANT_CODE="primary"
+  }
   end_help_parsing
 
   require_develop_checked
@@ -258,7 +261,7 @@ _ent-bundle-install() {
     )"
   fi
   
-  ecr.install-bundle "$ENT_PRJ_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY"
+  ecr.install-bundle "$ENT_PRJ_NAME" "$VERSION_TO_INSTALL" "$CONFLICT_STRATEGY" "$TENANT_CODE"
 }
 
 _ent-entando-bundle-cli() {
