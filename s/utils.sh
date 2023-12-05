@@ -936,12 +936,12 @@ app-get-main-ingresses() {
   #~~~
   local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress"))"
 
-  local JSON_TEST="$(
-   _jq "$JQ" -r <<< "$JSON"
+  local JSON_ING="$(
+    _jq "$JQ" -r <<< "$JSON"
   )"
 
-  [ -n "$JSON_TEST" ] && JSON="$JSON_TEST"
-  [ -n "$JSON_TEST" ] && JQ=".spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
+  [ -n "$JSON_ING" ] && JSON="$JSON_ING"
+  [ -n "$JSON_ING" ] && JQ=".spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
 
   stdin_to_arr $'\n\r' OUT < <(_jq "$JQ" -r <<< "$JSON")
   
