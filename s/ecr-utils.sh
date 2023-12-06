@@ -12,8 +12,6 @@ ecr-prepare-action() {
   shift
   local var_token="$1"
   shift
-  local $TENANT_CODE
-  shift
   $VERBOSE && print_current_profile_info
   kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
   # shellcheck disable=SC2034
@@ -75,7 +73,7 @@ ecr-bundle-action() {
   [ -n "$action" ] && url+="/$action"
 
   local OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-  
+
   # shellcheck disable=SC2155
   if "$DEBUG"; then
       local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
@@ -142,7 +140,7 @@ ecr-watch-installation-result() {
   local ingress="$1";shift
   local token="$1";shift
   local bundle_id="$1";shift
-  local TENANT_CODE="$1";shift
+  local tenant_code="$1";shift
 
   local http_res
 
@@ -153,7 +151,7 @@ ecr-watch-installation-result() {
 
   while true; do
     http_res=$(
-      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id" "$TENANT_CODE"
+      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id" "$tenant_code"
     )
     
     if [ "${http_res:0:1}" != '%' ]; then
@@ -377,7 +375,7 @@ ecr.install-bundle() {
   local TENANT_CODE="${3}"
   local MSGPRE="Installation of bundle \"$BUNDLE_NAME\""
   local INGRESS_URL TOKEN
-  ecr-prepare-action INGRESS_URL TOKEN TENANT_CODE
+  ecr-prepare-action INGRESS_URL TOKEN
   local DATA="{\"version\":\"$VERSION_TO_INSTALL\""
   
   if [ -n "$CONFLICT_STRATEGY" ]; then

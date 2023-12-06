@@ -1077,16 +1077,16 @@ keycloak-query-connection-data() {
     [ -z "$json_mt" ] && FATAL "Unable to extract the entando tenants secret"
 
     tenant_conf="$(
-     _jq ".[] | select(.tenantCode==$(_str_quote "$TENANT_CODE"))" <<< $json_mt
+     _jq ".[] | select(.tenantCode==$(_str_quote "$TENANT_CODE"))" <<< "$json_mt"
     )"
 
     [ -z "$tenant_conf" ] && FATAL "Unable to find the tenant $TENANT_CODE"
 
     deKcClientId="$(
-      _jq ".deKcClientId" <<< $tenant_conf
+      _jq ".deKcClientId" <<< "$tenant_conf"
     )"
     deKcClientSecret="$(
-      _jq ".deKcClientSecret" <<< $tenant_conf
+      _jq ".deKcClientSecret" <<< "$tenant_conf"
     )"
 
     deKcClientId=$(echo "$deKcClientId" | xargs)

@@ -70,7 +70,7 @@ RUN() {
     "install") #H: installs the current project bundle
       HH="$(parse_help_option "$@")"
       show_help_option "$HH"
-      local VERSION_TO_INSTALL CONFLICT_STRATEGY $TENANT_CODE
+      local VERSION_TO_INSTALL CONFLICT_STRATEGY TENANT_CODE
       args_or_ask -n ${HH:+"$HH"} VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
       args_or_ask -n ${HH:+"$HH"} CONFLICT_STRATEGY \
         '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
