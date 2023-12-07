@@ -383,7 +383,9 @@ ecr.install-bundle() {
     DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
   fi  
   DATA+="}"
-  
+
+  [[ -n $TENANT_CODE ]] && _log_i "Installing $BUNDLE_NAME on $TENANT_CODE"
+
   local RV
   ecr-bundle-action RV "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$TENANT_CODE" "$DATA" &>/dev/null
 
