@@ -1071,7 +1071,7 @@ keycloak-query-connection-data() {
   if [[ -n $TENANT_CODE  &&  $TENANT_CODE != "primary" ]]; then
 
     json_mt="$(
-       _kubectl get secret entando-tenants-secret -o jsonpath="{.data.ENTANDO_TENANTS}" | _base64_d
+       _kubectl get secret entando-tenants-secret -o jsonpath="{.data.ENTANDO_TENANTS}" 2>/dev/null | xargs | _base64_d
     )"
 
     [ -z "$json_mt" ] && FATAL "Unable to extract the entando tenants secret"
@@ -1092,9 +1092,14 @@ keycloak-query-connection-data() {
     deKcClientId=$(echo "$deKcClientId" | xargs)
     deKcClientSecret=$(echo "${deKcClientSecret}" | xargs)
 
+    [ -z "$deKcClientId" ] && FATAL "Invalid deKcClientId in tenant $TENANT_CODE"
+    [ -z "$deKcClientSecret" ] && FATAL "Invalid deKcClientSecret in tenant $TENANT_CODE"
+
     tmp_mt=$(_base64_e <<< "$deKcClientId")":"$(_base64_e <<< "$deKcClientSecret")
 
     tmp=$tmp_mt
+
+    _tmp_realm=$TENANT_CODE
   fi
 
   client_id="$(echo "$tmp" | cut -d':' -f1)"
@@ -1104,10 +1109,6 @@ keycloak-query-connection-data() {
 
   _tmp_client_id=$(_base64_d <<< "$client_id")
   _tmp_client_secret=$(_base64_d <<< "$client_secret")
-
-  if [[ -n $TENANT_CODE  &&  $TENANT_CODE != "primary" ]]; then
-     _tmp_realm=$TENANT_CODE
-  fi
 
   _set_var "$1" "$_tmp_auth_url"
   _set_var "$2" "$_tmp_client_id"
