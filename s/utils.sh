@@ -1068,7 +1068,7 @@ keycloak-query-connection-data() {
   fi
 
   # MULTI-TENANCY
-  if [[ -n $TENANT_CODE  &&  $TENANT_CODE != "primary" ]]; then
+  if [[ -n "$TENANT_CODE"  &&  "$TENANT_CODE" != "primary" ]]; then
 
     json_mt="$(
        _kubectl get secret entando-tenants-secret -o jsonpath="{.data.ENTANDO_TENANTS}" 2>/dev/null | xargs | _base64_d
@@ -1097,9 +1097,9 @@ keycloak-query-connection-data() {
 
     tmp_mt=$(_base64_e <<< "$deKcClientId")":"$(_base64_e <<< "$deKcClientSecret")
 
-    tmp=$tmp_mt
+    tmp="$tmp_mt"
 
-    _tmp_realm=$TENANT_CODE
+    _tmp_realm="$TENANT_CODE"
   fi
 
   client_id="$(echo "$tmp" | cut -d':' -f1)"
