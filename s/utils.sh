@@ -899,23 +899,6 @@ http-get-url-scheme() {
   _set_var "$1" "${2//:\/\/*/}"
 }
 
-http-get-working-url() {
-  local res_var="$1"
-  shift
-  local res
-  if http-check "$1" --accept-401; then
-    res="$1"
-  else
-    if http-check "$2" --accept-401; then
-      res="$2"
-    else
-      res=""
-    fi
-  fi
-
-  _set_var "$res_var" "$res"
-}
-
 #-----------------------------------------------------------------------------------------------------------------------
 # Retrieve the main application ingresses:
 # $1: var for the scheme
