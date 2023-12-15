@@ -240,7 +240,7 @@ _ent-bundle-install() {
   args_or_ask -h "$HH" -n VERSION_TO_INSTALL '--version/ver//defines the specific version to install' "$@"
   args_or_ask -h "$HH" -n CONFLICT_STRATEGY \
     '--conflict-strategy///strategy to adopt if the object is already present (CREATE|SKIP|OVERRIDE)' "$@"
-  args_or_ask -h "$HH" -n TENANT_CODE '--tenant///the tenant code' "$@" || {
+  args_or_ask -h "$HH" -n TENANT_CODE '--tenant///the tenant name' "$@" || {
     TENANT_CODE="primary"
   }
   end_help_parsing
