@@ -102,6 +102,9 @@ _ecr-deploy() {
   args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  args_or_ask -h "$HH" -n TENANT_CODES '--tenants///the tenant names' "$@" || {
+      TENANT_CODES="primary"
+    }
   end_help_parsing
   NONNULL -s BUNDLE_PUB_REPO
 
@@ -109,7 +112,7 @@ _ecr-deploy() {
   
   (
     export SYS_IS_STDOUT_A_TTY=false
-    ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" \
+    ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" "$TENANT_CODES" \
       | _kubectl apply -f -
   )
 }
@@ -174,7 +177,7 @@ _ecr-get-bundle-id() {
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ecr-generate-custom-resource() {
-  local BUNDLE_NAME BUNDLE_PUB_REPO THUMBNAIL_FILE THUMBNAIL_URL
+  local BUNDLE_NAME BUNDLE_PUB_REPO THUMBNAIL_FILE THUMBNAIL_URL TENANT_CODES
 
   bgn_help_parsing ":ECR-CR" "$@"
   args_or_ask -h "$HH" -n BUNDLE_NAME  '--name///name of the bundle project' "$@"
@@ -182,10 +185,13 @@ ecr-generate-custom-resource() {
   args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
+  args_or_ask -h "$HH" -n TENANT_CODES '--tenants///the tenant names' "$@" || {
+      TENANT_CODES="primary"
+    }
   end_help_parsing
   NONNULL -s BUNDLE_PUB_REPO
   
-  ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL"
+  ecr.generate-custom-resource "$BUNDLE_NAME" "$BUNDLE_PUB_REPO" "$THUMBNAIL_FILE" "$THUMBNAIL_URL" "$TENANT_CODES"
 }
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ent-ecr-install() {
