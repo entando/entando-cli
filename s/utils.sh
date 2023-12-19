@@ -917,12 +917,20 @@ app-get-main-ingresses() {
   local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
   
   #~~~
-  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
+  local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress"))"
+
+  local JSON_ING="$(
+    _jq "$JQ" -r <<< "$JSON"
+  )"
+
+  [ -n "$JSON_ING" ] && JSON="$JSON_ING"
+  [ -n "$JSON_ING" ] && JQ=".spec | .tls[0].hosts[0] // \"-\", .rules[0].host"
+
   stdin_to_arr $'\n\r' OUT < <(_jq "$JQ" -r <<< "$JSON")
   
   #~~~
   # property detection: serviceName
-  local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.serviceName=="
+  local JQ=".spec.rules[0].http.paths[]|select(.backend.serviceName=="
   local E=").path"
   OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
   OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
@@ -931,7 +939,7 @@ app-get-main-ingresses() {
   
   #~~~
   # property detection: service.name
-  local JQ=".items[].spec.rules[0].http.paths[]|select(.backend.service.name=="
+  local JQ=".spec.rules[0].http.paths[]|select(.backend.service.name=="
   local E=").path"
   OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-server-service")${E}" -r 2>/dev/null <<< "$JSON")")
   OUT+=("$(_jq "${JQ}$(_str_quote "$ENTANDO_APPNAME-service")${E}" -r 2>/dev/null <<< "$JSON")")
@@ -1001,12 +1009,18 @@ path-concat() {
 
 keycloak-query-connection-data() {
   local tmp
+  local json_mt
+  local tmp_mt
   local scheme="$5"
   local _tmp_client_id
   local _tmp_client_secret
   local _tmp_auth_url
   local _tmp_realm="entando"
-  
+  local TENANT_CODE="$6"
+  local tenant_conf
+  local deKcClientId
+  local deKcClientSecret
+
   tmp="$(
     _kubectl get secret "external-sso-secret" -o jsonpath="{.data.clientId}:{.data.clientSecret}:{.data.authUrl}:{.data.realm}" 2> /dev/null
   )"
@@ -1035,7 +1049,42 @@ keycloak-query-connection-data() {
     _tmp_auth_url+="/auth"
     _tmp_auth_url="$scheme://$_tmp_auth_url"
   fi
-  
+
+  # MULTI-TENANCY
+  if [[ -n "$TENANT_CODE"  &&  "$TENANT_CODE" != "primary" ]]; then
+
+    json_mt="$(
+       _kubectl get secret entando-tenants-secret -o jsonpath="{.data.ENTANDO_TENANTS}" 2>/dev/null | xargs | _base64_d
+    )"
+
+    [ -z "$json_mt" ] && FATAL "Unable to extract the entando tenants secret"
+
+    tenant_conf="$(
+     _jq ".[] | select(.tenantCode==$(_str_quote "$TENANT_CODE"))" <<< "$json_mt"
+    )"
+
+    [ -z "$tenant_conf" ] && FATAL "Unable to find the tenant $TENANT_CODE"
+
+    deKcClientId="$(
+      _jq ".deKcClientId" <<< "$tenant_conf"
+    )"
+    deKcClientSecret="$(
+      _jq ".deKcClientSecret" <<< "$tenant_conf"
+    )"
+
+    deKcClientId=$(echo "$deKcClientId" | xargs)
+    deKcClientSecret=$(echo "${deKcClientSecret}" | xargs)
+
+    [ -z "$deKcClientId" ] && FATAL "Invalid deKcClientId in tenant $TENANT_CODE"
+    [ -z "$deKcClientSecret" ] && FATAL "Invalid deKcClientSecret in tenant $TENANT_CODE"
+
+    tmp_mt=$(_base64_e <<< "$deKcClientId")":"$(_base64_e <<< "$deKcClientSecret")
+
+    tmp="$tmp_mt"
+
+    _tmp_realm="$TENANT_CODE"
+  fi
+
   client_id="$(echo "$tmp" | cut -d':' -f1)"
   client_secret="$(echo "$tmp" | cut -d':' -f2)"
   
@@ -1043,7 +1092,7 @@ keycloak-query-connection-data() {
 
   _tmp_client_id=$(_base64_d <<< "$client_id")
   _tmp_client_secret=$(_base64_d <<< "$client_secret")
- 
+
   _set_var "$1" "$_tmp_auth_url"
   _set_var "$2" "$_tmp_client_id"
   _set_var "$3" "$_tmp_client_secret"
@@ -1054,16 +1103,17 @@ keycloak-get-token() {
   local res_var="$1"; shift
   local scheme="$1"
   local auth_url client_id client_secret realm
-  
+  local TENANT_CODE="$2"
+
   [ -z "$ENTANDO_APPNAME" ] && FATAL "Please set the application name"
 
-  keycloak-query-connection-data auth_url client_id client_secret realm "$scheme"
-  
+  keycloak-query-connection-data auth_url client_id client_secret realm "$scheme" "$TENANT_CODE"
+
   # Finds the KEYCLOAK ENDPOINT
   local TOKEN_ENDPOINT
   TOKEN_ENDPOINT="$(curl --insecure -sL "${auth_url}/realms/${realm}/.well-known/openid-configuration" \
     | _jq -r ".token_endpoint")"
-  
+
   local TOKEN
   TOKEN="$(curl --insecure -sL "$TOKEN_ENDPOINT" \
     -H "Accept: application/json" \

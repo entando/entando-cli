@@ -34,7 +34,7 @@ ecr-prepare-action() {
   http-get-url-scheme url_scheme "$main_ingress"
   save_cfg_value LATEST_URL_SCHEME "$url_scheme"
   local token
-  keycloak-get-token token "$url_scheme"
+  keycloak-get-token token "$url_scheme" "$TENANT_CODE"
   _set_var "$var_url" "$url_scheme://$ecr_ingress"
   _set_var "$var_token" "$token"
 }
@@ -59,6 +59,7 @@ ecr-bundle-action() {
   local ingress="$1";shift
   local token="$1";shift
   local bundle_id="$1";shift
+  local tenant_code="$1";shift
   local raw_data="$1";shift
   
   local url
@@ -71,7 +72,7 @@ ecr-bundle-action() {
   [ -n "$action" ] && url+="/$action"
 
   local OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-  
+
   # shellcheck disable=SC2155
   if "$DEBUG"; then
       local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
@@ -81,6 +82,7 @@ ecr-bundle-action() {
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $token" \
         -H "Origin: ${ingress}" \
+        -H "X-ENTANDO-TENANTCODE: $tenant_code" \
         ${raw_data:+--data "$raw_data"} \
         1> "$STATUS" 2> "$ERR"
       
@@ -101,6 +103,7 @@ ecr-bundle-action() {
         -H 'Content-Type: application/json' \
         -H "Authorization: Bearer $token" \
         -H "Origin: ${ingress}" \
+        -H "X-ENTANDO-TENANTCODE: $tenant_code" \
         ${raw_data:+--data "$raw_data"} \
         2> /dev/null
     )
@@ -136,6 +139,8 @@ ecr-watch-installation-result() {
   local ingress="$1";shift
   local token="$1";shift
   local bundle_id="$1";shift
+  local tenant_code="$1";shift
+
   local http_res
 
   local start_time end_time elapsed
@@ -145,7 +150,7 @@ ecr-watch-installation-result() {
 
   while true; do
     http_res=$(
-      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id"
+      ecr-bundle-action "%" "GET" "$action" "$ingress" "$token" "$bundle_id" "$tenant_code"
     )
     
     if [ "${http_res:0:1}" != '%' ]; then
@@ -366,6 +371,7 @@ ecr.install-bundle() {
   local BUNDLE_NAME="$1"; shift
   local VERSION_TO_INSTALL="${1:-latest}"
   local CONFLICT_STRATEGY="${2}"
+  local TENANT_CODE="${3}"
   local MSGPRE="Installation of bundle \"$BUNDLE_NAME\""
   local INGRESS_URL TOKEN
   ecr-prepare-action INGRESS_URL TOKEN
@@ -376,13 +382,16 @@ ecr.install-bundle() {
     DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
   fi  
   DATA+="}"
-  
+
+  [[ -n $TENANT_CODE ]] && _log_i "Installing $BUNDLE_NAME on $TENANT_CODE"
+
   local RV
-  ecr-bundle-action RV "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null
+  ecr-bundle-action RV "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$TENANT_CODE" "$DATA" &>/dev/null
+
   case "$RV" in
     2*)
       _log_i "$MSGPRE started"
-      ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME"
+      ecr-watch-installation-result "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$TENANT_CODE"
       ;;
     401)
       _FATAL -s "$MSGPRE failed because authentication is required but none was found in the request"
