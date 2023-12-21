@@ -229,7 +229,7 @@ _ent-bundle() {
 _ent-bundle-deploy() {
   kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
 
-  local IMAGE TENANT_CODES
+  local TENANT_CODES
   HH="$(parse_help_option "$@")"
   bgn_help_parsing ":bundle-cli-deploy" "$@"
   args_or_ask -h "$HH" -n -p TENANT_CODES '--tenants///the tenant names' "$@"
