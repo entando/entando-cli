@@ -232,9 +232,7 @@ _ent-bundle-deploy() {
   local IMAGE TENANT_CODES
   HH="$(parse_help_option "$@")"
   bgn_help_parsing ":bundle-cli-deploy" "$@"
-  args_or_ask -h "$HH" -n -p TENANT_CODES '--tenants///the tenant names' "$@" || {
-    TENANT_CODES="primary"
-  }
+  args_or_ask -h "$HH" -n -p TENANT_CODES '--tenants///the tenant names' "$@"
   end_help_parsing
 
   ecr.docker.generate-cr "" "$TENANT_CODES" \
