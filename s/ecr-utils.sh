@@ -205,7 +205,7 @@ ecr.generate-custom-resource() {
   local REPOSITORY="$2"
   local THUMBNAIL_FILE="$3"
   local THUMBNAIL_URL="$4"
-  
+  local TENANT_CODES="$5"
   if [ "$THUMBNAIL_FILE" == "<auto>" ]; then
     THUMBNAIL_FILE="$ENTANDO_ENT_HOME/$C_ENTANDO_LOGO_FILE"
   fi
@@ -219,7 +219,7 @@ ecr.generate-custom-resource() {
   fi
   
   if [[ "$REPOSITORY" = "docker://"* ]]; then
-    ecr.docker.generate-cr "${REPOSITORY:9}"
+    ecr.docker.generate-cr "${REPOSITORY:9}" "$TENANT_CODES"
   else
     _ent-bundler from-git \
       --dry-run \
@@ -232,14 +232,15 @@ ecr.generate-custom-resource() {
 ecr.docker.generate-cr() {
   (
     REPO="$1"
+    local TENANT_CODES="$2"
+
     tmp="$(mktemp)"
     # shellcheck disable=SC2064
     trap "rm \"$tmp\"" exit
-    
     _ent-bundle generate-cr \
       -f -o "$tmp" 1>&2 \
-      ${REPO:+--image "$REPO"}
-      
+      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES"
+
     cat "$tmp"
   )
 }
