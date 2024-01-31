@@ -3,9 +3,11 @@ FROM alpine:3.17.1
 ARG ENT_VERSION
 ARG ENTANDO_VERSION
 ARG APP=/home/ent
+ARG BUNDLE_CLI_VERSION
 
 ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/bin:$PATH \
     ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
+    BUNDLE_CLI_VERSION=$BUNDLE_CLI_VERSION \
     HOME=$APP
 
 RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl grep gcompat libstdc++ docker

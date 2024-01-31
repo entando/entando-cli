@@ -4,9 +4,11 @@ FROM alpine:3.17.1
 ARG ENT_VERSION
 ARG ENT_CLI_VERSION
 ARG KUBECTL_RELEASE
+ARG BUNDLE_CLI_VERSION
 
 ENV BASH_ENV=/usr/local/bin/scl_enable \
     ENT_VERSION=$ENT_VERSION \
+    BUNDLE_CLI_VERSION=$BUNDLE_CLI_VERSION \
     PATH=$PATH:/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_CLI_VERSION/bin:/home/ent/.entando/ent/$ENT_VERSION/opt/node-v14.20.0/bin \
     ENTANDO_ENT_HOME=/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_CLI_VERSION \
     ENV=/usr/local/bin/scl_enable \
