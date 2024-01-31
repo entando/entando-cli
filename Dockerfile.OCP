@@ -1,4 +1,4 @@
-FROM alpine:3.16
+FROM alpine:3.17.1
 
 #    REGISTRY=https://registry.npmjs.org \
 ARG ENT_VERSION
@@ -16,7 +16,7 @@ ENV BASH_ENV=/usr/local/bin/scl_enable \
 COPY utils/docker /bin/docker
 COPY utils/activate-ent.sh /home/ent/
 
-RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl npm grep && \
+RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl grep libstdc++ gcompat && \
     curl -LO https://dl.k8s.io/release/$KUBECTL_RELEASE/bin/linux/amd64/kubectl && \
     chmod +x kubectl && \
     mv ./kubectl /bin/kubectl && \
