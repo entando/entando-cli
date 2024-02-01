@@ -1,16 +1,16 @@
 FROM alpine:3.17.1
 
 #    REGISTRY=https://registry.npmjs.org \
-ARG ENT_VERSION
+ARG ENTANDO_VERSION
 ARG ENT_CLI_VERSION
 ARG KUBECTL_RELEASE
 ARG BUNDLE_CLI_VERSION
 
 ENV BASH_ENV=/usr/local/bin/scl_enable \
-    ENT_VERSION=$ENT_VERSION \
+    ENTANDO_VERSION=$ENTANDO_VERSION \
     BUNDLE_CLI_VERSION=$BUNDLE_CLI_VERSION \
-    PATH=$PATH:/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_CLI_VERSION/bin:/home/ent/.entando/ent/$ENT_VERSION/opt/node-v14.20.0/bin \
-    ENTANDO_ENT_HOME=/home/ent/.entando/ent/$ENT_VERSION/cli/$ENT_CLI_VERSION \
+    PATH=$PATH:/home/ent/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION/bin:/home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-v14.20.0/bin \
+    ENTANDO_ENT_HOME=/home/ent/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION \
     ENV=/usr/local/bin/scl_enable \
     KUBECTL_RELEASE=$KUBECTL_RELEASE
 
@@ -29,14 +29,14 @@ USER 1000
 
 WORKDIR /home/ent
 
-RUN bash <(curl -sfL https://get.entando.org/cli) --update --release="$ENT_VERSION" --cli-version="$ENT_CLI_VERSION" && \
+RUN bash <(curl -sfL https://get.entando.org/cli) --update --release="$ENTANDO_VERSION" --cli-version="$ENT_CLI_VERSION" && \
     bash ./activate-ent.sh
 
 USER 0
 
 RUN chmod 0777 -R $ENTANDO_ENT_HOME/w && \
-    mkdir -p /home/ent/.entando/ent/$ENT_VERSION/opt/node-v14.20.0/etc && \
-    chmod 0777 -R /home/ent/.entando/ent/$ENT_VERSION/opt/node-v14.20.0/etc && \
+    mkdir -p /home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-v14.20.0/etc && \
+    chmod 0777 -R /home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-v14.20.0/etc && \
     mkdir -p /entando-app && chmod 0777 -R /entando-app
 
 
