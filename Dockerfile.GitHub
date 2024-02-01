@@ -1,11 +1,13 @@
 FROM alpine:3.17.1
 
-ARG ENT_VERSION
+ARG ENT_CLI_VERSION
 ARG ENTANDO_VERSION
 ARG APP=/home/ent
+ARG BUNDLE_CLI_VERSION
 
-ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION/bin:$APP/.entando/bin:$PATH \
-    ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_VERSION \
+ENV PATH=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION/bin:$APP/.entando/bin:$PATH \
+    ENTANDO_ENT_HOME=$APP/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION \
+    BUNDLE_CLI_VERSION=$BUNDLE_CLI_VERSION \
     HOME=$APP
 
 RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl grep gcompat libstdc++ docker
@@ -16,7 +18,7 @@ COPY utils/activate-ent.sh $APP
 
 RUN chmod +x $APP/activate-ent.sh
 
-RUN bash <(curl -sfL https://get.entando.org/cli) --update --release="$ENTANDO_VERSION" --cli-version="$ENT_VERSION" && \
+RUN bash <(curl -sfL https://get.entando.org/cli) --update --release="$ENTANDO_VERSION" --cli-version="$ENT_CLI_VERSION" && \
     bash $APP/activate-ent.sh
 
 CMD ["/bin/bash"]
