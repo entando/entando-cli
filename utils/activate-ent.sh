@@ -2,9 +2,6 @@
 set -eux
 
 echo "BUNDLE_CLI_VERSION: $BUNDLE_CLI_VERSION"
+echo "NODE_VERSION: $NODE_VERSION"
 
-if [ -n "$BUNDLE_CLI_VERSION" ] ; then
-    ent check-env develop --yes --entando-bundle-cli-version="$BUNDLE_CLI_VERSION" --lenient
-else
-    ent check-env develop --yes  --lenient
-fi
+ent check-env develop --yes --entando-bundle-cli-version="$BUNDLE_CLI_VERSION" --node-version="$NODE_VERSION" --lenient

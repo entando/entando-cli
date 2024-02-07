@@ -68,6 +68,8 @@ jobs:
           build-args: |
             ENTANDO_VERSION=${{ vars.ENTANDO_RELEASE }}
             ENT_CLI_VERSION=${{ github.ref_name }}
+            NODE_VERSION=${{ vars.NODE_VERSION }}
+            JAVA_VERSION=${{ vars.JAVA_VERSION }}
           labels: ${{ steps.meta-ent-cli-github.outputs.labels }}
           platforms: linux/amd64
 
@@ -82,5 +84,7 @@ jobs:
             ENTANDO_VERSION=${{ vars.ENTANDO_RELEASE }}
             ENT_CLI_VERSION=${{ github.ref_name }}
             KUBECTL_RELEASE=${{ vars.KUBECTL_RELEASE }}
+            NODE_VERSION=${{ vars.NODE_VERSION }}
+            JAVA_VERSION=${{ vars.JAVA_VERSION }}
           labels: ${{ steps.meta-ent-cli-ocp.outputs.labels }}
           platforms: linux/amd64

@@ -1,46 +1,54 @@
-FROM alpine:3.17.1
+FROM debian:11.9-slim
 
 #    REGISTRY=https://registry.npmjs.org \
 ARG ENTANDO_VERSION
 ARG ENT_CLI_VERSION
 ARG KUBECTL_RELEASE
 ARG BUNDLE_CLI_VERSION
+ARG ENTANDO_USER_ID=65532
+ARG ENTANDO_USER=ent
+ARG JAVA_VERSION=11
+ARG NODE_VERSION
 
 ENV BASH_ENV=/usr/local/bin/scl_enable \
     ENTANDO_VERSION=$ENTANDO_VERSION \
     BUNDLE_CLI_VERSION=$BUNDLE_CLI_VERSION \
-    PATH=$PATH:/home/ent/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION/bin:/home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-v14.20.0/bin \
+    NODE_VERSION=$NODE_VERSION \
+    PATH=$PATH:/home/ent/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION/bin:/home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-$NODE_VERSION/bin \
     ENTANDO_ENT_HOME=/home/ent/.entando/ent/$ENTANDO_VERSION/cli/$ENT_CLI_VERSION \
     ENV=/usr/local/bin/scl_enable \
     KUBECTL_RELEASE=$KUBECTL_RELEASE
 
-COPY utils/docker /bin/docker
-COPY utils/activate-ent.sh /home/ent/
-
-RUN apk add --no-cache openjdk11 maven perl bash git tree jq curl grep libstdc++ gcompat && \
+RUN apt-get update && apt-get -y install openjdk-$JAVA_VERSION-jdk maven perl git tree jq curl grep && \
+    apt-get -y autoclean && apt-get -y autoremove && \
     curl -LO https://dl.k8s.io/release/$KUBECTL_RELEASE/bin/linux/amd64/kubectl && \
     chmod +x kubectl && \
     mv ./kubectl /bin/kubectl && \
-    adduser -u 1000 -s /bin/bash -D ent -g 0 -G root && \
-    chmod +x /bin/docker && \
-    chmod +x /home/ent/activate-ent.sh
+    useradd -ms /bin/bash $ENTANDO_USER --uid $ENTANDO_USER_ID --groups 0
 
-USER 1000
+COPY utils/docker /bin/docker
+COPY utils/activate-ent.sh /home/ent/
+
+RUN chmod +x /home/ent/activate-ent.sh && \
+    chown $ENTANDO_USER: /home/ent/activate-ent.sh && \
+    chmod +x /bin/docker
+
+USER $ENTANDO_USER
 
 WORKDIR /home/ent
 
-RUN bash <(curl -sfL https://get.entando.org/cli) --update --release="$ENTANDO_VERSION" --cli-version="$ENT_CLI_VERSION" && \
-    bash ./activate-ent.sh
+RUN /bin/bash -c "bash <(curl -sfL https://get.entando.org/cli) --update --release=$ENTANDO_VERSION --cli-version=$ENT_CLI_VERSION" && \
+    /bin/bash -c "bash ./activate-ent.sh"
 
 USER 0
 
 RUN chmod 0777 -R $ENTANDO_ENT_HOME/w && \
-    mkdir -p /home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-v14.20.0/etc && \
-    chmod 0777 -R /home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-v14.20.0/etc && \
+    mkdir -p /home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-$NODE_VERSION/etc && \
+    chmod 0777 -R /home/ent/.entando/ent/$ENTANDO_VERSION/opt/node-$NODE_VERSION/etc && \
     mkdir -p /entando-app && chmod 0777 -R /entando-app
 
 
-USER 1000
+USER $ENTANDO_USER
 
 WORKDIR /entando-app
 
