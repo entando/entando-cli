@@ -233,13 +233,33 @@ ecr.docker.generate-cr() {
   (
     REPO="$1"
     local TENANT_CODES="$2"
+    local OVERWRITE_TENANTS="$3"
+    local FORCE_OVERWRITE_TENANTS="$4"
 
     tmp="$(mktemp)"
     # shellcheck disable=SC2064
     trap "rm \"$tmp\"" exit
-    _ent-bundle generate-cr \
+
+    if [ -n "$OVERWRITE_TENANTS" ] && [ -z "$FORCE_OVERWRITE_TENANTS" ]; then
+      _ent-bundle generate-cr \
+      -f -o "$tmp" 1>&2 \
+      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--overwriteTenants"
+    fi
+    if [ -n "$OVERWRITE_TENANTS" ] && [ -n "$FORCE_OVERWRITE_TENANTS" ]; then
+      _ent-bundle generate-cr \
+      -f -o "$tmp" 1>&2 \
+      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--overwriteTenants" "--forceOverwriteTenants"
+    fi
+    if [ -z "$OVERWRITE_TENANTS" ] && [ -n "$FORCE_OVERWRITE_TENANTS" ]; then
+      _ent-bundle generate-cr \
+      -f -o "$tmp" 1>&2 \
+      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--forceOverwriteTenants"
+    fi
+    if [ -z "$OVERWRITE_TENANTS" ] && [ -z "$FORCE_OVERWRITE_TENANTS" ]; then
+      _ent-bundle generate-cr \
       -f -o "$tmp" 1>&2 \
       ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES"
+    fi
 
     cat "$tmp"
   )
