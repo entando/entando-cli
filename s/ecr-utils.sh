@@ -248,12 +248,12 @@ ecr.docker.generate-cr() {
     if [ -n "$OVERWRITE_TENANTS" ] && [ -n "$FORCE_OVERWRITE_TENANTS" ]; then
       _ent-bundle generate-cr \
       -f -o "$tmp" 1>&2 \
-      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--overwriteTenants" "--force"
+      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--overwriteTenants" "--forceOverwriteTenants"
     fi
     if [ -z "$OVERWRITE_TENANTS" ] && [ -n "$FORCE_OVERWRITE_TENANTS" ]; then
       _ent-bundle generate-cr \
       -f -o "$tmp" 1>&2 \
-      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--force"
+      ${REPO:+--image "$REPO"} --tenants "$TENANT_CODES" "--forceOverwriteTenants"
     fi
     if [ -z "$OVERWRITE_TENANTS" ] && [ -z "$FORCE_OVERWRITE_TENANTS" ]; then
       _ent-bundle generate-cr \

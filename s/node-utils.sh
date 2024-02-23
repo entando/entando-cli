@@ -229,7 +229,7 @@ _ent-bundle() {
 _ent-bundle-deploy() {
   kube.utils.is_api_server_reachable || _FATAL -s "Unable to connect to the Entando application"
 
-  local TENANT_CODES OVERWRITE_TENANTS FORCE_OVERWRITE_TENANTS OVERWRITE_TENANTS_FLAGS
+  local TENANT_CODES OVERWRITE_TENANTS FORCE_OVERWRITE_TENANTS OVERWRITE_TENANTS_FLAGS BUNDLE_CR
   HH="$(parse_help_option "$@")"
   bgn_help_parsing ":bundle-cli-deploy" "$@"
   args_or_ask -h "$HH" -n -p TENANT_CODES '--tenants///the tenant names' "$@"
@@ -237,8 +237,12 @@ _ent-bundle-deploy() {
   args_or_ask -h "$HH" -n -p -F FORCE_OVERWRITE_TENANTS '--forceOverwriteTenants///skip the question prompt for overwriteTenants' "$@"
   end_help_parsing
 
-  ecr.docker.generate-cr "" "$TENANT_CODES" "$OVERWRITE_TENANTS" "$FORCE_OVERWRITE_TENANTS" \
-  | _kubectl apply -f -
+  BUNDLE_CR="$(ecr.docker.generate-cr "" "$TENANT_CODES" "$OVERWRITE_TENANTS" "$FORCE_OVERWRITE_TENANTS")"
+
+  if [ -n "$BUNDLE_CR" ]; then
+    echo "$BUNDLE_CR" | _kubectl apply -f -
+  fi
+
 }
 
 _ent-bundle-install() {
