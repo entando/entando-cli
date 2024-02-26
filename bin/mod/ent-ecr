@@ -102,9 +102,7 @@ _ecr-deploy() {
   args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
-  args_or_ask -h "$HH" -n TENANT_CODES '--tenants///the tenant names' "$@" || {
-      TENANT_CODES="primary"
-    }
+  args_or_ask -h "$HH" -n TENANT_CODES '--tenants///the tenant names' "$@"
   end_help_parsing
   NONNULL -s BUNDLE_PUB_REPO
 
@@ -185,9 +183,7 @@ ecr-generate-custom-resource() {
   args_or_ask -h "$HH" -n -p BUNDLE_PUB_REPO "--repository///alias of \"--repo\"" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_FILE "--thumbnail-file///path of the thumbnail file" "$@"
   args_or_ask -h "$HH" -n THUMBNAIL_URL "--thumbnail-url///url of the thumbnail" "$@"
-  args_or_ask -h "$HH" -n TENANT_CODES '--tenants///the tenant names' "$@" || {
-      TENANT_CODES="primary"
-    }
+  args_or_ask -h "$HH" -n TENANT_CODES '--tenants///the tenant names' "$@"
   end_help_parsing
   NONNULL -s BUNDLE_PUB_REPO
   
