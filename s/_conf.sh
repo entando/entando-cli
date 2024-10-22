@@ -151,7 +151,7 @@ ENTANDO_NPM_REGISTRY="https://$ENTANDO_NPM_REGISTRY_NO_SCHEMA"
 # THE TOKEN HAS IN FACT NO PERMISSION BUT repository:read
 # it's obfuscated just to avoid false positives from security scanners
 ENTANDO_NPM_REGISTRY_TOKEN_FOR_ANONYMOUS_ACCESS="$(
-  echo -n "ZXc2Z2IwbUtWMUZ5c0g0NWxLTFBOZVBwNGJDaUk5TE9iNUw4X3BoZw==" \
+  echo -n "bXl6cEw0NDFIM0NpTXJFcWs0NTlxenBUOEhRZkdiODM1SEtWX3BoZw==" \
     | perl -e "use MIME::Base64; print decode_base64(<>);" \
     | perl -e 'print scalar reverse(<>);' \
     | tr -d '\n' | tr -d '\r'
