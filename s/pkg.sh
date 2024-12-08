@@ -7,6 +7,7 @@
 _ent.pkg() {
   bgn_help_parsing ":ENT-PKG" "$@"
   CMD="$1"; shift;
+
   case "$CMD" in
     "list"|"ls") 
       end_help_parsing
@@ -184,11 +185,11 @@ _pkg_get() {
         "$url/jq-win64.exe" "jq-win64.exe" "";
       ;;
     k9s)
-      var="K9S_PATH";ver="${ver:-v0.25.18}";url="https://github.com/derailed/k9s/releases/download/$ver/"
+      var="K9S_PATH";ver="${ver:-v0.32.7}";url="https://github.com/derailed/k9s/releases/download/$ver/"
       _pkg_download_and_install "$var" "k9s" "$ver" \
-        "$url/k9s_Linux_x86_64.tar.gz" "k9s" "" \
-        "$url/k9s_Darwin_x86_64.tar.gz" "k9s" "" \
-        "$url/k9s_Windows_x86_64.tar.gz" "k9s.exe" "";
+        "$url/k9s_Linux_amd64.tar.gz" "k9s" "" \
+        "$url/k9s_Darwin_amd64.tar.gz" "k9s" "" \
+        "$url/k9s_Windows_amd64.tar.gz" "k9s.exe" "";
       ;;
     crane)
       var="CRANE_PATH";ver="${ver:-v0.9.0}";url="https://github.com/google/go-containerregistry/releases/download/$ver/"
@@ -220,8 +221,11 @@ _pkg_get() {
 
 
 _pkg_jq() {
+  local RC SOE=false;[ "$1" == "--soe" ] && { SOE=true; shift; }
   local CMD; _pkg_get_path --strict CMD "jq"
-  "$CMD" "$@"
+  "$CMD" "$@"; RC="$?"
+  "$SOE" && _FATAL "jq error detected (RC=$RC)"
+  return "$RC"
 }
 
 _pkg_ok() {
@@ -231,16 +235,23 @@ _pkg_ok() {
 
 _pkg_k9s() {
   local CMD; _pkg_get_path --strict CMD "k9s"
-  if [ -z "$1" ]; then
+  if [ "$1" == "--direct" ]; then
+    shift
+    SYS_CLI_PRE "$CMD" "$@"
+  else
     if _nn DESIGNATED_KUBECTX; then
       SYS_CLI_PRE "$CMD" "$@" --context="$DESIGNATED_KUBECTX" --namespace="$ENTANDO_NAMESPACE"
     elif _nn DESIGNATED_KUBECONFIG; then
-      SYS_CLI_PRE "$CMD" "$@" --kubeconfig="$DESIGNATED_KUBECONFIG" --namespace="$ENTANDO_NAMESPACE"
+      stdin_to_arr $'\n\r' ARR < <(yq '.contexts[].name' < "$DESIGNATED_KUBECONFIG")
+      select_one -s "CONTEXT" "${ARR[@]}"
+      SELECTED_CONTEXT="$select_one_res_alt"
+      SYS_CLI_PRE "$CMD" "$@" \
+        --kubeconfig="$DESIGNATED_KUBECONFIG" \
+        --context="$SELECTED_CONTEXT" \
+        --namespace="$ENTANDO_NAMESPACE"
     else
       SYS_CLI_PRE "$CMD" "$@" --namespace="$ENTANDO_NAMESPACE"
     fi
-  else
-    SYS_CLI_PRE "$CMD" "$@"
   fi
 }
 

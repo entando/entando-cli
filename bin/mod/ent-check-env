@@ -103,7 +103,7 @@ check-env.extention-modules() {
   local module;
   while IFS= read -r module; do
     _ent.extension-module.execute "$module" check-env || {
-      DEPENDENCY_ERROR "$FAIL_MSG"
+      DEPENDENCY_ERROR "$FAIL_MSG"$'\n'"for module \"$module\""
     }
   done < <(_ent.extension-modules.list)
 }

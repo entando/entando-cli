@@ -78,7 +78,7 @@ node.activate_environment() {
   # shellcheck disable=SC2031
   ENT_NODE_DIR="$ENT_OPTS/node-$ENT_NODE_VER"
   # shellcheck disable=SC2154
-  export PATH="$PATH:${sENT_NODE_DIR}bin"
+  export PATH="$PATH:${ENT_NODE_DIR}bin"
   
   _ent-npm-init-rc
   

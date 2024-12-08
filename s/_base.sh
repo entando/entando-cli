@@ -136,6 +136,27 @@ function print_current_function_name() {
   echo "${1}${FUNCNAME[1]}${2}"
 }
 
+setup_cfg_file_location() {
+
+  if [[ -z "$DESIGNATED_PROFILE" || "$DESIGNATED_PROFILE" = "-" ]]; then
+    CFG_FILE=""
+  else
+    local base_cfg_file="$ENT_WORK_DIR/.cfg"
+    if [[ -z "$DESIGNATED_PROFILE_SUB" || "$DESIGNATED_PROFILE_SUB" = "-" ]]; then
+      # shellcheck disable=SC2034
+      CFG_FILE="$base_cfg_file"
+      [ ! -f "$CFG_FILE" ] && FATAL "Unable to find the given profile"
+    else
+      # shellcheck disable=SC2034
+      CFG_FILE="${ENT_WORK_DIR}/.${DESIGNATED_PROFILE_SUB}.cfg"
+      if [ ! -f "$CFG_FILE" ]; then
+        [ "$1" == "--required" ] && FATAL "Unable to find the given profile or sub-profile"
+        cp "$base_cfg_file" "$CFG_FILE"
+      fi
+    fi
+  fi
+}
+
 # activates the default workdir of the current ent installation
 #
 # the default workdir is not related t any profile
@@ -159,7 +180,7 @@ activate_ent_default_workdir() {
 # and can be potentially used by more that on ent installation
 activate_application_workdir() {
   if [ -n "$DESIGNATED_PROFILE" ]; then
-    if [ -d "$DESIGNATED_PROFILE_HOME/w" ]; then
+        if [ -d "$DESIGNATED_PROFILE_HOME/w" ]; then
       ENT_WORK_DIR="$DESIGNATED_PROFILE_HOME/w"
       # shellcheck disable=SC2034
       CFG_FILE="$ENT_WORK_DIR/.cfg"

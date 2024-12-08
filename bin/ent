@@ -8,11 +8,10 @@
 #H::
 #H:: Built-in Scripts:
 
+# The directory from which ent was called
 # shellcheck disable=SC2034
-ENT_ORIGIN_WORKDIR="$PWD"
+ENT_CALLER_DIR="$PWD"
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 RUN() {
   upgrade_project_file "$C_ENT_PRJ_FILE" "$C_ENT_OLD_PRJ_FILE"
@@ -126,9 +125,6 @@ RUN() {
       "jhipster"|"bundler"|"bundle")
         _ent node-cmd-wrapper "$cmd" "ENT wrapper for the node command \"$cmd\"" "$@"
         ;;
-      "pkg") #H: helps dealing with the ent bin tools
-        _ent.pkg "$@"
-        ;;
       "crane"|"docker"|"jq"|"k9s")
         _ent.pkg run "$cmd" "$@"
         ;;
@@ -138,6 +134,9 @@ RUN() {
       "load-module")
         ent-load-extension-module "$@"
         ;;
+      "trace")
+        ent-trace "$@"
+        ;;
       "")
         # shellcheck disable=SC1091
         _source_ent help
@@ -146,31 +145,15 @@ RUN() {
         cmplt
         ;;
       *)
-        [ "$cmd" = "k" ] && cmd="kubectl"
-
-        local FOUND=false RV=0
-
-        local mod_script="${ENTANDO_ENT_HOME}/bin/mod/ent-${cmd}"
-
-        if [ -f "$mod_script" ]; then
-          FOUND=true
-          # shellcheck disable=SC1090
-          source "$mod_script" "$@"
-          RV="$?"
+        _execute_script "$cmd" "$@"
+        RV="$?"
+        if [ "$RV" = "33" ]; then
+          _log_e "Unrecognized ent module or command \"$cmd\""
+        elif [ "$RV" = "34" ]; then
+          _log_e "Unrecognized ent command \"$1\" for module \"$cmd\""
         else
-          local ext_mod_script="$ENTANDO_ENT_EXTENSIONS_MODULES_PATH/ent-${cmd}"
-          if _ent.extension-module.is-present "$cmd"; then
-            FOUND=true
-            _ent.extension-module.execute "${cmd}" "$@"
-          fi
+          return "${RV:-1}"
         fi
-
-        ! $FOUND && {
-          _log_e "Unrecognized ent command \"$cmd\""
-          return 33
-        }
-        
-        (exit "$RV")
         ;;
     esac
     _SOE
@@ -180,172 +163,6 @@ RUN() {
   done
 }
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-ent-load-extension-module() {
-  (
-    local REPO NAME BRANCH
-    args_or_ask -h "$HH" -a -n -- REPO '1/git_repo//%sp repository of the module' "$@"
-    args_or_ask -h "$HH" -n -- NAME '--name/strict_file_name//%sp name of the module' "$@"
-    args_or_ask -h "$HH" -n -- BRANCH '--branch/dn//%sp branch to use instead of the default one' "$@"
-    end_help_parsing
-
-    DIRNAME="$(basename "$REPO")"
-    [ -z "$NAME" ] && NAME="$DIRNAME"
-
-    local EXT_DIR="${ENTANDO_ENT_HOME}/bin/mod/ext"
-    mkdir -p "$EXT_DIR"
-    __cd "$EXT_DIR"
-    if [[ "$PWD" = *".entando"* ]]; then
-      [ -d "$DIRNAME" ] && rm -rf "$DIRNAME"
-      git clone --depth=1 ${BRANCH:+-b "$BRANCH"} --single-branch "$REPO"
-      cp -p -- "$PWD/$DIRNAME/mod/"* .
-    else
-      _FATAL "Extension module cleanup: Refusing to delete a non entando-cli dir"
-    fi
-  )
-}
-
-which_ent() {
-  case "$1" in
-    version) echo "${ENTANDO_CLI_VERSION}"; return;;
-    which) echo "${ENTANDO_CLI_VERSION}";;
-    home) echo "$ENTANDO_ENT_HOME"; return;;
-  esac
-  
-  (
-    echo ""
-    echo "---"
-    echo ""
-    
-    # CLI INFO
-    echo "## CLI:"
-    echo ""
-    cd "$ENTANDO_ENT_HOME"
-    echo "- DIR: $ENTANDO_ENT_HOME"
-    IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
-    echo "- SHA: $sha"
-    echo "- UPD: $time"
-    echo ""
-    
-    # RELEASE INFO
-    __cd "$(_dist_directory)"
-    echo "## RELEASE:"
-    echo ""
-    echo "- DIR: $PWD"
-    IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
-    echo "- SHA: $sha"
-    echo "- UPD: $time"
-    echo ""
-    
-  ) 1>&2
-}
-
-handle_config_command() {
-  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
-
-  args_or_ask -h "$HH" -f -- '--default///selects the default ent configuration' "$@" && {
-    # shellcheck disable=SC2034
-    CFG_FILE="$ENT_DEFAULT_CFG_FILE"
-    ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
-    THIS_PROFILE=""
-  }
-  args_or_ask -h "$HH" -f -- '--global///selects the global ent configuration' "$@" && {
-    # shellcheck disable=SC2034
-    _pp ENTANDO_GLOBAL_CFG
-    CFG_FILE="$ENTANDO_GLOBAL_CFG"
-    ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
-    THIS_PROFILE=""
-  }
-
-  args_or_ask -h "$HH" -F ENTANDO_NO_OBFUSCATION '--no-obfuscation///disables the obfuscation in the effective configuration' "$@"
-  args_or_ask -h "$HH" -f -- '--effective///prints the effective configuration' "$@" && {
-    print-effective-config
-    return 0
-  }
-
-  args_or_ask -h "$HH" -f -- '--edit///edits the configuration' "$@" && {
-    _edit "$CFG_FILE"
-    return 0
-  }
-  
-  args_or_ask -h "$HH" -f -- '--set///sets a specific configuration parameter' "$@" && {
-    args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
-    args_or_ask -a -n -h "$HH" "CFG_VALUE" "2///%sp the value to set" "$@"
-    save_cfg_value "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
-    return 0
-  }
-  
-  args_or_ask -h "$HH" -f -- '--del///deletes a specific configuration parameter' "$@" && {
-    args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
-    save_cfg_value "$CFG_KEY" "" "$CFG_FILE"
-    return 0
-  }
-  
-  args_or_ask -h "$HH" -f -- '--get///gets a specific configuration parameter' "$@" && {
-    args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
-    (
-      reload_cfg "$CFG_FILE"
-      echo "${!CFG_KEY}"
-    )
-    return 0
-  }
-  end_help_parsing
-  
-  if [ -n "$THIS_PROFILE" ]; then
-    _log_i "Configuration of the profile \"$THIS_PROFILE\" ($CFG_FILE):" 1>&2
-  else
-    _log_i "Default configuration of the current entando distribution ($CFG_FILE):" 1>&2
-  fi
-  [ -f "$CFG_FILE" ] || _FATAL -s "Configuration file \"$CFG_FILE\" not found"
-  cat "$CFG_FILE"
-  print-secrets-leak-warning
-}
-
-cmplt() {
-  cd "$ENTANDO_ENT_HOME/bin/mod" || {
-    echo "Unable to enter directory $PWD/bin"
-    exit 99
-  }
-  for file in ent-*; do
-    mod="${file//ent-/}"
-    echo "$mod"
-  done
-
-  [ -z "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ] && ENTANDO_ENT_EXTENSIONS_MODULES_PATH="$ENTANDO_ENT_HOME/bin/mod/ext"
-  if [ -d "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" ]; then
-  (
-    cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
-    for file in ent-*; do
-      [ -f "$file" ] && {
-        mod="${file//ent-/}"
-        echo "$mod"
-      }
-    done
-  )
-  fi
-
-  local topcmd+=(
-    "attach-vm" "detach-vm" "fix-vm-ddns" "completion" "config" "which" "version" "home" "import" "activate"
-      "kubectl-cmd" "reset-kubectl-mode" "status"
-      "attach-kubeconfig" "detach-kubeconfig" "namespace" "appname" "pkg"
-      "attach-kubectx" "detach-kubectx" "list-kubectx"
-      "bundle" "bundler" "jhipster"
-  )
-
-  for tc in "${topcmd[@]}"; do
-    echo "$tc"
-  done
-}
-
-_ent() {
-  # shellcheck disable=SC1090
-  "$ENTANDO_ENT_HOME/bin/ent" "$@"
-}
-
-_source_ent() {
-  # shellcheck disable=SC1090
-  source "$ENTANDO_ENT_HOME/bin/ent" "$@"
-}
 
 # ######################################################################################################################
 # ######################################################################################################################
@@ -403,43 +220,10 @@ if (
   return "$ENTANDO_ENT_TMPVAR_0002bb75"
 else
   # shellcheck disable=SC2034
+
   ENTANDO_CALLER_PWD="$PWD"
 fi
 
-upgrade_project_file() {
-  local N=$1
-  local O=$2
-  if [ -f "$O" ]; then
-    mkdir -p "$C_ENT_PRJ_ENT_DIR"
-    if [ -f "$N" ]; then
-      mv "$O" "$C_ENT_PRJ_ENT_DIR/$O.backup"
-    else
-      mv "$O" "$N"
-    fi 
-  fi
-}
-
-handle_status_config() {
-  if [ "$V"  = "--del" ]; then
-    ent config --set ""
-  else
-    V="$2"
-    [ "$V" == "--" ] && V="$3"
-    if [ "$V"  = "" ]; then
-      ent config --get "$1"
-    else
-      ent config --set "$1" "$V"
-    fi
-  fi
-}
-
-handle_kubectl_cmd() {
-  if [ "$1"  = "" ]; then
-    ent config --get "ENT_KUBECTL_CMD"
-  else
-    ent kubectl ent-set-cmd "$@"
-  fi
-}
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 cd "$DIR/.." || {
@@ -459,6 +243,8 @@ fi
 }
 
 . s/_base.sh
+. s/_root-helper.sh
 cd - > /dev/null || _FATAL "internal error"
 
 RUN "$@"
+

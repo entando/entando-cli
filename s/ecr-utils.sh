@@ -19,17 +19,16 @@ ecr-prepare-action() {
   app-get-main-ingresses url_scheme main_ingress ecr_ingress ignored
   [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s1)"
   [ -z "$ecr_ingress" ] && FATAL "Unable to determine the ecr ingress url (s1)"
+  case "$FORCE_URL_SCHEME" in
+      "http")
+        url_scheme=http
+        ;;
+      "https")
+        url_scheme="https"
+        ;;
+  esac
   if [ -n "$url_scheme" ]; then
     main_ingress="$url_scheme://$main_ingress"
-  else
-    case "$FORCE_URL_SCHEME" in
-      "http")
-        http-get-working-url main_ingress "http://$main_ingress" "https://$main_ingress"
-        ;;
-      *)
-        http-get-working-url main_ingress "https://$main_ingress" "http://$main_ingress"
-        ;;
-    esac
   fi
   [ -z "$main_ingress" ] && FATAL "Unable to determine the main ingress url (s2)"
   http-get-url-scheme url_scheme "$main_ingress"
@@ -72,7 +71,7 @@ ecr-bundle-action() {
   [ -n "$action" ] && url+="/$action"
 
   local OUT="$(mktemp /tmp/ent-auto-XXXXXXXX)"
-  
+
   # shellcheck disable=SC2155
   if "$DEBUG"; then
       local ERR="$(mktemp /tmp/ent-auto-XXXXXXXX)"
@@ -231,11 +230,11 @@ ecr.docker.generate-cr() {
     tmp="$(mktemp)"
     # shellcheck disable=SC2064
     trap "rm \"$tmp\"" exit
-    
-    _ent-bundle generate-cr \
+
+      _ent-bundle generate-cr \
       -f -o "$tmp" 1>&2 \
       ${REPO:+--image "$REPO"}
-      
+
     cat "$tmp"
   )
 }
@@ -377,7 +376,7 @@ ecr.install-bundle() {
     DATA+=",\"conflictStrategy\":\"$CONFLICT_STRATEGY\""
   fi  
   DATA+="}"
-  
+
   local RV
   ecr-bundle-action RV "POST" "install" "$INGRESS_URL" "$TOKEN" "$BUNDLE_NAME" "$DATA" &>/dev/null
   case "$RV" in
