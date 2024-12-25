@@ -854,16 +854,23 @@ stdin_to_arr() {
   done
 }
 
+print_current_profile_indicator() {
+    if [ -n "$THIS_PROFILE" ]; then
+      echo "${THIS_PROFILE}${DESIGNATED_PROFILE_SUB:+/$DESIGNATED_PROFILE_SUB}"
+    else
+      echo "<NO-PROFILE>"
+    fi
+}
 # shellcheck disable=SC2120
 print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if $VERBOSE; then
-    echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
+    echo " - PROFILE:           $(print_current_profile_indicator)"
     echo " - PROFILE HOME:      ${DESIGNATED_PROFILE_HOME}"
     _nn PROFILE_ORIGIN && echo " - PROFILE ORIGIN:    ${PROFILE_ORIGIN}"
   else
     if [ -n "$THIS_PROFILE" ]; then
-      _log_i "Currently using profile \"$THIS_PROFILE\"" 1>&2
+      _log_i "Currently using profile \"$(print_current_profile_indicator)\"" 1>&2
     else
       _log_i "Currently not using any profile" 1>&2
     fi
@@ -1108,25 +1115,31 @@ keycloak-get-token() {
 # shellcheck disable=SC2296
 handle_forced_profile() {
   local pv="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local pvs="ENTANDO_ENT_FORCE_PROFILE_SUB_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   local phv="ENTANDO_ENT_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   if [[ "$1" =~ --profile=.* ]]; then
     args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
+    args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE_SUB" "--sub-profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
+    _set_var "$pvs" "$ENTANDO_USE_PROFILE_SUB"
     _set_var "$phv" "$ENTANDO_PROFILES/$ENTANDO_USE_PROFILE"
   fi
   
   local pvv phvv
   if [ -n "$ZSH_VERSION" ]; then
     pvv=${(P)pv}
+    pvs=${(P)pvs}
     phvv=${(P)phv}
   else
     pvv=${!pv}
+    pvs=${!pvs}
     phvv=${!phv}
   fi
   
   if [[ -n "$pvv" && "$DESIGNATED_PROFILE" != "$pvv" ]]; then
     kubectl_mode --reset-mem 
     DESIGNATED_PROFILE="$pvv"
+    DESIGNATED_PROFILE_SUB="$pvs"
     # shellcheck disable=SC2034
     DESIGNATED_PROFILE_HOME="$phvv"
     activate_designated_workdir --temporary
@@ -1441,6 +1454,8 @@ print-effective-config() {
       for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
     }
   )"
+  
+  _log_i "Effective configuration for profile $(print_current_profile_indicator)"
 
   _log_i "Profile config location: \"$CFG_FILE\"" 1>&2
   _log_i "Default config location: \"$ENT_DEFAULT_CFG_FILE\"" 1>&2

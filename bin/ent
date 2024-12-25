@@ -26,6 +26,7 @@ RUN() {
   while true; do
     cmd="$1"
     export ENTANDO_CLI_COMMAND="$1"
+    cmd=$(_resolve_alias "$cmd")
 
     shift
     case "$cmd" in
@@ -59,6 +60,9 @@ RUN() {
       "profile"|"P"|"pro") #H: helps creating and managing profiles
         # shellcheck disable=SC1090
         source "$ENTANDO_ENT_HOME/bin/mod/ent-profile" "$@"
+        ;;
+      "sub-profile"|"SP"|"subpro") #H: helps creating and managing sub-profiles
+        _shortcut_subpro "$@"
         ;;
       "attach-vm") #H: [vm-name] -- attach ent to a ent-managed VM
         managed-vm-attach "$@"
@@ -161,6 +165,13 @@ RUN() {
     if [ $? -eq 255 ]; then shift $#; else shift $?; fi
     [ -z "$1" ] && break
   done
+}
+
+_resolve_alias() {
+  case "$1" in
+    k) echo "kubectl";;
+    *) echo "$1";;
+  esac
 }
 
 

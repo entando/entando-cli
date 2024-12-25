@@ -168,9 +168,8 @@ activate_ent_default_workdir() {
     PROFILE_ORIGIN=""
     DESIGNATED_PROFILE_HOME=""
     ENT_WORK_DIR="$ENTANDO_ENT_HOME/w"
-    # shellcheck disable=SC2034
-    CFG_FILE="$ENT_WORK_DIR/.cfg"
     mkdir -p "$ENT_WORK_DIR"
+    setup_cfg_file_location
   fi
 }
 
@@ -180,16 +179,17 @@ activate_ent_default_workdir() {
 # and can be potentially used by more that on ent installation
 activate_application_workdir() {
   if [ -n "$DESIGNATED_PROFILE" ]; then
-        if [ -d "$DESIGNATED_PROFILE_HOME/w" ]; then
+    if [ -d "$DESIGNATED_PROFILE_HOME/w" ]; then
       ENT_WORK_DIR="$DESIGNATED_PROFILE_HOME/w"
-      # shellcheck disable=SC2034
-      CFG_FILE="$ENT_WORK_DIR/.cfg"
+      mkdir -p "$ENT_WORK_DIR"
+      setup_cfg_file_location
       return 0
     else
       _log_e \
         "Unable to load the profile \"$DESIGNATED_PROFILE\", falling back to the default profile"
       DESIGNATED_PROFILE_HOME=""
       DESIGNATED_PROFILE=""
+      DESIGNATED_PROFILE_SUB=""
       return 1
     fi
   fi
@@ -218,11 +218,19 @@ set_curr_profile() {
   [ -z "$1" ] && _FATAL "Illegal profile name detected"
   DESIGNATED_PROFILE="$1"
   DESIGNATED_PROFILE_HOME="$2"
+  DESIGNATED_PROFILE_SUB="$3"
+  
   [ -z "$DESIGNATED_PROFILE_HOME" ] && DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
-  ! $TEMP && {
+  
+  ENT_WORK_DIR="$DESIGNATED_PROFILE_HOME/w"
+  
+  if ! $TEMP; then
     save_cfg_value "DESIGNATED_PROFILE" "$DESIGNATED_PROFILE" "$ENTANDO_GLOBAL_CFG"
     save_cfg_value "DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_HOME" "$ENTANDO_GLOBAL_CFG"
-  }
+    save_cfg_value "DESIGNATED_PROFILE_SUB" "$DESIGNATED_PROFILE_SUB" "$ENTANDO_GLOBAL_CFG"
+  else
+    setup_cfg_file_location --required
+  fi
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -406,9 +414,22 @@ parse_global_args() {
       shift;((ENTANDO_CONSUMED_ARGS++))
       ENTANDO_ENT_FORCE_PROFILE="--none"
       ;;
+    "--profile="*)
+      ENTANDO_ENT_FORCE_PROFILE="${1:10}"
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ;;
     "-p" | "--profile")
       shift;((ENTANDO_CONSUMED_ARGS++))
       ENTANDO_ENT_FORCE_PROFILE="$1"
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ;;
+    "--sub-profile="*)
+      ENTANDO_ENT_FORCE_PROFILE_SUB="${1:14}"
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ;;
+    "--sub-profile")
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ENTANDO_ENT_FORCE_PROFILE_SUB="$1"
       shift;((ENTANDO_CONSUMED_ARGS++))
       ;;
     "--color")
@@ -427,6 +448,7 @@ parse_global_args() {
   
   export ENTANDO_ENT_DEBUG
   export ENTANDO_ENT_FORCE_PROFILE
+  export ENTANDO_ENT_FORCE_PROFILE_SUB
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -451,18 +473,22 @@ parse_global_args "$@"
 shift "$ENTANDO_CONSUMED_ARGS"
 
 case "$ENTANDO_ENT_FORCE_PROFILE" in
-  "--none") DESIGNATED_PROFILE="";DESIGNATED_PROFILE_HOME="";;
+  "--none") DESIGNATED_PROFILE="";DESIGNATED_PROFILE_SUB="";DESIGNATED_PROFILE_HOME="";;
   "") ;;
-  *) set_curr_profile --temporary "$ENTANDO_ENT_FORCE_PROFILE";;
+  *) set_curr_profile --temporary "$ENTANDO_ENT_FORCE_PROFILE" "" "$ENTANDO_ENT_FORCE_PROFILE_SUB";;
 esac
 
-if [ -n "$DESIGNATED_PROFILE" ]; then
+  if [[ -n "$DESIGNATED_PROFILE_SUB" && "$DESIGNATED_PROFILE_SUB" != "-" ]]; then
+    if ! assert_ext_ic_id "" "$DESIGNATED_PROFILE_SUB" "silent"; then
+      FATAL "Illegal value provided in environment var DESIGNATED_PROFILE_SUB, please check your gobal config: \"$ENTANDO_GLOBAL_CFG\""
+    fi
+  fi
+  
   if assert_ext_ic_id "" "$DESIGNATED_PROFILE" "silent"; then
     DESIGNATED_PROFILE_HOME="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
   else
-    FATAL "Illegal value provided in environment var DESIGNATED_PROFILE"
+    FATAL "Illegal value provided in environment var DESIGNATED_PROFILE, please check your gobal config: \"$ENTANDO_GLOBAL_CFG\""
   fi
-fi
 
 if [ -n "$DESIGNATED_PROFILE" ]; then
   activate_application_workdir
