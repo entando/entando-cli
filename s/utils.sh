@@ -36,20 +36,20 @@ _sed_in_place() {
 # Maps:
 # save_cfg_value -m {MAP_NAME} {KEY} {VALUE}
 #
+# Also export the value:
+# save_cfg_value -e {KEY} {VALUE}
+#
 save_cfg_value() {
-  IS_MAP=false
-  [ "$1" = "-m" ] && IS_MAP=true && shift
+  IS_EXP=false;[ "$1" = "-e" ] && IS_EXP=true && shift
+  IS_MAP=false;[ "$1" = "-m" ] && IS_MAP=true && shift
   local name="${1}"
   shift
   local value="${1}"
   shift
-  local config_file="$CFG_FILE"
-  [ -n "$1" ] && {
-    config_file="$1"
-    shift
-  }
+  local config_file="$CFG_FILE"; [ -n "$1" ] && { config_file="$1"; shift; }
 
   if [[ -f "$config_file" ]]; then
+    _sed_in_place "/^#:EXPORT:${name}/d" "$config_file"
     if $IS_MAP; then
       _sed_in_place "/^${name}__/d" "$config_file"
     else
@@ -59,6 +59,7 @@ save_cfg_value() {
   if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
     FATAL "save_cfg_value: Unsupported multiline value \"$value\" for var: \"$name\""
   fi
+  $IS_EXP && printf "#:EXPORT:${name}\n" >> "$config_file"
   if $IS_MAP; then
     local key
     local val
@@ -110,6 +111,7 @@ reload_cfg() {
   local sanitized=""
   # shellcheck disable=SC1097
   while IFS== read -r var value; do
+    [[ "${var:0:9}" = "#:EXPORT:" ]] && { OPT_EXPORT="export "; continue; }
     [[ "$var" =~ ^# ]] && continue
     [[ -z "${var// }" ]] && continue
     if assert_ext_ic_id_with_arr "CFGVAR" "$var" "silent"; then
@@ -117,13 +119,14 @@ reload_cfg() {
       sanitized="${sanitized/\\r/}"
       sanitized="${sanitized/\\n/}"
       if "$PRINT"; then
-        echo "${PRE}${var}=${sanitized}"
+        echo "${PRE}${OPT_EXPORT}${var}=${sanitized}"
       else
-        eval "${PRE}${var}=${sanitized}"
+        eval "${PRE}${OPT_EXPORT}${var}=${sanitized}"
       fi
     else
       _log_e "Skipped illegal var name $var"
     fi
+    OPT_EXPORT=""
   done <<<"$(cat "$config_file")"
   return 0
 }
@@ -1489,19 +1492,37 @@ print-effective-config() {
   # shellcheck disable=SC2001
   KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
   
+  
   (
     reload_cfg "$ENT_DEFAULT_CFG_FILE"
     reload_cfg "$CFG_FILE"
-    for var in $KEYS; do
-      IFS=':' read -r tag var <<<"$var"
+    while IFS= read -r line; do
+      tag="${line%:*}"
+      var="${line#*:*}"
+      
+      if [[ $var = *[[:space:]]* ]]; then
+        opt="${var% *}"
+        var="${line#* *}"
+        if [[ "$opt" = "export" ]]; then
+          opt="E"
+        else
+          _log_e "Invalid variable option \"$opt\" will be ignored"
+          opt="-"
+        fi
+      else
+        opt="-"
+      fi
+      
+      (val="${!var}") || _FATAL "error assigning variable"
+      
       val="${!var}"
       
       if [[ "$var" != *"TOKEN"* || "$ENTANDO_NO_OBFUSCATION" = "true" ]]; then
-        echo "$tag> $var=$val"
+        echo "$tag/$opt> $var=$val"
       else
-        echo -e "$tag> $var=\033[101m**OBFUSCATED**\033[0m"
+        echo -e "$tag/$opt> $var=\033[101m**OBFUSCATED**\033[0m"
       fi
-    done
+    done <<< "$KEYS"
   )
   
   sync_tty_streams

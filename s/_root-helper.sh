@@ -62,8 +62,12 @@ which_ent() {
 handle_config_command() {
   bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
 
-  args_or_ask -a -n -h "$HH" CFG_KEY "1///%sp the config key" "$@"
-  args_or_ask -a -n -h "$HH" CFG_VALUE "2///%sp the value to set" "$@"
+  args_or_ask -a -n -h "$HH" CFG_KEY "1///the config key" "$@"
+  args_or_ask -a -n -h "$HH" CFG_VALUE "2///the value to set" "$@"
+  OPT_EXPORT=""
+  args_or_ask -h "$HH" -f -- "--export///also export config key as variable" "$@" && {
+    OPT_EXPORT="-e"
+  }
   
   args_or_ask -h "$HH" -f -- '--default///selects the default ent configuration' "$@" && {
     # shellcheck disable=SC2034
@@ -93,7 +97,7 @@ handle_config_command() {
   args_or_ask -h "$HH" -f -- '--set///sets a specific configuration parameter' "$@" && {
     args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
     args_or_ask -a -n -h "$HH" "CFG_VALUE" "2///%sp the value to set" "$@"
-    save_cfg_value "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
+    save_cfg_value $OPT_EXPORT "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE" "$DO_EXPORT"
     return 0
   }
   
@@ -112,7 +116,7 @@ handle_config_command() {
   
   if [ -n "$CFG_KEY" ]; then
     if [ -n "$CFG_VALUE" ]; then
-      save_cfg_value "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
+      save_cfg_value $OPT_EXPORT "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
     else
       print_cfg_value "$CFG_KEY" "$CFG_FILE"
     fi
@@ -120,6 +124,7 @@ handle_config_command() {
     print_config_file
   fi
 }
+
 print_config_file() {
   if [ -n "$THIS_PROFILE" ]; then
     _log_i "Configuration of the profile \"$THIS_PROFILE\" ($CFG_FILE):" 1>&2
