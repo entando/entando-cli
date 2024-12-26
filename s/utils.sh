@@ -1549,3 +1549,34 @@ print-secrets-leak-warning() {
 sync_tty_streams() {
   sleep 0.1
 }
+
+
+# runs a subshell that inherits the ent environment
+run-sun-shell() {
+  export KUBECONFIG="$DESIGNATED_KUBECONFIG"
+  export NAMESPACE="$DESIGNATED_NAMESPACE"
+  export NS="$ENTANDO_NAMESPACE"
+  
+  k() { ent k "$@"; }
+  export -f k
+  
+  [ ! -d "$DESIGNATED_PROFILE_HOME/w" ] && FATAL "This command is only available when using a profile"
+
+  mkdir -p "$DESIGNATED_PROFILE_HOME/w/shell"
+  if [ -n "$ENT_KUBECTL_CMD" ]; then
+    ENT_EFFECTIVE_KUBECTL_CMD="$ENT_KUBECTL_CMD"
+    cp "$ENT_KUBECTL_CMD" "$DESIGNATED_PROFILE_HOME/w/shell"
+    cp "$ENT_KUBECTL_CMD" "$DESIGNATED_PROFILE_HOME/w/shell/kubectl"
+  else
+    ENT_EFFECTIVE_KUBECTL_CMD="kubectl"
+  fi
+
+  "bash" \
+    --rcfile <(
+      echo 'source "$HOME/.bashrc"'
+      echo 'NORMAL="\[\e[0m\]" LIGHTGRAY="\033[0;37m" RED="\[\e[1;31m\]" GREEN="\[\e[1;32m\]"'
+      echo "export PATH=\"$DESIGNATED_PROFILE_HOME/w/shell:\$PATH\""
+      echo 'export PS1="${RED}ENT-SHELL>${NORMAL} "'
+    ) \
+    "$@"
+}

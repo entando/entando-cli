@@ -224,7 +224,7 @@ cmplt() {
       "kubectl-cmd" "reset-kubectl-mode" "status"
       "attach-kubeconfig" "detach-kubeconfig" "namespace" "appname" "pkg"
       "attach-kubectx" "detach-kubectx" "list-kubectx"
-      "bundle" "bundler" "jhipster"
+      "bundle" "bundler" "jhipster" "shell"
   )
 
   for tc in "${topcmd[@]}"; do

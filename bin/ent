@@ -135,6 +135,9 @@ RUN() {
       "use") #H: shortcut to "ent pro use"
         _ent pro use "$@"
         ;;
+      "shell") #H: runs a shell that inherits the ent environment
+        run-sun-shell "$@"
+        ;;
       "load-module")
         ent-load-extension-module "$@"
         ;;
