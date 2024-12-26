@@ -69,12 +69,32 @@ save_cfg_value() {
     done
   else
     if [ -n "$value" ]; then
-      printf "$name=%s\n" "$value" >> "$config_file"
+      (printf "$name=%s\n" "$value" >> "$config_file") || _FATAL "save_cfg_value failed"
     fi
   fi
 
   return 0
 }
+
+# Prints a configuration value
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: key           strict identifier
+# $2: [cfg-file]    optional cfg file name; defaults to the project config file
+#
+print_cfg_value() {
+  (
+    local name="${1}"
+    shift
+    local config_file="$CFG_FILE"
+    [ -n "$1" ] && {
+      config_file="$1"
+      shift
+    }
+    reload_cfg "$config_file"
+    echo "${!name}"
+  )
+}
+
 
 # Reloads the CFG file in a safe mode
 #
@@ -1455,13 +1475,17 @@ print-effective-config() {
     }
   )"
   
-  _log_i "Effective configuration for profile $(print_current_profile_indicator)"
-
-  _log_i "Profile config location: \"$CFG_FILE\"" 1>&2
-  _log_i "Default config location: \"$ENT_DEFAULT_CFG_FILE\"" 1>&2
-  _log_i "Global config location:  \"$ENTANDO_GLOBAL_CFG\"" 1>&2
+  _log_i "Effective configuration for profile \"$(print_current_profile_indicator)\""
   echo "" 1>&2
 
+  _log_i "List of configuration files in lookup order:" \
+  $'\n '"1) Profile specific:      \"$CFG_FILE\"" \
+  $'\n '"2) Installation defaults: \"$ENT_DEFAULT_CFG_FILE\"" \
+  $'\n '"3) Global settings:       \"$ENTANDO_GLOBAL_CFG\""
+  echo "" 1>&2
+
+
+  _log_i "Variables:" \
   # shellcheck disable=SC2001
   KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
   
@@ -1480,11 +1504,9 @@ print-effective-config() {
     done
   )
   
-  sleep 0.1
+  sync_tty_streams
   
   print-secrets-leak-warning
-  _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
-  echo "" 1>&2
 }
 
 print-secrets-leak-warning() {
@@ -1496,4 +1518,13 @@ print-secrets-leak-warning() {
     echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
     echo ""
   } 1>&2
+  
+  ! $ENTANDO_NO_OBFUSCATION && _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
+  echo "" 1>&2
+}
+
+# simple trick to resync of the output streams, necessary in particular
+# when output is capured, but not very well (e.g. some pipeline)
+sync_tty_streams() {
+  sleep 0.1
 }

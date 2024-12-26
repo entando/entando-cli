@@ -62,6 +62,9 @@ which_ent() {
 handle_config_command() {
   bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
 
+  args_or_ask -a -n -h "$HH" CFG_KEY "1///%sp the config key" "$@"
+  args_or_ask -a -n -h "$HH" CFG_VALUE "2///%sp the value to set" "$@"
+  
   args_or_ask -h "$HH" -f -- '--default///selects the default ent configuration' "$@" && {
     # shellcheck disable=SC2034
     CFG_FILE="$ENT_DEFAULT_CFG_FILE"
@@ -102,19 +105,28 @@ handle_config_command() {
   
   args_or_ask -h "$HH" -f -- '--get///gets a specific configuration parameter' "$@" && {
     args_or_ask -a -h "$HH" "CFG_KEY" "1///%sp the config key" "$@"
-    (
-      reload_cfg "$CFG_FILE"
-      echo "${!CFG_KEY}"
-    )
+    print_cfg_value "$CFG_KEY" "$CFG_FILE"
     return 0
   }
   end_help_parsing
   
+  if [ -n "$CFG_KEY" ]; then
+    if [ -n "$CFG_VALUE" ]; then
+      save_cfg_value "$CFG_KEY" "$CFG_VALUE" "$CFG_FILE"
+    else
+      print_cfg_value "$CFG_KEY" "$CFG_FILE"
+    fi
+  else
+    print_config_file
+  fi
+}
+print_config_file() {
   if [ -n "$THIS_PROFILE" ]; then
     _log_i "Configuration of the profile \"$THIS_PROFILE\" ($CFG_FILE):" 1>&2
   else
     _log_i "Default configuration of the current entando distribution ($CFG_FILE):" 1>&2
   fi
+  
   [ -f "$CFG_FILE" ] || _FATAL -s "Configuration file \"$CFG_FILE\" not found"
   cat "$CFG_FILE"
   print-secrets-leak-warning
