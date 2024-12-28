@@ -465,7 +465,7 @@ _trace() {
 }
 
 _trace_obfuscate() {
-  if [ -z "--reset" ]; then
+  if [ "$1" = "--reset" ]; then
     ENTANDO_TRACE_OBFUSCATE=""
   elif [ -z "$1" ]; then
     if [ -n "$ENTANDO_TRACE_OBFUSCATE" ]; then

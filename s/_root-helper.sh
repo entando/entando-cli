@@ -39,7 +39,7 @@ which_ent() {
     # CLI INFO
     echo "## CLI:"
     echo ""
-    cd "$ENTANDO_ENT_HOME"
+    __cd "$ENTANDO_ENT_HOME"
     echo "- DIR: $ENTANDO_ENT_HOME"
     IFS='|' read -r sha time < <(git log --pretty=format:'%H|%ci' -1)
     echo "- SHA: $sha"
@@ -76,9 +76,8 @@ handle_config_command() {
     THIS_PROFILE=""
   }
   args_or_ask -h "$HH" -f -- '--global///selects the global ent configuration' "$@" && {
-    # shellcheck disable=SC2034
-    _pp ENTANDO_GLOBAL_CFG
     CFG_FILE="$ENTANDO_GLOBAL_CFG"
+    # shellcheck disable=SC2034
     ENT_WORK_DIR="${ENTANDO_ENT_HOME}/w"
     THIS_PROFILE=""
   }
@@ -184,7 +183,7 @@ ent-trace() {
   else
     [ "${KEY:0:1}" == "+" ] && KEY="${KEY:1:200}"
     
-    if [[ ! "$CTRACE" =~ "\\$KEY\\" ]]; then
+    if [[ ! "$CTRACE" = *"\\$KEY\\"* ]]; then
       CTRACE="${CTRACE}\\${KEY}\\"
     fi
   fi

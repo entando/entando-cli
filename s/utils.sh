@@ -1493,7 +1493,8 @@ print-effective-config() {
   echo "" 1>&2
 
 
-  _log_i "Variables:" \
+  _log_i "Variables:"
+  
   # shellcheck disable=SC2001
   KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
   
