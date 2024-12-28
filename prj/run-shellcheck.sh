@@ -48,4 +48,4 @@ _xdev.ensure-project-type "sh"
 XDEV_SRC=$(_xdev.get-config "XDEV_SRC")
 XDEV_SHELLCHECK_IGNORE=$(_xdev.get-config "XDEV_SHELLCHECK_IGNORE")
 
-RUN"$@"
+RUN "$@"

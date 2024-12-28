@@ -276,6 +276,7 @@ win_convert_existing_posix_path_to_win_path() {
     RES="$("$ENTANDO_ENT_HOME/s/currdir.cmd" | sed 's/\\/\\\\/g')"
     [[ -z "$RES" ]] && _FATAL "Error converting \"$1\" to windows path"
     if [[ "$1" =~ ^.*/$ ]]; then
+      # shellcheck disable=SC2028
       echo "$RES\\\\"
     else
       echo "$RES"
@@ -619,8 +620,9 @@ _ent.extension-module.execute() {
     ENTANDO_CLI_MODULE_BASE_PATH="$(dirname "$mod_script")"
     ENTANDO_CLI_MODULE_NAME="${module/\/mod\///}"
     RUN() { _FATAL "unable to load extension module \"$ENTANDO_CLI_MODULE_NAME\" from script \"$mod_script\""; }
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC2164
     cd "$ENTANDO_CLI_MODULE_BASE_PATH/.."
+    # shellcheck disable=SC1090
     source "$mod_script"
     RUN "$@"
   )

@@ -8,6 +8,7 @@ node.reset_environment() {
   ENT_NODE_MODS=""        # the path of the node modules dir (for the current ent instance)
   ENT_NODE_BIN_NATIVE=""  # the os-native path of the node binary (for the current ent instance)
   ENT_NPM_BIN_NATIVE=""   # the os-native path of the npm binary (for the current ent instance)
+  # shellcheck disable=SC2034
   NODE_PATH=""            # the node base path standard variable
 }
 
@@ -100,7 +101,8 @@ node.activate_environment() {
       ENT_NPM_BIN_NATIVE="${ENT_NODE_BINS}/npm"
       ;;
   esac
-  
+
+  # shellcheck disable=SC2034
   ENT_OPTS_ENTANDO="${ENT_OPTS}/entando"
   PATH="$ENT_NODE_BINS:$PATH"
 }
@@ -276,6 +278,7 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
 
+  # shellcheck disable=SC2153
   ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
     _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }
@@ -330,7 +333,7 @@ _ent-npm.delete-internal-tool-bin() {
 }
 
 
-
+# shellcheck disable=SC2120
 node.command_wrapper() {
   CMD="$1"
   H() { echo -e "$2"; }
@@ -344,6 +347,7 @@ node.command_wrapper() {
     echo "Internal error: unable to find the script source dir" 1>&2
     exit
   }
+  # shellcheck disable=SC1094
   . s/_base.sh
 
   cd "$WD" || _FATAL "Unable to access the current dir: $WD"

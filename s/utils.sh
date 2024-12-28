@@ -59,6 +59,7 @@ save_cfg_value() {
   if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
     FATAL "save_cfg_value: Unsupported multiline value \"$value\" for var: \"$name\""
   fi
+  # shellcheck disable=2059
   $IS_EXP && printf "#:EXPORT:${name}\n" >> "$config_file"
   if $IS_MAP; then
     local key
@@ -231,6 +232,7 @@ ask() {
       [Nn]*) return 1 ;;
       [Qq]*)
         EXIT_UE "User stopped the execution"
+        # shellcheck disable=2317
         exit 99
         ;;
       *)
@@ -249,6 +251,7 @@ NONNULL() {
   local O="-S 1"; [ "$1" = "-s" ] && { O="-s"; shift; }
   for var_name in "$@"; do
     local var_value="${!var_name}"
+    # shellcheck disable=2086
     [ -z "$var_value" ] && _FATAL $O "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
   done
 }
@@ -346,7 +349,9 @@ index_of_arg() {
 # shellcheck disable=SC2059
 print_entando_banner() {
   {
+    # shellcheck disable=2028
     B() { echo '\033[0;34m'; }
+    # shellcheck disable=2028
     W() { echo '\033[0;39m'; }
     N=''
     printf "\n"
@@ -1556,7 +1561,7 @@ run-sun-shell() {
   export KUBECONFIG="$DESIGNATED_KUBECONFIG"
   export NAMESPACE="$DESIGNATED_NAMESPACE"
   export NS="$ENTANDO_NAMESPACE"
-  
+
   k() { ent k "$@"; }
   export -f k
   
@@ -1568,9 +1573,11 @@ run-sun-shell() {
     cp "$ENT_KUBECTL_CMD" "$DESIGNATED_PROFILE_HOME/w/shell"
     cp "$ENT_KUBECTL_CMD" "$DESIGNATED_PROFILE_HOME/w/shell/kubectl"
   else
+    # shellcheck disable=SC2034
     ENT_EFFECTIVE_KUBECTL_CMD="kubectl"
   fi
 
+  # shellcheck disable=SC2016 disable=SC2028
   "bash" \
     --rcfile <(
       echo 'source "$HOME/.bashrc"'

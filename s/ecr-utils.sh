@@ -216,6 +216,7 @@ ecr.generate-custom-resource() {
   if [[ "$REPOSITORY" = "docker://"* ]]; then
     ecr.docker.generate-cr "${REPOSITORY:9}"
   else
+    # shellcheck disable=2086
     _ent-bundler from-git \
       --dry-run \
       ${NAME:+--name "$NAME"} \

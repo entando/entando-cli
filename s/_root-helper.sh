@@ -238,7 +238,7 @@ _ent() {
 }
 
 _source_ent() {
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090 disable=SC1091
   source "$ENTANDO_ENT_HOME/bin/ent" "$@"
 }
 
@@ -293,7 +293,7 @@ _execute_script_native() {
 }
 
 _shortcut_subpro() {
-  # shellcheck disable=SC1090
   local pattern=${1:-..};shift
+  # shellcheck disable=SC1091
   source "$ENTANDO_ENT_HOME/bin/mod/ent-profile" use . "$pattern" "$@"
 }

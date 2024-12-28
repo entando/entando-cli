@@ -244,6 +244,7 @@ _pkg_k9s() {
     elif _nn DESIGNATED_KUBECONFIG; then
       stdin_to_arr $'\n\r' ARR < <(yq '.contexts[].name' < "$DESIGNATED_KUBECONFIG")
       select_one -s "CONTEXT" "${ARR[@]}"
+      # shellcheck disable=2154
       SELECTED_CONTEXT="$select_one_res_alt"
       SYS_CLI_PRE "$CMD" "$@" \
         --kubeconfig="$DESIGNATED_KUBECONFIG" \
