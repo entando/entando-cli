@@ -48,6 +48,10 @@ save_cfg_value() {
   shift
   local config_file="$CFG_FILE"; [ -n "$1" ] && { config_file="$1"; shift; }
 
+  if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
+    _FATAL "save_cfg_value: multiline values are not supported (variable: \"$name\")"
+  fi
+
   if [[ -f "$config_file" ]]; then
     _sed_in_place "/^#:EXPORT:${name}/d" "$config_file"
     if $IS_MAP; then
@@ -56,9 +60,7 @@ save_cfg_value() {
       _sed_in_place "/^${name}=/d" "$config_file"
     fi
   fi
-  if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
-    FATAL "save_cfg_value: Unsupported multiline value \"$value\" for var: \"$name\""
-  fi
+
   # shellcheck disable=2059
   $IS_EXP && printf "#:EXPORT:${name}\n" >> "$config_file"
   if $IS_MAP; then
