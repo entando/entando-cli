@@ -587,11 +587,12 @@ _ent.extension-module.is-present() {
 
 _ent.extension-module.chain-run() {
   local module_to_run="$1";shift;
-  local IS_HELP=false
+  local IS_HELP=false IS_CMPLT=false
   local FINAL_RES=34
   local MODULES
 
   args_or_ask -h "" -F IS_HELP "--help" "$@"
+  args_or_ask -h "" -F IS_CMPLT "--cmplt" "$@"
   
   stdin_to_arr $'\n\r' MODULES < <(_ent.extension-modules.list)
   for module in "${MODULES[@]}"; do
@@ -599,11 +600,11 @@ _ent.extension-module.chain-run() {
       $IS_HELP && {
         echo ""
         print_fullsize_hbar
-        echo -e "> Extension [${module/\/mod\///}] commands:\n"
+        echo -e "> Additional commands from extension [${module/\/mod\///}]\n"
       } 1>&2
       _ent.extension-module.execute "$module" "$@"
       RV="$?"
-      [[ "$RV" != "33" && "$RV" != "34" ]] && FINAL_RES="$RV" && ! $IS_HELP && break
+      [[ "$RV" != "33" && "$RV" != "34" ]] && FINAL_RES="$RV" && ! $IS_HELP && ! $IS_CMPLT && break
     fi
   done
   
