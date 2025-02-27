@@ -13,16 +13,16 @@
   echo -e "Helps managing an EntandoApp" && exit 0
 }
 
-[ "$1" = "--cmplt" ] && {
-  . s/essentials.sh
-  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
-  exit 0
-}
-
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$DIR/../.." || {
   echo "Internal error: unable to find the script source dir" 1>&2
   exit
+}
+
+[ "$1" = "--cmplt" ] && {
+  . s/essentials.sh
+  print_ent_module_sub-commands "${BASH_SOURCE[0]}"
+  exit 0
 }
 
 . s/_base.sh
@@ -177,7 +177,14 @@ use_profile() {
   else
     apps_base_dir="$ENTANDO_PROFILES"
   fi
-
+  
+  local app_dir
+  if $USE_CURRENT_DIR; then
+    app_dir="$ENTANDO_CALLER_PWD/.ent/profiles/$DESIGNATED_PROFILE"
+  else
+    app_dir="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
+  fi
+  
   if $USE_NO_PROFILE; then
     if [ -z "$COMMAND_FILE" ]; then
       save_cfg_value "DESIGNATED_PROFILE" "" "$ENTANDO_GLOBAL_CFG"
@@ -222,6 +229,7 @@ use_profile() {
       DESIGNATED_PROFILE_HOME=""
       
       reload_cfg "$ENTANDO_GLOBAL_CFG"
+
       if [ -n "$COMMAND_FILE" ]; then
         . "$COMMAND_FILE" --full
         activate_designated_workdir --temporary

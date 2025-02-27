@@ -1165,11 +1165,12 @@ handle_forced_profile() {
     pvs=${!pvs}
     phvv=${!phv}
   fi
-  
-  if [[ -n "$pvv" && "$DESIGNATED_PROFILE" != "$pvv" ]]; then
-    kubectl_mode --reset-mem 
+
+  if [[ -n "$pvv" && "$DESIGNATED_PROFILE/$DESIGNATED_PROFILE_SUB" != "$pvv/$pvs" ]]; then
+    kubectl_mode --reset-mem
     DESIGNATED_PROFILE="$pvv"
     DESIGNATED_PROFILE_SUB="$pvs"
+    THIS_PROFILE="$DESIGNATED_PROFILE"
     # shellcheck disable=SC2034
     DESIGNATED_PROFILE_HOME="$phvv"
     activate_designated_workdir --temporary

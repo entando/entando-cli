@@ -187,7 +187,6 @@ activate_application_workdir() {
     else
       _log_e \
         "Unable to load the profile \"$DESIGNATED_PROFILE\", falling back to the default profile"
-      DESIGNATED_PROFILE_HOME=""
       DESIGNATED_PROFILE=""
       DESIGNATED_PROFILE_SUB=""
       return 1
@@ -201,11 +200,13 @@ activate_designated_workdir() {
   TEMPORARY=false
   [ "$1" = "--temporary" ] && TEMPORARY=true
   ! $TEMPORARY && reload_cfg "$ENTANDO_GLOBAL_CFG"
+  
   if [[ -n "$DESIGNATED_PROFILE" && "$DESIGNATED_PROFILE" != "-" ]]; then
     activate_application_workdir
   else
     activate_ent_default_workdir
   fi
+
   ! $TEMPORARY && save_cfg_value "THIS_PROFILE" "${DESIGNATED_PROFILE}"
   ENT_KUBECTL_CMD=""
   ENABLE_AUTOLOGIN=""
@@ -498,6 +499,7 @@ fi
 
 reload_cfg "$ENT_DEFAULT_CFG_FILE"
 reload_cfg
+
 rescan-sys-env
 reload_cfg
 
@@ -510,3 +512,4 @@ XU_STATUS_FILE="$ENT_WORK_DIR/.status"
 
 kubectl_update_once_options "$@"
 setup_kubectl
+
