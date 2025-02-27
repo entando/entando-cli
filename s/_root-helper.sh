@@ -244,16 +244,19 @@ _source_ent() {
 _execute_script() {
   local RV="33"
   local cmd="$1";shift
-  local IS_HELP
+  local IS_HELP IS_CMPLT
   args_or_ask -h "" -F IS_HELP "--help" "$@"
-
-  if $IS_HELP; then
+  args_or_ask -h "" -F IS_CMPLT "--cmplt" "$@"
+  
+  if $IS_HELP || $IS_CMPLT; then
+    r() { cat -; }; $IS_HELP && r() { cat - 1>&2; }
     {
       (_execute_script_native "$@")
       _execute_script_extension "$@"
       RV="$?"
-      echo ""
-    } 1>&2
+      $IS_HELP && echo ""
+    } | r
+    RV=0
   else
     _execute_script_extension "$@"
     RV="$?"
