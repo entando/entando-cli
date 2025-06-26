@@ -61,6 +61,7 @@ test_cfg_helper() {
     reload_cfg "$CFG_FILE"
     _ASSERT XX6 = "exported hey"
     
+    # shellcheck disable=SC2034
     XX_FROM_SUB_SHELL="$(bash -c 'echo "$XX1$XX2$XX3$XX4$XX5$XX6"')"
     _ASSERT XX_FROM_SUB_SHELL = "exported hey"
   )

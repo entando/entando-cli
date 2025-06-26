@@ -11,6 +11,7 @@
 # The directory from which ent was called
 # shellcheck disable=SC2034
 ENT_CALLER_DIR="$PWD"
+ENT_CALLER_PATH="$PATH"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 RUN() {

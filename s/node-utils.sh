@@ -277,6 +277,7 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
+  export ENTANDO_CLI_HIDE_PRIVATE_NODEJS=${ENTANDO_CLI_HIDE_PRIVATE_NODEJS:-"true"}
 
   # shellcheck disable=SC2153
   ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
@@ -315,16 +316,26 @@ _ent-run-internal-npm-tool() {
 }
 
 _ent-npm.get-internal-tool-path() {
-  if $OS_WIN; then
-    _set_var "$1" "$ENT_NODE_BINS/${2}.cmd"
+  local NOOV=false;[ "$1" == "--no-override" ] && { NOOV=true; shift; }
+  local VN="OVERRIDE_PATH_OF_${2//-/_}"
+  local ITP="${!VN}"
+
+  if [ -z "$ITP" ]; then
+    local ITP="$ENT_NODE_BINS/${2}"
   else
-    _set_var "$1" "$ENT_NODE_BINS/${2}" "$@"
+    $NOOV && _FATAL "Unable to proceed because the internal tool path was overridden"
+  fi
+  
+  if $OS_WIN && [[ $ITP != *".cmd" ]]; then
+    _set_var "$1" "$ITP.cmd"
+  else
+    _set_var "$1" "$ITP"
   fi
 }
 
 _ent-npm.delete-internal-tool-bin() {
   local BIN_PATH
-  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
+  _ent-npm.get-internal-tool-path --no-override BIN_PATH "$TOOL_NAME"
   if [[ "$BIN_PATH" = *"/.entando/"* ]]; then
     rm "$BIN_PATH"
   else

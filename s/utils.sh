@@ -1541,12 +1541,12 @@ print-effective-config() {
 
 print-secrets-leak-warning() {
   {
-    echo ""
-    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
-    echo -e "\033[101m▒▒ /!\ W A R N I N G /!\                                          ▒▒\033[0;37m"
-    echo -e "\033[101m▒▒ This output may contain secrets, think twice before sharing it ▒▒\033[0;37m"
-    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
-    echo ""
+      echo -e "\033[0;37m"
+      echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+      echo -e '\033[101m▒▒ /!\ W A R N I N G /!\                                          ▒▒\033[0;37m'
+      echo -e "\033[101m▒▒ This output may contain secrets, think twice before sharing it ▒▒\033[0;37m"
+      echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+      echo ""
   } 1>&2
   
   ! $ENTANDO_NO_OBFUSCATION && _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
