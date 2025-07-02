@@ -365,7 +365,7 @@ select_profile_item() {
   
   stdin_to_arr $'\n\r' LST < <(list_profile_items "$type" "$pattern" "$parent")
   
-  if [[ "${#LST[@]}" -le 0 && "$dotdot" == "false" ]]; then
+  if [[ "${#LST[@]}" -le 0 || -z "${LST[0]}" ]] && [[ "$dotdot" == "false" ]]; then
    # No match
     _tmp_result=""
     return 1

@@ -13,7 +13,7 @@ test_profile_use() {
   
     ent profile new "$TEST_PROFILE" "$TEST_PROFILE" "$TEST_PROFILE"
     
-    _ASSERT -v current-profile "$(_test_profile.get_current_profile)" = "$TEST_PROFILE"
+    _ASSERT -v current-profile "|$(_test_profile.get_current_profile)|" = "|$TEST_PROFILE|"
 
     ent config TEST_VAR "<BASE>"
     _ASSERT -v TEST_VAR "$(ent config TEST_VAR)" = "<BASE>"
@@ -51,9 +51,9 @@ test_profile_use() {
 }
 
 _test_profile.get_current_profile() {
-  ent status | grep "PROFILE:" | sed 's/.*PROFILE:\s*//'
+  ent status | grep "PROFILE:" | sed 's/.*PROFILE:[[:space:]]*//'
 }
 
 _test_profile.cleanup() {
-  ent profile delete "$TEST_PROFILE" --yes &>/dev/null
+  ent profile delete "$TEST_PROFILE" --yes #&>/dev/null
 }

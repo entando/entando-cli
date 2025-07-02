@@ -444,7 +444,7 @@ select_one() {
 
     while true; do
       printf "%s" "$P"
-      set_or_ask "SELECTED" "" ""
+      set_or_ask SELECTED "" ""
       [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
       [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
       [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
