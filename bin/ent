@@ -30,6 +30,9 @@ RUN() {
     cmd=$(_resolve_alias "$cmd")
 
     shift
+    
+    [ "$ENTANDO_ENT_TRACE" == "true" ] && set -x
+    
     case "$cmd" in
       "version") #H: shows the version of the current ent
         which_ent version

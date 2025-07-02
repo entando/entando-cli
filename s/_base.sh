@@ -437,9 +437,13 @@ parse_global_args() {
       shift;((ENTANDO_CONSUMED_ARGS++))
       ENTANDO_CLI_FORCE_COLORS=true
       ;;
-    "-d" | "--debug")
+    "--debug")
       shift;((ENTANDO_CONSUMED_ARGS++))
       ENTANDO_ENT_DEBUG=true
+      ;;
+    "--trace")
+      shift;((ENTANDO_CONSUMED_ARGS++))
+      ENTANDO_ENT_TRACE=true
       ;;
     *)
       break
@@ -448,6 +452,7 @@ parse_global_args() {
   done
   
   export ENTANDO_ENT_DEBUG
+  export ENTANDO_ENT_TRACE
   export ENTANDO_ENT_FORCE_PROFILE
   export ENTANDO_ENT_FORCE_PROFILE_SUB
 }
