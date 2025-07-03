@@ -37,48 +37,15 @@ RUN() {
   [[ "$HH" = "--help" ]] && {
     print_ent_module_help "${BASH_SOURCE[0]}" "$2"
   }
+  
+  USE_CURRENT_DIR=false
 
   show_help_option "$HH" "$CMD"
   
   case "$CMD" in
   "use") #H: selects the profile that ent should use
     shift
-    args_or_ask -h "$HH" -n -F AUTO_YES "--yes///Assumes yes for all yes-no questions" "$@"
-    args_or_ask -h "$HH" -n -F USE_NO_PROFILE "--none///Assumes the global profile" "$@"
-    args_or_ask -h "$HH" -n -F AUTO_SUB "--autosub///Automatically creates the sub-profile if it doesn't exist" "$@" ||
-    args_or_ask -h "$HH" -n -F AUTO_SUB "-a///Automatically creates the sub-profile if it doesn't exist" "$@"
-    args_or_ask -h "$HH" -F USE_CURRENT_DIR "--local///Uses the local dir as based app dir" "$@"
-    args_or_ask -h "$HH" -a -p -n -- PAR_USE_PROFILE '1///profile name (or "." for current profile or --none)' "$@"
-    args_or_ask -h "$HH" -a -p -n -- PAR_USE_PROFILE_SUB '2///optional sub-profile (or .. for a list of items)' "$@"
-
-    [ "$HH" == "--cmplt" ] && {
-      # Additional pro use completion
-      if [ "$1" == "--cmplt" ]; then
-        echo "."
-        echo ".."
-        echo "partialname.."
-      else
-        echo ".."
-        echo "partialname.."
-      fi
-    }
-    
-    [ -n "$HH" ] && exit 0
-    
-   if [ -z "$COMMAND_FILE" ]; then
-      local V="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER"
-      [ -n "${!V}" ] && {
-        local MSG="This SHELL SESSION is currently bound to a specific profile, "
-        MSG+="in order to use another profile during this session you need to source-run this command"
-        _log_e "$MSG"
-        FATAL "TTY_PRO_LOCKED"
-      }
-    fi
-
-    kubectl_mode --reset-mem
-    THIS_PROFILE="" PROFILE_ORIGIN=""
-    use_profile
-    fix_profile
+    _use_or_list_profile "use" "$@"
     ;;
   "print-first-use-readme") #H: prints the first-use readme
     print_first_use_readme
@@ -104,18 +71,7 @@ RUN() {
     ;;
   "list") #H: lists the available profiles
     shift
-    args_or_ask -h "$HH" -F USE_CURRENT_DIR "--local///Uses the local dir as based app dir" "$@"
-    args_or_ask -h "$HH" -n -a -- FILTER '1///filter' "$@"
-    [ -n "$HH" ] && exit 0
-    list_profile_items "profile" "$FILTER"
-    ;;
-  "list-sub-profiles") #H: lists the sub-profiles of the current profile
-    shift
-    args_or_ask -h "$HH" -F USE_CURRENT_DIR "--local///Uses the local dir as based app dir" "$@"
-    args_or_ask -h "$HH" -n -a -- FILTER '1///profile pattern' "$@"
-    [ -n "$HH" ] && exit 0
-    [ -n "$HH" ] && exit 0
-    list_profile_items "subprofile" "$FILTER" "$DESIGNATED_PROFILE"
+    _use_or_list_profile "list" "$@"
     ;;
   "link") #H: links the current profile to a kube context
     shift
@@ -156,6 +112,54 @@ RUN() {
   esac
 }
 
+_use_or_list_profile() {
+  MODE="$1"; shift
+  args_or_ask -h "$HH" -n -F AUTO_YES "--yes///Assumes yes for all yes-no questions" "$@"
+  args_or_ask -h "$HH" -n -F USE_NO_PROFILE "--none///Assumes the global profile" "$@"
+  args_or_ask -h "$HH" -n -F AUTO_SUB "--autosub///Automatically creates the sub-profile if it doesn't exist" "$@" ||
+  args_or_ask -h "$HH" -n -F AUTO_SUB "-a///Automatically creates the sub-profile if it doesn't exist" "$@"
+  args_or_ask -h "$HH" -F USE_CURRENT_DIR "--local///Uses the local dir as based app dir" "$@"
+  args_or_ask -h "$HH" -a -p -n -- PAR_USE_PROFILE '1///profile name (or "." for current profile or --none)' "$@"
+  args_or_ask -h "$HH" -a -p -n -- PAR_USE_PROFILE_SUB '2///optional sub-profile (or .. for a list of items)' "$@"
+
+  [ "$HH" == "--cmplt" ] && {
+    # Additional pro use completion
+    if [ "$1" == "--cmplt" ]; then
+      echo "."
+      echo ".."
+      echo "partialname.."
+    else
+      echo ".."
+      echo "partialname.."
+    fi
+  }
+  
+  [ -n "$HH" ] && exit 0
+  
+  if [ -z "$COMMAND_FILE" ]; then
+    local V="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER"
+    [ -n "${!V}" ] && {
+      local MSG="This SHELL SESSION is currently bound to a specific profile, "
+      MSG+="in order to use another profile during this session you need to source-run this command"
+      _log_e "$MSG"
+      FATAL "TTY_PRO_LOCKED"
+    }
+  fi
+  
+  if [ "$MODE" == "use" ]; then
+    kubectl_mode --reset-mem
+    THIS_PROFILE="" PROFILE_ORIGIN=""
+    use_profile
+    fix_profile
+  else
+    _pp PAR_USE_PROFILE PAR_USE_PROFILE_SUB
+    if [[ -n "$PAR_USE_PROFILE" && "$PAR_USE_PROFILE" != *".." && -z "$PAR_USE_PROFILE_SUB" ]]; then
+      PAR_USE_PROFILE_SUB=".."
+    fi
+    list_profile
+  fi
+}
+
 setup_curr_profile() {
   HH="$(parse_help_option "$@")"
   args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@" && {
@@ -177,26 +181,8 @@ fix_profile() {
 
 use_profile() {
   # shellcheck disable=SC2034
-  if [[ "$PAR_USE_PROFILE" == "." ]]; then
-    local profile="$DESIGNATED_PROFILE"
-  else
-    local profile="$PAR_USE_PROFILE"
-  fi
-  local subprofile="$PAR_USE_PROFILE_SUB"
-  local apps_base_dir
-
-  if $USE_CURRENT_DIR; then
-    apps_base_dir="$ENTANDO_CALLER_PWD/.ent/profiles"
-  else
-    apps_base_dir="$ENTANDO_PROFILES"
-  fi
-  
-  local app_dir
-  if $USE_CURRENT_DIR; then
-    app_dir="$ENTANDO_CALLER_PWD/.ent/profiles/$DESIGNATED_PROFILE"
-  else
-    app_dir="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
-  fi
+  local profile subprofile app_dir apps_base_dir
+  _setup_use_or_list profile subprofile app_dir apps_base_dir
   
   if $USE_NO_PROFILE; then
     if [ -z "$COMMAND_FILE" ]; then
@@ -261,6 +247,43 @@ use_profile() {
       print_first_use_readme
     }
   fi
+}
+
+list_profile() {
+  local profile subprofile app_dir apps_base_dir
+  _setup_use_or_list profile subprofile app_dir apps_base_dir
+
+  $AUTO_YES && O=--auto-accept || O=--no-auto-accept
+  select_profile_items $O tmp_profile tmp_subprofile "$profile" "$subprofile" "$AUTO_SUB"
+}
+
+_setup_use_or_list() {
+  # shellcheck disable=SC2034
+  if [[ "$PAR_USE_PROFILE" == "." ]]; then
+    local _tmp_profile="$DESIGNATED_PROFILE"
+  else
+    local _tmp_profile="$PAR_USE_PROFILE"
+  fi
+  local _tmp_subprofile="$PAR_USE_PROFILE_SUB"
+  local _tmp_apps_base_dir
+
+  if $USE_CURRENT_DIR; then
+    _tmp_apps_base_dir="$ENTANDO_CALLER_PWD/.ent/profiles"
+  else
+    _tmp_apps_base_dir="$ENTANDO_PROFILES"
+  fi
+  
+  local _tmp_app_dir
+  if $USE_CURRENT_DIR; then
+    _tmp_app_dir="$ENTANDO_CALLER_PWD/.ent/profiles/$DESIGNATED_PROFILE"
+  else
+    _tmp_app_dir="$ENTANDO_PROFILES/$DESIGNATED_PROFILE"
+  fi
+  
+  _set_var "$1" "$_tmp_profile"
+  _set_var "$2" "$_tmp_subprofile"
+  _set_var "$3" "$_tmp_app_dir"
+  _set_var "$4" "$_tmp_apps_base_dir"
 }
 
 select_profile_items() {
@@ -502,20 +525,9 @@ print_first_use_readme() {
 }
 
 delete_profile() {
-  if [[ "$PAR_USE_PROFILE" == "." ]]; then
-    local profile="$DESIGNATED_PROFILE"
-  else
-    local profile="$PAR_USE_PROFILE"
-  fi
-  local subprofile="$PAR_USE_PROFILE_SUB"
-  local apps_base_dir
-
-  if $USE_CURRENT_DIR; then
-    apps_base_dir="$ENTANDO_CALLER_PWD/.ent/profiles"
-  else
-    apps_base_dir="$ENTANDO_PROFILES"
-  fi
-
+  local profile subprofile app_dir apps_base_dir
+  _setup_use_or_list profile subprofile app_dir apps_base_dir
+  
   local PROFILE SUBPROFILE
   select_profile_items --no-auto-accept PROFILE SUBPROFILE "$profile" "$subprofile"
   
