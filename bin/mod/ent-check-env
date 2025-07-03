@@ -29,11 +29,11 @@ RUN() {
   $M_DEVL && check-env.develop.minimal-tools-requirements
 
   # ENT-LOCAL NODE
-  $M_DEVL && check-env.check-node
+  $M_DEVL_BASE && check-env.check-node
   $M_DEVL && check-env.check-jhipster
   $M_DEVL && check-env.check-generator-jhipster-entando
   $M_DEVL && check-env.check-bundler
-  $M_DEVL && check-env.check-bundle-cli
+  $M_DEVL_BASE && check-env.check-bundle-cli
 
   # RUNTIME
   $M_KUBE && check-env.runtime.check-k3s
@@ -103,7 +103,7 @@ check-env.extention-modules() {
   local module;
   while IFS= read -r module; do
     _ent.extension-module.execute "$module" check-env || {
-      DEPENDENCY_ERROR "$FAIL_MSG"
+      DEPENDENCY_ERROR "$FAIL_MSG"$'\n'"for module \"$module\""
     }
   done < <(_ent.extension-modules.list)
 }
@@ -222,15 +222,22 @@ check-env.check-bundle-cli() {
   local FLAGS FORCE=false
   parse-version-flags FLAGS VER_ENTANDO_BUNDLE_CLI_DEF VER_ENTANDO_BUNDLE_CLI_REQ ENTANDO_BUNDLE_CLI_VERSION_OVERRIDE
   _str_contains "$FLAGS" ",f," && FORCE=true
+  
+  local SOURCE_BASED=false
+  if [[ "$VER_ENTANDO_BUNDLE_CLI_REQ" == "v1.2.0" || "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.0"* ]]; then
+    _str_contains "$FLAGS" ",g," && SOURCE_BASED=true
+  else
+    _str_contains "$FLAGS" ",r," || SOURCE_BASED=true
+  fi
 
-  if _str_contains "$FLAGS" ",g,"; then
+  if $SOURCE_BASED; then
+    check-env.npm-registry-package entando-registry "entando-bundle-cli" "@entando/entando-bundle-cli" \
+      "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
+      "$FORCE"
+  else
     check_npm_git_package --full "$REPO_ENTANDO_BUNDLE_CLI_ADDR" \
       "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
       "$C_ENTANDO_BUNDLE_CLI_DIR" "$C_ENTANDO_BUNDLE_CLI_DIR" \
-      "$FORCE"
-  else
-    check-env.npm-registry-package entando-registry "entando-bundle-cli" "@entando/entando-bundle-cli" \
-      "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
       "$FORCE"
   fi
 }
@@ -382,13 +389,19 @@ check_npm_git_package() {
           (
             if $FULL; then
               ___npm "PHASE 1/a" install
-              ___npm "PHASE 1/b" run build
+
+              if _ent-npm_direct run | grep -q -w "just-build"; then
+                ___npm "PHASE 1/b" run just-build
+              else
+                ___npm "PHASE 1/b" run build
+              fi
             elif $WITHINST; then
               ___npm "PHASE 1" install
             fi
           ) || _SOE
 
           # ACTUAL INSTALLATION
+          
           ___npm "PHASE 2" install --global
 
           date > .entando-finalized
@@ -490,6 +503,7 @@ PARSE_ARGS() {
   fi
 
   M_DEVL=false
+  M_DEVL_BASE=false
   M_KUBE=false
   M_QS=false
   ENTANDO_CLI_CHECKENV_MODE="$ARG1"
@@ -497,6 +511,10 @@ PARSE_ARGS() {
   case "$ARG1" in
     develop) #H: environment for bundle developers
       M_DEVL=true
+      M_DEVL_BASE=true
+      ;;
+    base-develop) #H: environment for bundle developers
+      M_DEVL_BASE=true
       ;;
     runtime) #H: kubernetes execution environment
       ! $OS_LINUX && FATAL "not supported on this OS"

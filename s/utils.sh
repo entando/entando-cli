@@ -36,29 +36,33 @@ _sed_in_place() {
 # Maps:
 # save_cfg_value -m {MAP_NAME} {KEY} {VALUE}
 #
+# Also export the value:
+# save_cfg_value -e {KEY} {VALUE}
+#
 save_cfg_value() {
-  IS_MAP=false
-  [ "$1" = "-m" ] && IS_MAP=true && shift
+  IS_EXP=false;[ "$1" = "-e" ] && IS_EXP=true && shift
+  IS_MAP=false;[ "$1" = "-m" ] && IS_MAP=true && shift
   local name="${1}"
   shift
   local value="${1}"
   shift
-  local config_file="$CFG_FILE"
-  [ -n "$1" ] && {
-    config_file="$1"
-    shift
-  }
+  local config_file="$CFG_FILE"; [ -n "$1" ] && { config_file="$1"; shift; }
+
+  if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
+    _FATAL "save_cfg_value: multiline values are not supported (variable: \"$name\")"
+  fi
 
   if [[ -f "$config_file" ]]; then
+    _sed_in_place "/^#:EXPORT:${name}/d" "$config_file"
     if $IS_MAP; then
       _sed_in_place "/^${name}__/d" "$config_file"
     else
       _sed_in_place "/^${name}=/d" "$config_file"
     fi
   fi
-  if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
-    FATAL "save_cfg_value: Unsupported multiline value \"$value\" for var: \"$name\""
-  fi
+
+  # shellcheck disable=2059
+  $IS_EXP && printf "#:EXPORT:${name}\n" >> "$config_file"
   if $IS_MAP; then
     local key
     local val
@@ -69,12 +73,32 @@ save_cfg_value() {
     done
   else
     if [ -n "$value" ]; then
-      printf "$name=%s\n" "$value" >> "$config_file"
+      (printf "$name=%s\n" "$value" >> "$config_file") || _FATAL "save_cfg_value failed"
     fi
   fi
 
   return 0
 }
+
+# Prints a configuration value
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# $1: key           strict identifier
+# $2: [cfg-file]    optional cfg file name; defaults to the project config file
+#
+print_cfg_value() {
+  (
+    local name="${1}"
+    shift
+    local config_file="$CFG_FILE"
+    [ -n "$1" ] && {
+      config_file="$1"
+      shift
+    }
+    reload_cfg "$config_file"
+    echo "${!name}"
+  )
+}
+
 
 # Reloads the CFG file in a safe mode
 #
@@ -90,6 +114,7 @@ reload_cfg() {
   local sanitized=""
   # shellcheck disable=SC1097
   while IFS== read -r var value; do
+    [[ "${var:0:9}" = "#:EXPORT:" ]] && { OPT_EXPORT="export "; continue; }
     [[ "$var" =~ ^# ]] && continue
     [[ -z "${var// }" ]] && continue
     if assert_ext_ic_id_with_arr "CFGVAR" "$var" "silent"; then
@@ -97,13 +122,14 @@ reload_cfg() {
       sanitized="${sanitized/\\r/}"
       sanitized="${sanitized/\\n/}"
       if "$PRINT"; then
-        echo "${PRE}${var}=${sanitized}"
+        echo "${PRE}${OPT_EXPORT}${var}=${sanitized}"
       else
-        eval "${PRE}${var}=${sanitized}"
+        eval "${PRE}${OPT_EXPORT}${var}=${sanitized}"
       fi
     else
       _log_e "Skipped illegal var name $var"
     fi
+    OPT_EXPORT=""
   done <<<"$(cat "$config_file")"
   return 0
 }
@@ -208,6 +234,7 @@ ask() {
       [Nn]*) return 1 ;;
       [Qq]*)
         EXIT_UE "User stopped the execution"
+        # shellcheck disable=2317
         exit 99
         ;;
       *)
@@ -226,6 +253,7 @@ NONNULL() {
   local O="-S 1"; [ "$1" = "-s" ] && { O="-s"; shift; }
   for var_name in "$@"; do
     local var_value="${!var_name}"
+    # shellcheck disable=2086
     [ -z "$var_value" ] && _FATAL $O "${FUNCNAME[1]}> Variable \"$var_name\" should not be null"
   done
 }
@@ -323,7 +351,9 @@ index_of_arg() {
 # shellcheck disable=SC2059
 print_entando_banner() {
   {
+    # shellcheck disable=2028
     B() { echo '\033[0;34m'; }
+    # shellcheck disable=2028
     W() { echo '\033[0;39m'; }
     N=''
     printf "\n"
@@ -414,7 +444,7 @@ select_one() {
 
     while true; do
       printf "%s" "$P"
-      set_or_ask "SELECTED" "" ""
+      set_or_ask SELECTED "" ""
       [[ "$SELECTED" == "q" ]] && EXIT_UE "User interrupted"
       [[ ! "$SELECTED" =~ ^[0-9]+$ ]] && continue
       [[ "$SELECTED" -gt 0 && "$SELECTED" -lt "$i" ]] && break
@@ -854,16 +884,23 @@ stdin_to_arr() {
   done
 }
 
+print_current_profile_indicator() {
+    if [ -n "$THIS_PROFILE" ]; then
+      echo "${THIS_PROFILE}${DESIGNATED_PROFILE_SUB:+/$DESIGNATED_PROFILE_SUB}"
+    else
+      echo "<NO-PROFILE>"
+    fi
+}
 # shellcheck disable=SC2120
 print_current_profile_info() {
   VERBOSE=false; [ "$1" = "-v" ] && VERBOSE=true
   if $VERBOSE; then
-    echo " - PROFILE:           ${THIS_PROFILE:-<NO-PROFILE>}"
+    echo " - PROFILE:           $(print_current_profile_indicator)"
     echo " - PROFILE HOME:      ${DESIGNATED_PROFILE_HOME}"
     _nn PROFILE_ORIGIN && echo " - PROFILE ORIGIN:    ${PROFILE_ORIGIN}"
   else
     if [ -n "$THIS_PROFILE" ]; then
-      _log_i "Currently using profile \"$THIS_PROFILE\"" 1>&2
+      _log_i "Currently using profile \"$(print_current_profile_indicator)\"" 1>&2
     else
       _log_i "Currently not using any profile" 1>&2
     fi
@@ -1108,25 +1145,32 @@ keycloak-get-token() {
 # shellcheck disable=SC2296
 handle_forced_profile() {
   local pv="ENTANDO_ENT_FORCE_PROFILE_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
+  local pvs="ENTANDO_ENT_FORCE_PROFILE_SUB_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   local phv="ENTANDO_ENT_FORCE_PROFILE_HOME_0e7e8d89_$ENTANDO_TTY_QUALIFIER";
   if [[ "$1" =~ --profile=.* ]]; then
     args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE" "--profile/ext_ic_id//" "$@"
+    args_or_ask -n -h "$HH" "ENTANDO_USE_PROFILE_SUB" "--sub-profile/ext_ic_id//" "$@"
     _set_var "$pv" "$ENTANDO_USE_PROFILE"
+    _set_var "$pvs" "$ENTANDO_USE_PROFILE_SUB"
     _set_var "$phv" "$ENTANDO_PROFILES/$ENTANDO_USE_PROFILE"
   fi
   
   local pvv phvv
   if [ -n "$ZSH_VERSION" ]; then
     pvv=${(P)pv}
+    pvs=${(P)pvs}
     phvv=${(P)phv}
   else
     pvv=${!pv}
+    pvs=${!pvs}
     phvv=${!phv}
   fi
-  
-  if [[ -n "$pvv" && "$DESIGNATED_PROFILE" != "$pvv" ]]; then
-    kubectl_mode --reset-mem 
+
+  if [[ -n "$pvv" && "$DESIGNATED_PROFILE/$DESIGNATED_PROFILE_SUB" != "$pvv/$pvs" ]]; then
+    kubectl_mode --reset-mem
     DESIGNATED_PROFILE="$pvv"
+    DESIGNATED_PROFILE_SUB="$pvs"
+    THIS_PROFILE="$DESIGNATED_PROFILE"
     # shellcheck disable=SC2034
     DESIGNATED_PROFILE_HOME="$phvv"
     activate_designated_workdir --temporary
@@ -1441,44 +1485,109 @@ print-effective-config() {
       for var in ${ENTANDO_VARS_DEFAULTS[*]}; do echo "AUTO:$var=${!var}"; done
     }
   )"
-
-  _log_i "Profile config location: \"$CFG_FILE\"" 1>&2
-  _log_i "Default config location: \"$ENT_DEFAULT_CFG_FILE\"" 1>&2
-  _log_i "Global config location:  \"$ENTANDO_GLOBAL_CFG\"" 1>&2
+  
+  _log_i "Effective configuration for profile \"$(print_current_profile_indicator)\""
   echo "" 1>&2
 
+  _log_i "List of configuration files in lookup order:" \
+  $'\n '"1) Profile specific:      \"$CFG_FILE\"" \
+  $'\n '"2) Installation defaults: \"$ENT_DEFAULT_CFG_FILE\"" \
+  $'\n '"3) Global settings:       \"$ENTANDO_GLOBAL_CFG\""
+  echo "" 1>&2
+
+
+  _log_i "Variables:"
+  
   # shellcheck disable=SC2001
   KEYS="$(sed 's/=.*//' <<< "$ALL" | sort -t':' -u -k2,2)"
+  
   
   (
     reload_cfg "$ENT_DEFAULT_CFG_FILE"
     reload_cfg "$CFG_FILE"
-    for var in $KEYS; do
-      IFS=':' read -r tag var <<<"$var"
+    while IFS= read -r line; do
+      tag="${line%:*}"
+      var="${line#*:*}"
+      
+      if [[ $var = *[[:space:]]* ]]; then
+        opt="${var% *}"
+        var="${line#* *}"
+        if [[ "$opt" = "export" ]]; then
+          opt="E"
+        else
+          _log_e "Invalid variable option \"$opt\" will be ignored"
+          opt="-"
+        fi
+      else
+        opt="-"
+      fi
+      
+      (val="${!var}") || _FATAL "error assigning variable"
+      
       val="${!var}"
       
       if [[ "$var" != *"TOKEN"* || "$ENTANDO_NO_OBFUSCATION" = "true" ]]; then
-        echo "$tag> $var=$val"
+        echo "$tag/$opt> $var=$val"
       else
-        echo -e "$tag> $var=\033[101m**OBFUSCATED**\033[0m"
+        echo -e "$tag/$opt> $var=\033[101m**OBFUSCATED**\033[0m"
       fi
-    done
+    done <<< "$KEYS"
   )
   
-  sleep 0.1
+  sync_tty_streams
   
   print-secrets-leak-warning
-  _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
-  echo "" 1>&2
 }
 
 print-secrets-leak-warning() {
   {
-    echo ""
-    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
-    echo -e "\033[101m▒▒ /!\ W A R N I N G /!\                                          ▒▒\033[0;37m"
-    echo -e "\033[101m▒▒ This output may contain secrets, think twice before sharing it ▒▒\033[0;37m"
-    echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
-    echo ""
+      echo -e "\033[0;37m"
+      echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+      echo -e '\033[101m▒▒ /!\ W A R N I N G /!\                                          ▒▒\033[0;37m'
+      echo -e "\033[101m▒▒ This output may contain secrets, think twice before sharing it ▒▒\033[0;37m"
+      echo -e "\033[101m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒\033[0;37m"
+      echo ""
   } 1>&2
+  
+  ! $ENTANDO_NO_OBFUSCATION && _log_i "Hint: Use --no-obfuscation to show obfuscated values" 1>&2
+  echo "" 1>&2
+}
+
+# simple trick to resync of the output streams, necessary in particular
+# when output is capured, but not very well (e.g. some pipeline)
+sync_tty_streams() {
+  sleep 0.1
+}
+
+
+# runs a subshell that inherits the ent environment
+run-sun-shell() {
+  export KUBECONFIG="$DESIGNATED_KUBECONFIG"
+  export NAMESPACE="$DESIGNATED_NAMESPACE"
+  export NS="$ENTANDO_NAMESPACE"
+
+  k() { ent k "$@"; }
+  export -f k
+  
+  [ ! -d "$DESIGNATED_PROFILE_HOME/w" ] && FATAL "This command is only available when using a profile"
+
+  mkdir -p "$DESIGNATED_PROFILE_HOME/w/shell"
+  if [ -n "$ENT_KUBECTL_CMD" ]; then
+    ENT_EFFECTIVE_KUBECTL_CMD="$ENT_KUBECTL_CMD"
+    cp "$ENT_KUBECTL_CMD" "$DESIGNATED_PROFILE_HOME/w/shell"
+    cp "$ENT_KUBECTL_CMD" "$DESIGNATED_PROFILE_HOME/w/shell/kubectl"
+  else
+    # shellcheck disable=SC2034
+    ENT_EFFECTIVE_KUBECTL_CMD="kubectl"
+  fi
+
+  # shellcheck disable=SC2016 disable=SC2028
+  "bash" \
+    --rcfile <(
+      echo 'source "$HOME/.bashrc"'
+      echo 'NORMAL="\[\e[0m\]" LIGHTGRAY="\033[0;37m" RED="\[\e[1;31m\]" GREEN="\[\e[1;32m\]"'
+      echo "export PATH=\"$DESIGNATED_PROFILE_HOME/w/shell:\$PATH\""
+      echo 'export PS1="${RED}ENT-SHELL>${NORMAL} "'
+    ) \
+    "$@"
 }

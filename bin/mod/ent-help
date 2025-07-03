@@ -85,6 +85,7 @@ cd ..
   echo -e "  --profile|-p {profile}   forces the use of the given profile"
   echo -e "  --no-profile|-P          forces the use of no profile"
   echo -e "  --debug|-d               enables the debug mode for some command"
+  echo -e "  --trace                  enables shell level instruction trace"
   echo -e "  --color                  disables the explicit suppression of the colors for some command"
 
   echo ""

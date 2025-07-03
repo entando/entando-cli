@@ -37,24 +37,42 @@ test_index_of_arg() {
 #TEST:unit,lib,config
 test_cfg_helper() {
   
-  ( _IT "should find arguments in args list"
-  
+  ( _IT "should save single line variables"
     CFG_FILE="/tmp/ent-test"
 
-    save_cfg_value "XX1" "hey" "$CFG_FILE"
-    save_cfg_value "XX2" "hey hey" "$CFG_FILE"
-    save_cfg_value "XX3" "hey hey// \"/'" "$CFG_FILE"
-    save_cfg_value "XX4" "\" && echo \"**INJECTION ATTEMPT**\"\\ / && \"" "$CFG_FILE"
-    save_cfg_value "XX5" "\\\" && echo \"**INJECTION ATTEMPT2**\"\\ / && \\\"" "$CFG_FILE"
+    save_cfg_value "XX1" "hey" "$CFG_FILE"; _ASSERT_RC 0
+    save_cfg_value "XX2" "hey hey" "$CFG_FILE"; _ASSERT_RC 0
+    save_cfg_value "XX3" "hey hey// \"/'" "$CFG_FILE"; _ASSERT_RC 0
+    save_cfg_value "XX4" "\" && echo \"**INJECTION ATTEMPT**\"\\ / && \"" "$CFG_FILE"; _ASSERT_RC 0
+    save_cfg_value "XX5" "\\\" && echo \"**INJECTION ATTEMPT2**\"\\ / && \\\"" "$CFG_FILE"; _ASSERT_RC 0
     reload_cfg "$CFG_FILE"
 
-    [ "$XX1" = "hey" ] || _FAIL
-    [ "$XX2" = "hey hey" ] || _FAIL
-    [ "$XX3" = "hey hey// \"/'" ] || _FAIL
-    [ "$XX3" = "hey hey// \"/'" ] || _FAIL
-    [ "$XX4" = "\" && echo \"**INJECTION ATTEMPT**\"\\ / && \"" ] || _FAIL
-    [ "$XX5" = "\\\" && echo \"**INJECTION ATTEMPT2**\"\\ / && \\\"" ] || _FAIL
+    _ASSERT XX1 = "hey"
+    _ASSERT XX2 = "hey hey"
+    _ASSERT XX3 = "hey hey// \"/'"
+    _ASSERT XX4 = "\" && echo \"**INJECTION ATTEMPT**\"\\ / && \""
+    _ASSERT XX5 = "\\\" && echo \"**INJECTION ATTEMPT2**\"\\ / && \\\""
   )
+    
+  ( _IT "should support the export of specific variables"
+    CFG_FILE="/tmp/ent-test"
+    
+    save_cfg_value -e "XX6" "exported hey" "$CFG_FILE"; _ASSERT_RC 0
+    reload_cfg "$CFG_FILE"
+    _ASSERT XX6 = "exported hey"
+    
+    # shellcheck disable=SC2034
+    XX_FROM_SUB_SHELL="$(bash -c 'echo "$XX1$XX2$XX3$XX4$XX5$XX6"')"
+    _ASSERT XX_FROM_SUB_SHELL = "exported hey"
+  )
+  
+  ( _IT "should reject multiline strings"
+    CFG_FILE="/tmp/ent-test"
+    
+    (save_cfg_value "XXML" $'HEY\nTHERE' "$CFG_FILE") 2>/dev/null
+    _ASSERT_RC 77
+  )
+
 }
 
 #TEST:unit,lib,ui,mock

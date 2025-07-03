@@ -40,18 +40,18 @@ _verify.verify-expression() {
   fi
 
   case "$O" in
-    eq) O="==";OD="TO:  ";  [[ "$E" -eq "$V" ]];;
-    ne) O="!=";OD="TO:  ";  [[ "$E" -ne "$V" ]];;
-    gt) O=">";OD="THAN:";   [[ "$E" -gt "$V" ]];;
-    ge) O=">=";OD="THAN:";  [[ "$E" -ge "$V" ]];;
-    lt) O="<";OD="THAN:";   [[ "$E" -lt "$V" ]];;
-    le) O="<=";OD="THAN:";  [[ "$E" -le "$V" ]];;
-    =|==) O="=";OD="TO:  ";  [[ "$E" = "$V" ]];;
-    !=) O="!=";OD="TO:  ";  [[ "$E" != "$V" ]];;
-    =~) O="=~";OD="TO:  ";   [[ "$E" =~ $V ]];;
-    !=~) O="=~";OD="TO:  ";   [[ ! "$E" =~ $V ]];;
-    starts-with) O="starting";OD="WITH:";  [[ "$E" = "$V"* ]];;
-    ends-with) O="ending";OD="WITH:";  [[ "$E" = *"$V" ]];;
+    eq) O="==";OD="TO:       ";  [[ "$E" -eq "$V" ]];;
+    ne) O="!=";OD="TO:       ";  [[ "$E" -ne "$V" ]];;
+    gt) O=">";OD="THAN:     ";   [[ "$E" -gt "$V" ]];;
+    ge) O=">=";OD="THAN:     ";  [[ "$E" -ge "$V" ]];;
+    lt) O="<";OD="THAN:     ";   [[ "$E" -lt "$V" ]];;
+    le) O="<=";OD="THAN:     ";  [[ "$E" -le "$V" ]];;
+    =|==) O="=";OD="TO:       ";  [[ "$E" = "$V" ]];;
+    !=) O="!=";OD="TO:       ";  [[ "$E" != "$V" ]];;
+    =~) O="=~";OD="TO:       ";   [[ "$E" =~ $V ]];;
+    !=~) O="=~";OD="TO:       ";   [[ ! "$E" =~ $V ]];;
+    starts-with) O="starting";OD="WITH:     ";  [[ "$E" = "$V"* ]];;
+    ends-with) O="ending";OD="WITH:     ";  [[ "$E" = *"$V" ]];;
     contains) O="containing";OD="THE VALUE:";  [[ "$E" = *"$V"* ]];;
     *) _sys.fatal -S "${SKIP}" "Unknown operator \"$O\"";;
   esac
@@ -68,8 +68,8 @@ _verify.verify-expression() {
 
       if [ "${#E}" -gt 30 ] || [ "${#V}" -gt 30 ]; then
         MSG="Validation Failed"
-        MSG2="\n${PREFIX}Validation Failed in:\n> EXPECTED:  $_tmp_ver_N"
-        MSG2+="\n> TO BE:     $O\n> $OD      $V\n\n> BUT WAS FOUND: $E"
+        MSG2="\n${PREFIX}Validation Failed:\n> EXPECTED:   $_tmp_ver_N"
+        MSG2+="\n> TO BE:      $O\n> $OD  $V\n\n> BUT WAS FOUND: $E"
       else
         MSG="Validation Failed"
         MSG2="\n${PREFIX}Expected $_tmp_ver_N $O \"$V\" but instead I've found \"$E\""

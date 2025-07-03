@@ -109,6 +109,10 @@ print_status_info() {
     local mode="via user command: \"$ENT_KUBECTL_CMD\""
   elif [ -n "$DESIGNATED_VM" ]; then
     local mode="via VM link to: \"$DESIGNATED_VM\""
+  elif [ -n "$DESIGNATED_KUBECONFIG" ]; then
+    local mode="via config:"$'\n'"~ $DESIGNATED_KUBECONFIG"
+  elif [ -n "$DESIGNATED_KUBECTX" ]; then
+    local mode="via context: \"$DESIGNATED_KUBECTX\""
   else
     local mode="via auto-detected kubectl"
   fi

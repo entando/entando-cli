@@ -8,6 +8,7 @@ node.reset_environment() {
   ENT_NODE_MODS=""        # the path of the node modules dir (for the current ent instance)
   ENT_NODE_BIN_NATIVE=""  # the os-native path of the node binary (for the current ent instance)
   ENT_NPM_BIN_NATIVE=""   # the os-native path of the npm binary (for the current ent instance)
+  # shellcheck disable=SC2034
   NODE_PATH=""            # the node base path standard variable
 }
 
@@ -78,7 +79,7 @@ node.activate_environment() {
   # shellcheck disable=SC2031
   ENT_NODE_DIR="$ENT_OPTS/node-$ENT_NODE_VER"
   # shellcheck disable=SC2154
-  export PATH="$PATH:${sENT_NODE_DIR}bin"
+  export PATH="$PATH:${ENT_NODE_DIR}bin"
   
   _ent-npm-init-rc
   
@@ -100,7 +101,8 @@ node.activate_environment() {
       ENT_NPM_BIN_NATIVE="${ENT_NODE_BINS}/npm"
       ;;
   esac
-  
+
+  # shellcheck disable=SC2034
   ENT_OPTS_ENTANDO="${ENT_OPTS}/entando"
   PATH="$ENT_NODE_BINS:$PATH"
 }
@@ -275,7 +277,9 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
+  export ENTANDO_CLI_HIDE_PRIVATE_NODEJS=${ENTANDO_CLI_HIDE_PRIVATE_NODEJS:-"true"}
 
+  # shellcheck disable=SC2153
   ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
     _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }
@@ -312,16 +316,26 @@ _ent-run-internal-npm-tool() {
 }
 
 _ent-npm.get-internal-tool-path() {
-  if $OS_WIN; then
-    _set_var "$1" "$ENT_NODE_BINS/${2}.cmd"
+  local NOOV=false;[ "$1" == "--no-override" ] && { NOOV=true; shift; }
+  local VN="OVERRIDE_PATH_OF_${2//-/_}"
+  local ITP="${!VN}"
+
+  if [ -z "$ITP" ]; then
+    local ITP="$ENT_NODE_BINS/${2}"
   else
-    _set_var "$1" "$ENT_NODE_BINS/${2}" "$@"
+    $NOOV && _FATAL "Unable to proceed because the internal tool path was overridden"
+  fi
+  
+  if $OS_WIN && [[ $ITP != *".cmd" ]]; then
+    _set_var "$1" "$ITP.cmd"
+  else
+    _set_var "$1" "$ITP"
   fi
 }
 
 _ent-npm.delete-internal-tool-bin() {
   local BIN_PATH
-  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
+  _ent-npm.get-internal-tool-path --no-override BIN_PATH "$TOOL_NAME"
   if [[ "$BIN_PATH" = *"/.entando/"* ]]; then
     rm "$BIN_PATH"
   else
@@ -330,7 +344,7 @@ _ent-npm.delete-internal-tool-bin() {
 }
 
 
-
+# shellcheck disable=SC2120
 node.command_wrapper() {
   CMD="$1"
   H() { echo -e "$2"; }
@@ -344,6 +358,7 @@ node.command_wrapper() {
     echo "Internal error: unable to find the script source dir" 1>&2
     exit
   }
+  # shellcheck disable=SC1094
   . s/_base.sh
 
   cd "$WD" || _FATAL "Unable to access the current dir: $WD"
