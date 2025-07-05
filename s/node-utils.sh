@@ -163,6 +163,8 @@ _ent-jhipster() {
     return 0
   fi
   
+  require_develop_checked --full
+  
   node.activate_environment
   if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
     _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
@@ -171,7 +173,6 @@ _ent-jhipster() {
   
   print_entando_banner
   
-  require_develop_checked
   [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
     ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
       ent-init-project-dir
