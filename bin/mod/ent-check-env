@@ -45,6 +45,7 @@ RUN() {
   check-env.extention-modules "$ENTANDO_CLI_CHECKENV_MODE"
 
   # COMMIT
+  $M_DEVL_BASE && save_cfg_value "WAS_BASE_DEVELOP_CHECKED" "true" "$ENT_DEFAULT_CFG_FILE"
   $M_DEVL && save_cfg_value "WAS_DEVELOP_CHECKED" "true" "$ENT_DEFAULT_CFG_FILE"
 }
 

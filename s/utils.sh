@@ -373,7 +373,11 @@ print_entando_banner() {
 # requires that the system environment was checked for development mode
 #
 require_develop_checked() {
-  [ "$WAS_DEVELOP_CHECKED" != "true" ] && FATAL "Run \"ent check-env develop\" before this command"
+  if [ "$1" == "--full" ]; then
+    [ "$WAS_DEVELOP_CHECKED" != "true" ] && FATAL "Run \"ent check-env develop\" before this command"
+  else
+    [ "$WAS_BASE_DEVELOP_CHECKED" != "true" ] && FATAL "Run \"ent check-env base-develop\" or \"ent check-env develop\" before this command"
+  fi
 }
 
 # requires that the project dir is properly initialized
