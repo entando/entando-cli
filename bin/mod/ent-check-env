@@ -26,7 +26,7 @@ RUN() {
 
   
   # DEVELOP TOOLS
-  $M_DEVL && check-env.develop.minimal-tools-requirements
+  $M_DEVL_BASE && check-env.develop.minimal-tools-requirements
 
   # ENT-LOCAL NODE
   $M_DEVL_BASE && check-env.check-node
