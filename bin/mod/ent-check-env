@@ -224,22 +224,24 @@ check-env.check-bundle-cli() {
   parse-version-flags FLAGS VER_ENTANDO_BUNDLE_CLI_DEF VER_ENTANDO_BUNDLE_CLI_REQ ENTANDO_BUNDLE_CLI_VERSION_OVERRIDE
   _str_contains "$FLAGS" ",f," && FORCE=true
 
-  if [[ "$VER_ENTANDO_BUNDLE_CLI_REQ" == "v1.2.0" || "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.0"* ]]; then
-    local SOURCE_BASED=true
-    _str_contains "$FLAGS" ",r," && SOURCE_BASED=false
-  else
+  if [[ "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.2.0"* || "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.0"* ]]; then
+    # OLD VERSIONS
     local SOURCE_BASED=false
     _str_contains "$FLAGS" ",g," && SOURCE_BASED=true
-  fi
-
-  if $SOURCE_BASED; then
-    check-env.npm-registry-package entando-registry "entando-bundle-cli" "@entando/entando-bundle-cli" \
-      "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
-      "$FORCE"
   else
+    # NEW VERSIONS
+    local SOURCE_BASED=true
+    _str_contains "$FLAGS" ",r," && SOURCE_BASED=false
+  fi
+  
+  if $SOURCE_BASED; then
     check_npm_git_package --full "$REPO_ENTANDO_BUNDLE_CLI_ADDR" \
       "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
       "$C_ENTANDO_BUNDLE_CLI_DIR" "$C_ENTANDO_BUNDLE_CLI_DIR" \
+      "$FORCE"
+  else
+    check-env.npm-registry-package entando-registry "entando-bundle-cli" "@entando/entando-bundle-cli" \
+      "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
       "$FORCE"
   fi
 }
@@ -403,8 +405,7 @@ check_npm_git_package() {
           ) || _SOE
 
           # ACTUAL INSTALLATION
-          
-          ___npm "PHASE 2" install --global
+          ___npm "PHASE 2" install --ignore-scripts --global
 
           date > .entando-finalized
           echo '~~~'$'\n'
