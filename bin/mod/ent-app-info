@@ -39,6 +39,9 @@ WATCH=false; [ "$1" = "watch" ] && { WATCH=true; shift; }
 reload_cfg
 
 [ -n "$1" ] && ENTANDO_APPNAME="$1" && shift
+
+kube.discover-and-set-app-name-if-needed
+
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 [ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift
 [ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1

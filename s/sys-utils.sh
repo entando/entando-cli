@@ -632,3 +632,24 @@ _ent.extension-module.execute() {
 _ent.sys.is-stdout-tty() {
   perl -e 'print -t STDOUT ? exit 0 : exit 1;'
 }
+
+kube.discover-and-set-app-name() {
+  local an
+  read -ra an < <(_kubectl get entandoapp -o custom-columns=NAME:.metadata.name --no-headers 2>/dev/null)
+  
+  [ "${#an[@]}" -gt 1 ] && _FATAL -s "It's not possible to auto-determine the appname on a namespace with more than one EntandoApp present"
+  ENTANDO_APPNAME="${an[0]}"
+  export ENTANDO_APPNAME
+  ent config --set ENTANDO_APPNAME "$ENTANDO_APPNAME"
+}
+
+kube.discover-and-set-app-name-if-needed() {
+  if [ "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" != "true" ]; then
+    if [ "$ENTANDO_APPNAME" == ":auto" ]; then
+      kube.discover-and-set-app-name
+      if [ "$ENTANDO_ENT_DEBUG" == "true" ]; then
+        _log_i "Discovered the appname \"$ENTANDO_APPNAME\" for the namespace \"$ENTANDO_NAMESPACE\""
+      fi
+    fi
+  fi
+}

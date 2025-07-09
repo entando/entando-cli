@@ -911,10 +911,12 @@ print_current_profile_info() {
   fi
   
   $VERBOSE && {
+    echo " - CONFIG FILE:       ${CFG_FILE}"
     echo " - APPNAME:           ${ENTANDO_APPNAME:-<EMPTY>}"
     echo " - APPVER:            ${ENTANDO_APPVER:-<EMPTY>}"
     echo " - NAMESPACE:         ${ENTANDO_NAMESPACE:-<EMPTY>}"
     echo " - K8S CONTEXT:       ${DESIGNATED_KUBECTX:-<NO-CONTEXT>}"
+    echo " - K8S CONFIG:        ${DESIGNATED_KUBECONFIG:-<NO-CONFIG>}"
   }
 }
 
@@ -973,6 +975,8 @@ app-get-main-ingresses() {
 
   local OUT=()
   local JSON="$(_kubectl get ingresses.v1.networking.k8s.io -o json)"
+  
+  kube.discover-and-set-app-name-if-needed
   
   #~~~
   local JQ=".items[] | select(.metadata.name==$(_str_quote "$ENTANDO_APPNAME-ingress")).spec | .tls[0].hosts[0] // \"-\", .rules[0].host"

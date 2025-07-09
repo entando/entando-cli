@@ -50,9 +50,11 @@ RUN() {
     determine_namespace ENTANDO_NAMESPACE "$@"
     args_or_ask -h "$HH" -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
     args_or_ask -h "$HH" -n -F WATCH "--watch///" "$@"
-
+    
     [ -n "$HH" ] && exit 0
 
+    kube.discover-and-set-app-name-if-needed
+    
     if $WATCH; then
       ent app-info watch "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE"
     else
