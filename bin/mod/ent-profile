@@ -162,7 +162,7 @@ _use_or_list_profile() {
 
 setup_curr_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/ext_ic_id/:auto/%sp EntandoApp name" "$@" && {
+  args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/appname_param/:auto/%sp EntandoApp name" "$@" && {
     save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME"
   }
   args_or_ask -h "$HH" ENTANDO_NAMESPACE "--namespace/ext_ic_id/$PROFILE/%sp default namespace" "$@" && {
@@ -415,7 +415,14 @@ select_profile_item() {
 }
 
 assert_appname_param() {
-  [[ "$2" == "<auto-discovered>" || "$2" == ":auto" ]] && return 0
+  if [[ "$2" == "<auto-discovered>" || "$2" == ":auto" ]]; then
+    if [ "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" == "true" ]; then
+      _log_e "Auto-discovery is disabled (ENTANDO_DISABLE_APPNAME_DISCOVERY=true)"
+      _log_e "Please provide an explicit app name instead of ':auto'"
+      return 1
+    fi
+    return 0
+  fi
   assert_ext_ic_id "$@"
 }
 
