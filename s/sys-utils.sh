@@ -241,8 +241,16 @@ function ent-init-project-dir() {
     ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
-  _ent-npm init --yes
-  _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+
+  # Use user's npm if ENTANDO_CLI_HIDE_PRIVATE_NODEJS is true
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    npm init --yes
+    npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  else
+    _ent-npm init --yes
+    _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  fi
+
   rm -rf package.json package-lock.json
   generate_ent_project_file
 }

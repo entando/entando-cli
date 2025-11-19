@@ -156,23 +156,38 @@ _ent-npm_direct() {
   )
 }
 
-# Runs the ent private installation of jhipster
+# Runs the ent private/user installation of jhipster
 _ent-jhipster() {
   if [ "$1" == "--ent-help" ]; then
     echo "Wrapper of the ent-internal installation of jhipster"
     return 0
   fi
-  
+
   require_develop_checked --full
-  
-  node.activate_environment
+
+  # Check if we should use user's node instead of ent's private node
+  # By default, respect ENTANDO_CLI_HIDE_PRIVATE_NODEJS setting
+  local USE_USER_NODE=false
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    USE_USER_NODE=true
+  fi
+
+  if ! $USE_USER_NODE; then
+    node.activate_environment
+  fi
+
   if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
-    _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
+    if $USE_USER_NODE; then
+      # Use user's jhipster
+      jhipster -V 2>/dev/null | grep -v INFO || npx jhipster -V 2>/dev/null | grep -v INFO
+    else
+      _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
+    fi
     return 0
   fi
-  
+
   print_entando_banner
-  
+
   [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
     ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
       ent-init-project-dir
@@ -180,7 +195,17 @@ _ent-jhipster() {
   }
 
   # RUN
-  _mp_node_exec jhipster "$@"
+  if $USE_USER_NODE; then
+    # Use user's node and jhipster (from PATH or local node_modules)
+    activate_shell_login_environment
+    if command -v jhipster &> /dev/null; then
+      jhipster "$@"
+    else
+      npx jhipster "$@"
+    fi
+  else
+    _mp_node_exec jhipster "$@"
+  fi
 }
 
 # Executes a node command in any of the sypported platforms
