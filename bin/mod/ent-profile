@@ -431,10 +431,7 @@ parse_basic_profile_args() {
   local from="$1"
   shift
   args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 0))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
-  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 1))/appname_param/<autodetected>/%sp EntandoApp name" "$@"
-  if [ "$ENTANDO_APPNAME" == "<auto-discovered>" ]; then
-    ENTANDO_APPNAME=":auto"
-  fi
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 1))/appname_param/:auto/%sp EntandoApp name" "$@"
 }
 
 _determine_profile_dir() {
