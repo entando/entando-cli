@@ -241,8 +241,8 @@ QS.CREATE-QS-PROFILE() {
   
   ent-profile-delete "qs-localhost" --yes
   ent-profile-new "qs-localhost" \
-    "$ENTANDO_APPNAME" \
     "$ENTANDO_NAMESPACE" \
+    "$ENTANDO_APPNAME" \
     --auto-use=false \
   ;
   sourced-ent-profile-use "qs-localhost"
@@ -474,7 +474,7 @@ QS.MANIFEST.v7.SET-PLACEHOLDERS() {
   local MANIFEST_TEMPLATE_FILE="$1"
   local APPVER="7.0"
   local REPLICA="1"
-  local IMGTYPE="eap"
+  local IMGTYPE="tomcat"
   local DB="${OVERRIDE_DB_TYPE:-"embedded"}"
   local ENTANDO_HOSTNAME="${SINGLE_HOSTNAME}"
   [ -z "$ENTANDO_HOSTNAME" ] || [ "$ENTANDO_HOSTNAME" = "~" ] && ENTANDO_HOSTNAME="$ENTANDO_APPNAME.$FQADDR"
@@ -609,8 +609,8 @@ QS.VM.CREATE-QS-PROFILE() {
     ent-profile-delete "qs-$ENTANDO_VM_NAME" --yes
     ent-profile-delete "qs-$ENTANDO_VM_NAME" --yes
     ent-profile-new "qs-$ENTANDO_VM_NAME" \
-      "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \
+      "$ENTANDO_APPNAME" \
       --auto-use=false \
     ;
     # shellcheck disable=SC1091
