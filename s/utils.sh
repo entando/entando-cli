@@ -48,6 +48,9 @@ save_cfg_value() {
   shift
   local config_file="$CFG_FILE"; [ -n "$1" ] && { config_file="$1"; shift; }
 
+  # Skip saving if no config file is available (e.g., no profile is active)
+  [ -z "$config_file" ] && return 0
+
   if [ "$(echo "$value" | wc -l)" -gt 1 ]; then
     _FATAL "save_cfg_value: multiline values are not supported (variable: \"$name\")"
   fi
