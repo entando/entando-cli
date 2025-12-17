@@ -179,7 +179,7 @@ _ent-jhipster() {
   if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
     if $USE_USER_NODE; then
       # Use user's jhipster
-      jhipster -V 2>/dev/null | grep -v INFO || npx jhipster -V 2>/dev/null | grep -v INFO
+      jhipster -V 2>/dev/null | grep -v INFO || npx  --package=generator-jhipster -- jhipster -V 2>/dev/null | grep -v INFO
     else
       _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
     fi
@@ -201,7 +201,7 @@ _ent-jhipster() {
     if command -v jhipster &> /dev/null; then
       jhipster "$@"
     else
-      npx jhipster "$@"
+      npx  --package=generator-jhipster -- jhipster "$@"
     fi
   else
     _mp_node_exec jhipster "$@"

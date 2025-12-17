@@ -258,7 +258,11 @@ check-env.check-generator-jhipster-entando() {
   _str_contains "$FLAGS" ",f," && FORCE=true
 
   if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
-    # Use user's node - only check user's installation
+    # Use user's node - first ensure the package is cloned/built, then install to user's node
+    check_npm_git_package --no-local-install "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
+      "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+      "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"  \
+      "$FORCE"
     check-env.check-generator-jhipster-entando-in-user-node "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$FORCE"
   else
     # Use ent's private node - only check ent's installation
