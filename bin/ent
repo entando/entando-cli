@@ -59,7 +59,7 @@ RUN() {
         handle_status_config ENTANDO_APPVER "$@"
         ;;
       "appname") #H: sets the default application names
-        handle_status_config ENTANDO_APPNAME "$@"
+        handle_appname "$@"
         ;;
       "profile"|"P"|"pro") #H: helps creating and managing profiles
         # shellcheck disable=SC1090

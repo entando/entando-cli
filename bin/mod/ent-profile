@@ -162,7 +162,7 @@ _use_or_list_profile() {
 
 setup_curr_profile() {
   HH="$(parse_help_option "$@")"
-  args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@" && {
+  args_or_ask -h "$HH" ENTANDO_APPNAME "--appname/appname_param/:auto/%sp EntandoApp name" "$@" && {
     save_cfg_value ENTANDO_APPNAME "$ENTANDO_APPNAME"
   }
   args_or_ask -h "$HH" ENTANDO_NAMESPACE "--namespace/ext_ic_id/$PROFILE/%sp default namespace" "$@" && {
@@ -233,7 +233,7 @@ use_profile() {
         . "$COMMAND_FILE" --full
         activate_designated_workdir --temporary
       else
-        set_curr_profile "$DESIGNATED_PROFILE" "$DESIGNATED_PROFILE_HOME" "$DESIGNATED_PROFILE_SUB"
+        set_curr_profile "$DESIGNATED_PROFILE" "" "$DESIGNATED_PROFILE_SUB"
         activate_designated_workdir
       fi
     }
@@ -414,11 +414,24 @@ select_profile_item() {
   _set_var "$res_var" "$_tmp_result"
 }
 
+assert_appname_param() {
+  if [[ "$2" == "<auto-discovered>" || "$2" == ":auto" ]]; then
+    if [ "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" == "true" ]; then
+      _log_e "Auto-discovery is disabled (ENTANDO_DISABLE_APPNAME_DISCOVERY=true)"
+      _log_e "Please provide an explicit app name instead of ':auto'"
+      return 1
+    fi
+    return 0
+  fi
+  assert_ext_ic_id "$@"
+}
+
+
 parse_basic_profile_args() {
   local from="$1"
   shift
-  args_or_ask -h "$HH" -a ENTANDO_APPNAME "$((from + 0))/ext_ic_id/$PROFILE/%sp EntandoApp name" "$@"
-  args_or_ask -h "$HH" -a ENTANDO_NAMESPACE "$((from + 1))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_NAMESPACE "$((from + 0))/ext_ic_id/$PROFILE/%sp default namespace" "$@"
+  args_or_ask ${HH:+"$HH"} -a ENTANDO_APPNAME "$((from + 1))/appname_param/:auto/%sp EntandoApp name" "$@"
 }
 
 _determine_profile_dir() {
@@ -545,6 +558,7 @@ delete_profile() {
     true
   ) && {
     DESIGNATED_PROFILE="" DESIGNATED_PROFILE_SUB="" DESIGNATED_PROFILE_HOME=""
+    THIS_PROFILE=""
     reload_cfg "$ENTANDO_GLOBAL_CFG"
 
     if [ "$PROFILE" = "$THIS_APP_PROFILE" ]; then

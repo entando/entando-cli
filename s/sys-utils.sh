@@ -241,8 +241,16 @@ function ent-init-project-dir() {
     ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
-  _ent-npm init --yes
-  _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+
+  # Use user's npm if ENTANDO_CLI_HIDE_PRIVATE_NODEJS is true
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    npm init --yes
+    npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  else
+    _ent-npm init --yes
+    _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  fi
+
   rm -rf package.json package-lock.json
   generate_ent_project_file
 }
@@ -631,4 +639,30 @@ _ent.extension-module.execute() {
 
 _ent.sys.is-stdout-tty() {
   perl -e 'print -t STDOUT ? exit 0 : exit 1;'
+}
+
+kube.discover-and-set-app-name() {
+  local an
+  read -ra an < <(_kubectl get entandoapp -o custom-columns=NAME:.metadata.name --no-headers 2>/dev/null)
+
+  if [ "${#an[@]}" -gt 1 ]; then
+    _FATAL -s "It's not possible to auto-determine the appname on a namespace with more than one EntandoApp present"
+  elif [ "${#an[@]}" -eq 0 ] || [ -z "${an[0]}" ]; then
+    _FATAL -s "It's not possible to auto-determine the appname: no EntandoApp found in namespace \"$ENTANDO_NAMESPACE\""
+  fi
+
+  ENTANDO_APPNAME="${an[0]}"
+  export ENTANDO_APPNAME
+  ent config --set ENTANDO_APPNAME "$ENTANDO_APPNAME"
+}
+
+kube.discover-and-set-app-name-if-needed() {
+  if [ "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" != "true" ]; then
+    if [ "$ENTANDO_APPNAME" == ":auto" ]; then
+      kube.discover-and-set-app-name
+      if [ "$ENTANDO_ENT_DEBUG" == "true" ]; then
+        _log_i "Discovered the appname \"$ENTANDO_APPNAME\" for the namespace \"$ENTANDO_NAMESPACE\""
+      fi
+    fi
+  fi
 }

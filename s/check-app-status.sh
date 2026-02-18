@@ -9,6 +9,7 @@ cd "$DIR/.." || {
 # PARAMS
 
 [ -n "$1" ] && ENTANDO_APPNAME="$1" && shift
+kube.discover-and-set-app-name-if-needed
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 
 [ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift

@@ -26,7 +26,7 @@ RUN() {
 
   
   # DEVELOP TOOLS
-  $M_DEVL && check-env.develop.minimal-tools-requirements
+  $M_DEVL_BASE && check-env.develop.minimal-tools-requirements
 
   # ENT-LOCAL NODE
   $M_DEVL_BASE && check-env.check-node
@@ -208,11 +208,17 @@ check-env.check-jhipster() {
   parse-version-flags FLAGS VER_JHIPSTER_DEF VER_JHIPSTER_REQ ENTANDO_JHIPSTER_VERSION_OVERRIDE
   _str_contains "$FLAGS" ",f," && FORCE=true
 
-  check-env.npm-registry-package central-registry "jhipster" "generator-jhipster" \
-    "$VER_JHIPSTER_REQ" \
-    "$VER_JHIPSTER_DEF" \
-    "$ENTANDO_JHIPSTER_VERSION_OVERRIDE" \
-    "$FORCE"
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    # Use user's node - only check user's installation
+    check-env.check-jhipster-in-user-node "$VER_JHIPSTER_DEF" "$FORCE"
+  else
+    # Use ent's private node - only check ent's installation
+    check-env.npm-registry-package central-registry "jhipster" "generator-jhipster" \
+      "$VER_JHIPSTER_REQ" \
+      "$VER_JHIPSTER_DEF" \
+      "$ENTANDO_JHIPSTER_VERSION_OVERRIDE" \
+      "$FORCE"
+  fi
 }
 
 
@@ -224,22 +230,24 @@ check-env.check-bundle-cli() {
   parse-version-flags FLAGS VER_ENTANDO_BUNDLE_CLI_DEF VER_ENTANDO_BUNDLE_CLI_REQ ENTANDO_BUNDLE_CLI_VERSION_OVERRIDE
   _str_contains "$FLAGS" ",f," && FORCE=true
 
-  if [[ "$VER_ENTANDO_BUNDLE_CLI_REQ" == "v1.2.0" || "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.0"* ]]; then
-    local SOURCE_BASED=true
-    _str_contains "$FLAGS" ",r," && SOURCE_BASED=false
-  else
+  if [[ "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.2.0"* || "$VER_ENTANDO_BUNDLE_CLI_REQ" == *"v1.0"* ]]; then
+    # OLD VERSIONS
     local SOURCE_BASED=false
     _str_contains "$FLAGS" ",g," && SOURCE_BASED=true
-  fi
-
-  if $SOURCE_BASED; then
-    check-env.npm-registry-package entando-registry "entando-bundle-cli" "@entando/entando-bundle-cli" \
-      "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
-      "$FORCE"
   else
+    # NEW VERSIONS
+    local SOURCE_BASED=true
+    _str_contains "$FLAGS" ",r," && SOURCE_BASED=false
+  fi
+  
+  if $SOURCE_BASED; then
     check_npm_git_package --full "$REPO_ENTANDO_BUNDLE_CLI_ADDR" \
       "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
       "$C_ENTANDO_BUNDLE_CLI_DIR" "$C_ENTANDO_BUNDLE_CLI_DIR" \
+      "$FORCE"
+  else
+    check-env.npm-registry-package entando-registry "entando-bundle-cli" "@entando/entando-bundle-cli" \
+      "$VER_ENTANDO_BUNDLE_CLI_REQ" "$VER_ENTANDO_BUNDLE_CLI_DEF" \
       "$FORCE"
   fi
 }
@@ -249,10 +257,126 @@ check-env.check-generator-jhipster-entando() {
   parse-version-flags FLAGS VER_GENERATOR_JHIPSTER_ENTANDO_DEF VER_GENERATOR_JHIPSTER_ENTANDO_REQ ENTANDO_GENERATOR_JHIPSTER_VERSION_OVERRIDE
   _str_contains "$FLAGS" ",f," && FORCE=true
 
-  check_npm_git_package "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
-    "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
-    "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"  \
-    "$FORCE"
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    # Use user's node - first ensure the package is cloned/built, then install to user's node
+    check_npm_git_package --no-local-install "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
+      "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+      "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"  \
+      "$FORCE"
+    check-env.check-generator-jhipster-entando-in-user-node "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" "$FORCE"
+  else
+    # Use ent's private node - only check ent's installation
+    check_npm_git_package "$REPO_GENERATOR_JHIPSTER_ENTANDO_ADDR" \
+      "$VER_GENERATOR_JHIPSTER_ENTANDO_REQ" "$VER_GENERATOR_JHIPSTER_ENTANDO_DEF" \
+      "$C_GENERATOR_JHIPSTER_ENTANDO_NAME" "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"  \
+      "$FORCE"
+  fi
+}
+
+check-env.check-jhipster-in-user-node() {
+  local VER_DEF="$1"
+  local FORCE="$2"
+
+  _log_i "Checking user's node installation of jhipster.."
+
+  # Filter out ent's private node from PATH to use only user's node
+  local ENT_NODE_PREFIX="$ENT_OPTS/node-"
+  local FILTERED_PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^${ENT_NODE_PREFIX}" | tr '\n' ':' | sed 's/:$//')
+
+  # Run npm commands with user's node only
+  (
+    export PATH="$FILTERED_PATH"
+
+    # Check if user has node installed
+    if ! command -v node &> /dev/null; then
+      _log_w "User's node.js is not found in PATH"
+      _log_w "Please install Node.js v16 or later (recommended: Node v16.20.2)"
+      _log_w "Visit https://nodejs.org/ or use nvm: https://github.com/nvm-sh/nvm"
+      return 1
+    fi
+
+    local USER_NODE_VERSION=$(node --version 2>/dev/null)
+    _log_i "\tUser's node version: $USER_NODE_VERSION"
+
+    # Check if version is compatible (v16.x recommended)
+    local NODE_MAJOR_VERSION=$(echo "$USER_NODE_VERSION" | sed 's/v\([0-9]*\).*/\1/')
+    if [[ "$NODE_MAJOR_VERSION" -lt 16 ]]; then
+      _log_w "\tWARNING: Node.js $USER_NODE_VERSION may not be compatible with JHipster 7.9.3"
+      _log_w "\tRecommended: Node v16.20.2 (tested and verified to work)"
+      _log_w "\tTo switch: nvm install v16.20.2 && nvm use v16.20.2"
+    elif [[ "$NODE_MAJOR_VERSION" -gt 20 ]]; then
+      _log_w "\tWARNING: Node.js $USER_NODE_VERSION has not been tested with JHipster 7.9.3"
+      _log_w "\tRecommended: Node v16.20.2 (tested and verified to work)"
+      _log_w "\tTo switch: nvm install v16.20.2 && nvm use v16.20.2"
+    elif [[ "$NODE_MAJOR_VERSION" -ne 16 ]]; then
+      _log_i "\tNote: You're using Node.js $USER_NODE_VERSION. If you encounter issues, try Node v16.20.2"
+    fi
+
+    if npm list -g generator-jhipster 2>/dev/null | grep -q "generator-jhipster@"; then
+      _log_i "\tgenerator-jhipster is already installed in user's node => OK"
+    else
+      _log_i "\tgenerator-jhipster not found in user's node"
+      if ask "Should I install generator-jhipster@$VER_DEF in your node?" "y"; then
+        _log_i "\tInstalling generator-jhipster@$VER_DEF globally in user's node.."
+        npm install -g "generator-jhipster@$VER_DEF" || {
+          _log_w "Failed to install in user's node. You may need to install it manually with:"
+          _log_w "  npm install -g generator-jhipster@$VER_DEF"
+        }
+      else
+        _log_w "Skipping installation in user's node. JHipster commands may not work with user's node."
+      fi
+    fi
+  )
+}
+
+check-env.check-generator-jhipster-entando-in-user-node() {
+  local VER_DEF="$1"
+  local FORCE="$2"
+
+  _log_i "Checking user's node installation of generator-jhipster-entando.."
+
+  # Filter out ent's private node from PATH to use only user's node
+  local ENT_NODE_PREFIX="$ENT_OPTS/node-"
+  local FILTERED_PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^${ENT_NODE_PREFIX}" | tr '\n' ':' | sed 's/:$//')
+
+  # Run npm commands with user's node only
+  (
+    export PATH="$FILTERED_PATH"
+
+    # Check if user has node installed
+    if ! command -v node &> /dev/null; then
+      _log_w "User's node.js is not found in PATH"
+      _log_w "Please install Node.js v16 or later (recommended: Node v16.20.2)"
+      return 1
+    fi
+
+    # Check if version is compatible (v16.x recommended)
+    local USER_NODE_VERSION=$(node --version 2>/dev/null)
+    local NODE_MAJOR_VERSION=$(echo "$USER_NODE_VERSION" | sed 's/v\([0-9]*\).*/\1/')
+    if [[ "$NODE_MAJOR_VERSION" -lt 16 ]]; then
+      _log_w "\tWARNING: Node.js $USER_NODE_VERSION may not be compatible with JHipster 7.9.3"
+      _log_w "\tRecommended: Node v16.20.2 (tested and verified to work)"
+    elif [[ "$NODE_MAJOR_VERSION" -gt 20 ]]; then
+      _log_w "\tWARNING: Node.js $USER_NODE_VERSION has not been tested with JHipster 7.9.3"
+      _log_w "\tRecommended: Node v16.20.2 (tested and verified to work)"
+    fi
+
+    if npm list -g generator-jhipster-entando 2>/dev/null | grep -q "generator-jhipster-entando@"; then
+      _log_i "\tgenerator-jhipster-entando is already installed in user's node => OK"
+    else
+      _log_i "\tgenerator-jhipster-entando not found in user's node"
+      if ask "Should I install generator-jhipster-entando@$VER_DEF from ent's installation in your node?" "y"; then
+        _log_i "\tInstalling generator-jhipster-entando from $ENT_OPTS_ENTANDO/generator-jhipster-entando/$VER_DEF"
+        # Install from the already-built git source in ent's private directory
+        npm install -g "$ENT_OPTS_ENTANDO/generator-jhipster-entando/$VER_DEF" || {
+          _log_w "Failed to install in user's node. You may need to install it manually with:"
+          _log_w "  npm install -g $ENT_OPTS_ENTANDO/generator-jhipster-entando/$VER_DEF"
+        }
+      else
+        _log_w "Skipping installation in user's node. JHipster commands may not work with user's node."
+      fi
+    fi
+  )
 }
 
 check-env.check-bundler() {
@@ -403,8 +527,7 @@ check_npm_git_package() {
           ) || _SOE
 
           # ACTUAL INSTALLATION
-          
-          ___npm "PHASE 2" install --global
+          ___npm "PHASE 2" install --ignore-scripts --global
 
           date > .entando-finalized
           echo '~~~'$'\n'

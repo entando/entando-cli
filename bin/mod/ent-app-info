@@ -39,6 +39,15 @@ WATCH=false; [ "$1" = "watch" ] && { WATCH=true; shift; }
 reload_cfg
 
 [ -n "$1" ] && ENTANDO_APPNAME="$1" && shift
+
+kube.discover-and-set-app-name-if-needed
+
+if [[ "$ENTANDO_APPNAME" == ":auto" && "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" == "true" ]]; then
+  _log_e "Auto-discovery is disabled (ENTANDO_DISABLE_APPNAME_DISCOVERY=true)"
+  _log_e "Cannot use ':auto' - please provide an explicit app name"
+  exit 1
+fi
+
 [ "$ENTANDO_APPNAME" = "" ] && echo "please provide the app name" 1>&2 && exit 1
 [ -n "$1" ] && ENTANDO_NAMESPACE="$1" && shift
 [ "$ENTANDO_NAMESPACE" = "" ] && echo "please provide the namespace name" 1>&2 && exit 1

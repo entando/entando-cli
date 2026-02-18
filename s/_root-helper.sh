@@ -136,6 +136,22 @@ print_config_file() {
   print-secrets-leak-warning
 }
 
+handle_appname() {
+  bgn_help_parsing "${BASH_SOURCE[0]}" "$@"
+  args_or_ask -h "$HH" -a -n -- APPNAME '1///%sp the EntandoApp name' "$@"
+  if [ -z "$APPNAME" ]; then
+    args_or_ask -h "$HH" -n -f -- '--auto///%sp tries to auto-discover the EntandoApp name by checking the namespace' "$@" && {
+      # shellcheck disable=SC2034
+      ENTANDO_APPNAME=":auto"
+      kube.discover-and-set-app-name-if-needed
+      exit 0
+    }
+  fi
+  end_help_parsing
+  
+  handle_status_config ENTANDO_APPNAME "$APPNAME"
+}
+
 handle_status_config() {
   if [ "$V"  = "--del" ]; then
     ent config --set ""

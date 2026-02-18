@@ -79,6 +79,14 @@ RUN() {
       set_nn_dn "ENTANDO_APPNAME" "${CFG_ARR[1]}"
       set_nn_fdn "ENTANDO_SUFFIX" "${CFG_ARR[2]}"
 
+      kube.discover-and-set-app-name-if-needed
+
+      if [[ "$ENTANDO_APPNAME" == ":auto" && "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" == "true" ]]; then
+        _log_e "Auto-discovery is disabled (ENTANDO_DISABLE_APPNAME_DISCOVERY=true)"
+        _log_e "Cannot use ':auto' - please provide an explicit app name"
+        exit 1
+      fi
+
       _log_i "In VM: $VM_NAME"
       _log_i "Found NAMESPACE: $ENTANDO_NAMESPACE"
       _log_i "Found APPNAME: $ENTANDO_APPNAME"
