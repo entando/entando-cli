@@ -21,7 +21,7 @@ jobs:
       - name: "shellcheck main"
         run: ./prj/run-shellcheck.sh
       - name: "shellcheck standalones"
-        run: shellcheck --exclude "SC2181,SC2155,SC2119,SC2031" activate && shellcheck --exclude "SC2181,SC2155,SC2119,SC2031" deactivate
+        run: shellcheck --exclude "SC2181,SC2155,SC2119,SC2031,SC2317" activate && shellcheck --exclude "SC2181,SC2155,SC2119,SC2031,SC2317" deactivate
   tests:
     strategy:
       matrix:

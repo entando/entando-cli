@@ -241,8 +241,16 @@ function ent-init-project-dir() {
     ask "Should I init it again?" "n" || return 1
   }
   require_develop_checked
-  _ent-npm init --yes
-  _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+
+  # Use user's npm if ENTANDO_CLI_HIDE_PRIVATE_NODEJS is true
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    npm init --yes
+    npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  else
+    _ent-npm init --yes
+    _ent-npm link "$C_GENERATOR_JHIPSTER_ENTANDO_NAME"
+  fi
+
   rm -rf package.json package-lock.json
   generate_ent_project_file
 }
@@ -276,6 +284,7 @@ win_convert_existing_posix_path_to_win_path() {
     RES="$("$ENTANDO_ENT_HOME/s/currdir.cmd" | sed 's/\\/\\\\/g')"
     [[ -z "$RES" ]] && _FATAL "Error converting \"$1\" to windows path"
     if [[ "$1" =~ ^.*/$ ]]; then
+      # shellcheck disable=SC2028
       echo "$RES\\\\"
     else
       echo "$RES"
@@ -456,8 +465,29 @@ _strip_colors() {
 _trace() {
   local trace_id="$1"; shift
   # shellcheck disable=SC2076
-  [[ " $CTRACE " =~ " $trace_id " ]] && debug-print "$*"
+  if [[ " $CTRACE " =~ ":$trace_id:" ]]; then
+    debug-print "$*" 2>&1 | _trace_obfuscate 1>&2
+    _trace_obfuscate --reset
+  fi
   "$@"
+}
+
+_trace_obfuscate() {
+  if [ "$1" = "--reset" ]; then
+    ENTANDO_TRACE_OBFUSCATE=""
+  elif [ -z "$1" ]; then
+    if [ -n "$ENTANDO_TRACE_OBFUSCATE" ]; then
+      cat - | sed -E $'s\005'"${ENTANDO_TRACE_OBFUSCATE}"$'\005XXXXXXXX\005g' -
+    else
+      cat -
+    fi
+  else
+    if [ -z "$ENTANDO_TRACE_OBFUSCATE" ]; then
+      ENTANDO_TRACE_OBFUSCATE="$1"
+    else
+      ENTANDO_TRACE_OBFUSCATE+="|$1"
+    fi  
+  fi
 }
 
 print_hr() {
@@ -552,25 +582,55 @@ _ent.extension-modules.list() {
   (
     cd "$ENTANDO_ENT_EXTENSIONS_MODULES_PATH" || exit 0
     # shellcheck disable=SC2010
-    ls ent-* -p 2>/dev/null | grep -v / | sed 's/^ent-//'
+    find . -type f | grep "^./[^/]*/mod/ent-[^.]*" | sed 's/^\.\///'
   )
   fi
 }
 
 _ent.extension-module.is-present() {
   local module="$1";shift;
-  local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/ent-${module}"
-  [ -f "$mod_script" ]
+  found="$(_ent.extension-modules.list 2>/dev/null | grep "/ent-${module}$")"
+  [ -n "$found" ]
 }
+
+_ent.extension-module.chain-run() {
+  local module_to_run="$1";shift;
+  local IS_HELP=false IS_CMPLT=false
+  local FINAL_RES=34
+  local MODULES
+
+  args_or_ask -h "" -F IS_HELP "--help" "$@"
+  args_or_ask -h "" -F IS_CMPLT "--cmplt" "$@"
+  
+  stdin_to_arr $'\n\r' MODULES < <(_ent.extension-modules.list)
+  for module in "${MODULES[@]}"; do
+    if [[ "$module" = *"/ent-$module_to_run" ]]; then
+      $IS_HELP && {
+        echo ""
+        print_fullsize_hbar
+        echo -e "> Additional commands from extension [${module/\/mod\///}]\n"
+      } 1>&2
+      _ent.extension-module.execute "$module" "$@"
+      RV="$?"
+      [[ "$RV" != "33" && "$RV" != "34" ]] && FINAL_RES="$RV" && ! $IS_HELP && ! $IS_CMPLT && break
+    fi
+  done
+  
+  return "$FINAL_RES"
+}
+
 
 _ent.extension-module.execute() {
   (
-    local module="$1";shift;
-    local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/ent-${module}"
-    [ ! -f "$mod_script" ] && _FATAL "unable to find script \"$mod_script\" of extension module \"$module\""
+    local module_rel_path="$1";shift;
+    local mod_script="${ENTANDO_ENT_EXTENSIONS_MODULES_PATH}/${module_rel_path}"
+    [ ! -f "$mod_script" ] && _FATAL "unable to access script \"$mod_script\""
     # shellcheck disable=SC2034
-    ENTANDO_CLI_MODULE_NAME="$module"
-    RUN() { _FATAL "unable to load extension module \"$module\" from script \"$mod_script\""; }
+    ENTANDO_CLI_MODULE_BASE_PATH="$(dirname "$mod_script")"
+    ENTANDO_CLI_MODULE_NAME="${module/\/mod\///}"
+    RUN() { _FATAL "unable to load extension module \"$ENTANDO_CLI_MODULE_NAME\" from script \"$mod_script\""; }
+    # shellcheck disable=SC2164
+    cd "$ENTANDO_CLI_MODULE_BASE_PATH/.."
     # shellcheck disable=SC1090
     source "$mod_script"
     RUN "$@"
@@ -579,4 +639,30 @@ _ent.extension-module.execute() {
 
 _ent.sys.is-stdout-tty() {
   perl -e 'print -t STDOUT ? exit 0 : exit 1;'
+}
+
+kube.discover-and-set-app-name() {
+  local an
+  read -ra an < <(_kubectl get entandoapp -o custom-columns=NAME:.metadata.name --no-headers 2>/dev/null)
+
+  if [ "${#an[@]}" -gt 1 ]; then
+    _FATAL -s "It's not possible to auto-determine the appname on a namespace with more than one EntandoApp present"
+  elif [ "${#an[@]}" -eq 0 ] || [ -z "${an[0]}" ]; then
+    _FATAL -s "It's not possible to auto-determine the appname: no EntandoApp found in namespace \"$ENTANDO_NAMESPACE\""
+  fi
+
+  ENTANDO_APPNAME="${an[0]}"
+  export ENTANDO_APPNAME
+  ent config --set ENTANDO_APPNAME "$ENTANDO_APPNAME"
+}
+
+kube.discover-and-set-app-name-if-needed() {
+  if [ "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" != "true" ]; then
+    if [ "$ENTANDO_APPNAME" == ":auto" ]; then
+      kube.discover-and-set-app-name
+      if [ "$ENTANDO_ENT_DEBUG" == "true" ]; then
+        _log_i "Discovered the appname \"$ENTANDO_APPNAME\" for the namespace \"$ENTANDO_NAMESPACE\""
+      fi
+    fi
+  fi
 }

@@ -24,7 +24,7 @@ _IT() {
   local ignored
   # shellcheck disable=SC2034
   read -r ignored fn ignored <<<"$_ESS_TEST_CALLER"
-  _xdev.log "It $_ESS_TEST_IT"
+  echo "";_xdev.log "It $_ESS_TEST_IT"
   
   _ESS_SILENCE_ERRORS=false
   _ESS_IGNORE_EXITCODE=true

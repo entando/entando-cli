@@ -149,13 +149,16 @@
     local a b c d
     read -r a b c d <<< "$1"
     (${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} version --client &> /dev/null) || {
-      _FATAL -s 'Unable to execute "'"$1"'", please run "ent k ent-auto-align"' 1>&2
+      _FATAL 'Unable to execute "'"$1"'", please run "ent k ent-auto-align"' 1>&2
     }
   }
 
   # KUBECTL
   # shellcheck disable=SC2034
   setup_kubectl() {
+    
+    unset -f _kubectl
+    
     [ -n "$ENT_KUBECTL_CMD" ] && {
       ENTANDO_KUBECTL="$ENT_KUBECTL_CMD"
     }
@@ -184,15 +187,17 @@
           CMD="$ENTANDO_KUBECTL_BASE"
         fi
         
+        local MOD="$1"; shift
+        
         local a b c d
         read -r a b c d <<< "$CMD"
-        if [  -z  "$DESIGNATED_KUBECONFIG" ]; then 
+        if [  -z  "$DESIGNATED_KUBECONFIG" ]; then
           # shellcheck disable=SC2086
-          _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
+          _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} "$MOD" $KUBECTL_ONCE_OPTIONS "$@"
         else
           # shellcheck disable=SC2086
           KUBECONFIG="$DESIGNATED_KUBECONFIG" \
-            _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" ${a:+"$a"}${b:+ "$b"}${c:+ "$c"}${d:+ "$d"} "$MOD" $KUBECTL_ONCE_OPTIONS "$@"
         fi
         _kubectl_handle_error "$?"
       }
@@ -201,8 +206,9 @@
       _kubectl() {
         kubectl_must_be_ok kubectl
         kubectl_update_once_options "$@"
+        local MOD="$1"; shift
         # shellcheck disable=SC2086
-        KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+        KUBECONFIG="$DESIGNATED_KUBECONFIG" _trace "kubectl" kubectl "$MOD" $KUBECTL_ONCE_OPTIONS "$@"
         _kubectl_handle_error "$?"
       }
       _kubectl-pre-sudo() { :; }
@@ -215,21 +221,24 @@
         _kubectl() {
           kubectl_must_be_ok kubectl
           kubectl_update_once_options "$@"
+          local MOD="$1"; shift
           # shellcheck disable=SC2086
-          _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+          _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$MOD" "$@"
           _kubectl_handle_error "$?"
         }
         _kubectl-pre-sudo() { :; }
       else
         ENTANDO_KUBECTL_AUTO_DETECTED="BASE-KUBECTL-PRIVILEGED"
+        
         _kubectl() {
           kubectl_must_be_ok kubectl
           kubectl_update_once_options "$@"
+          local MOD="$1"; shift
           # shellcheck disable=SC2086
           if $ENT_KUBECTL_NO_AUTO_SUDO; then
-            _trace "kubectl" kubectl $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" kubectl "$MOD" $KUBECTL_ONCE_OPTIONS "$@"
           else
-            _trace "kubectl" sudo kubectl $KUBECTL_ONCE_OPTIONS "$@"
+            _trace "kubectl" sudo kubectl "$MOD" $KUBECTL_ONCE_OPTIONS "$@"
           fi
           _kubectl_handle_error "$?"
         }

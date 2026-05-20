@@ -8,6 +8,7 @@ node.reset_environment() {
   ENT_NODE_MODS=""        # the path of the node modules dir (for the current ent instance)
   ENT_NODE_BIN_NATIVE=""  # the os-native path of the node binary (for the current ent instance)
   ENT_NPM_BIN_NATIVE=""   # the os-native path of the npm binary (for the current ent instance)
+  # shellcheck disable=SC2034
   NODE_PATH=""            # the node base path standard variable
 }
 
@@ -78,7 +79,7 @@ node.activate_environment() {
   # shellcheck disable=SC2031
   ENT_NODE_DIR="$ENT_OPTS/node-$ENT_NODE_VER"
   # shellcheck disable=SC2154
-  export PATH="$PATH:${sENT_NODE_DIR}bin"
+  export PATH="$PATH:${ENT_NODE_DIR}bin"
   
   _ent-npm-init-rc
   
@@ -100,7 +101,8 @@ node.activate_environment() {
       ENT_NPM_BIN_NATIVE="${ENT_NODE_BINS}/npm"
       ;;
   esac
-  
+
+  # shellcheck disable=SC2034
   ENT_OPTS_ENTANDO="${ENT_OPTS}/entando"
   PATH="$ENT_NODE_BINS:$PATH"
 }
@@ -154,22 +156,38 @@ _ent-npm_direct() {
   )
 }
 
-# Runs the ent private installation of jhipster
+# Runs the ent private/user installation of jhipster
 _ent-jhipster() {
   if [ "$1" == "--ent-help" ]; then
     echo "Wrapper of the ent-internal installation of jhipster"
     return 0
   fi
-  
-  node.activate_environment
+
+  require_develop_checked --full
+
+  # Check if we should use user's node instead of ent's private node
+  # By default, respect ENTANDO_CLI_HIDE_PRIVATE_NODEJS setting
+  local USE_USER_NODE=false
+  if [ "${ENTANDO_CLI_HIDE_PRIVATE_NODEJS}" == "true" ]; then
+    USE_USER_NODE=true
+  fi
+
+  if ! $USE_USER_NODE; then
+    node.activate_environment
+  fi
+
   if [[ "$1" == "--ent-get-version" || "$1" == "--version" || "$1" == "-V" ]]; then
-    _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
+    if $USE_USER_NODE; then
+      # Use user's jhipster
+      jhipster -V 2>/dev/null | grep -v INFO || npx  --package=generator-jhipster -- jhipster -V 2>/dev/null | grep -v INFO
+    else
+      _mp_node_exec jhipster -V 2>/dev/null | grep -v INFO
+    fi
     return 0
   fi
-  
+
   print_entando_banner
-  
-  require_develop_checked
+
   [[ ! -f "$C_ENT_PRJ_FILE" ]] && {
     ask "The project dir doesn't seem to be initialized, should I do it now?" "y" && {
       ent-init-project-dir
@@ -177,7 +195,17 @@ _ent-jhipster() {
   }
 
   # RUN
-  _mp_node_exec jhipster "$@"
+  if $USE_USER_NODE; then
+    # Use user's node and jhipster (from PATH or local node_modules)
+    activate_shell_login_environment
+    if command -v jhipster &> /dev/null; then
+      jhipster "$@"
+    else
+      npx  --package=generator-jhipster -- jhipster "$@"
+    fi
+  else
+    _mp_node_exec jhipster "$@"
+  fi
 }
 
 # Executes a node command in any of the sypported platforms
@@ -275,7 +303,9 @@ _ent-entando-bundle-cli() {
   export ENTANDO_CLI_CRANE_BIN="$CRANE_PATH"
   export ENTANDO_CLI_DOCKER_CONFIG_PATH
   export ENTANDO_BUNDLE_CLI_BIN_NAME
+  export ENTANDO_CLI_HIDE_PRIVATE_NODEJS=${ENTANDO_CLI_HIDE_PRIVATE_NODEJS:-"true"}
 
+  # shellcheck disable=SC2153
   ENTANDO_CLI_DEBUG="$ENTANDO_ENT_DEBUG" ENTANDO_OPT_OVERRIDE_HOME_VAR="false" \
     _ent-run-internal-npm-tool "$C_ENTANDO_BUNDLE_CLI_BIN_NAME" "$@"
 }
@@ -312,16 +342,26 @@ _ent-run-internal-npm-tool() {
 }
 
 _ent-npm.get-internal-tool-path() {
-  if $OS_WIN; then
-    _set_var "$1" "$ENT_NODE_BINS/${2}.cmd"
+  local NOOV=false;[ "$1" == "--no-override" ] && { NOOV=true; shift; }
+  local VN="OVERRIDE_PATH_OF_${2//-/_}"
+  local ITP="${!VN}"
+
+  if [ -z "$ITP" ]; then
+    local ITP="$ENT_NODE_BINS/${2}"
   else
-    _set_var "$1" "$ENT_NODE_BINS/${2}" "$@"
+    $NOOV && _FATAL "Unable to proceed because the internal tool path was overridden"
+  fi
+  
+  if $OS_WIN && [[ $ITP != *".cmd" ]]; then
+    _set_var "$1" "$ITP.cmd"
+  else
+    _set_var "$1" "$ITP"
   fi
 }
 
 _ent-npm.delete-internal-tool-bin() {
   local BIN_PATH
-  _ent-npm.get-internal-tool-path BIN_PATH "$TOOL_NAME"
+  _ent-npm.get-internal-tool-path --no-override BIN_PATH "$TOOL_NAME"
   if [[ "$BIN_PATH" = *"/.entando/"* ]]; then
     rm "$BIN_PATH"
   else
@@ -330,7 +370,7 @@ _ent-npm.delete-internal-tool-bin() {
 }
 
 
-
+# shellcheck disable=SC2120
 node.command_wrapper() {
   CMD="$1"
   H() { echo -e "$2"; }
@@ -344,6 +384,7 @@ node.command_wrapper() {
     echo "Internal error: unable to find the script source dir" 1>&2
     exit
   }
+  # shellcheck disable=SC1094
   . s/_base.sh
 
   cd "$WD" || _FATAL "Unable to access the current dir: $WD"

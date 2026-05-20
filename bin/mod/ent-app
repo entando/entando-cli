@@ -48,10 +48,18 @@ RUN() {
   "status") #H: prints status information about the current EntandoApp
     local WATCH
     determine_namespace ENTANDO_NAMESPACE "$@"
-    args_or_ask -h "$HH" -n -p ENTANDO_APPNAME "--appname/ext_ic_id//%sp the application name" "$@"
+    args_or_ask -h "$HH" -n -p ENTANDO_APPNAME "--appname/appname_param//%sp the application name" "$@"
     args_or_ask -h "$HH" -n -F WATCH "--watch///" "$@"
 
     [ -n "$HH" ] && exit 0
+
+    kube.discover-and-set-app-name-if-needed
+
+    if [[ "$ENTANDO_APPNAME" == ":auto" && "${ENTANDO_DISABLE_APPNAME_DISCOVERY}" == "true" ]]; then
+      _log_e "Auto-discovery is disabled (ENTANDO_DISABLE_APPNAME_DISCOVERY=true)"
+      _log_e "Cannot use ':auto' - please provide an explicit app name"
+      exit 1
+    fi
 
     if $WATCH; then
       ent app-info watch "$ENTANDO_APPNAME" "$ENTANDO_NAMESPACE"

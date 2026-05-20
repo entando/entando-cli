@@ -62,7 +62,7 @@ debug_trace_vars() {
   if [[ "$ENTANDO_DEBUG" -gt 0 || "$1" == "-f" ]]; then
     _pp \
       ENTANDO_RELEASE ENTANDO_RELEASES_FILES_STRUCTURE ENTANDO_CLI_VERSION \
-      DESIGNATED_PROFILE DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
+      DESIGNATED_PROFILE DESIGNATED_PROFILE_SUB DESIGNATED_KUBECONFIG DESIGNATED_DESIGNATED_KUBECTX \
       ENTANDO_NAMESPACE ENTANDO_APPNAME \
       ENTANDO_STANDARD_QUICKSTART ENTANDO_PRE_EXISTING K8S_TEMPLATE \
       ADDR VM_OPT WITH_HOSTNAME WITH_SINGLE_HOSTNAME \
@@ -241,8 +241,8 @@ QS.CREATE-QS-PROFILE() {
   
   ent-profile-delete "qs-localhost" --yes
   ent-profile-new "qs-localhost" \
-    "$ENTANDO_APPNAME" \
     "$ENTANDO_NAMESPACE" \
+    "$ENTANDO_APPNAME" \
     --auto-use=false \
   ;
   sourced-ent-profile-use "qs-localhost"
@@ -474,7 +474,7 @@ QS.MANIFEST.v7.SET-PLACEHOLDERS() {
   local MANIFEST_TEMPLATE_FILE="$1"
   local APPVER="7.0"
   local REPLICA="1"
-  local IMGTYPE="eap"
+  local IMGTYPE="tomcat"
   local DB="${OVERRIDE_DB_TYPE:-"embedded"}"
   local ENTANDO_HOSTNAME="${SINGLE_HOSTNAME}"
   [ -z "$ENTANDO_HOSTNAME" ] || [ "$ENTANDO_HOSTNAME" = "~" ] && ENTANDO_HOSTNAME="$ENTANDO_APPNAME.$FQADDR"
@@ -609,8 +609,8 @@ QS.VM.CREATE-QS-PROFILE() {
     ent-profile-delete "qs-$ENTANDO_VM_NAME" --yes
     ent-profile-delete "qs-$ENTANDO_VM_NAME" --yes
     ent-profile-new "qs-$ENTANDO_VM_NAME" \
-      "$ENTANDO_APPNAME" \
       "$ENTANDO_NAMESPACE" \
+      "$ENTANDO_APPNAME" \
       --auto-use=false \
     ;
     # shellcheck disable=SC1091
