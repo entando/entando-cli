@@ -433,10 +433,22 @@ check_ver_cfg() {
 #   existing global installation (dir or symlink) of the same package
 #
 check-env.uninstall-global-npm-package() {
-  local NPM_PACKAGE_NAME
+  local NPM_PACKAGE_NAME NPM_OUT NPM_RC
   NPM_PACKAGE_NAME="$(_jq -r '.name // empty' package.json 2>/dev/null)"
-  [ -z "$NPM_PACKAGE_NAME" ] && return 0
-  _ent-npm_direct uninstall --global "$NPM_PACKAGE_NAME" &> /dev/null
+  if [ -z "$NPM_PACKAGE_NAME" ]; then
+    _log_d "\tno npm package name found in \"$PWD/package.json\", skipping the global uninstall"
+    return 0
+  fi
+
+  _log_i "\tremoving any previous global installation of \"$NPM_PACKAGE_NAME\""
+  NPM_OUT="$(_ent-npm_direct uninstall --global "$NPM_PACKAGE_NAME" 2>&1)"
+  NPM_RC="$?"
+
+  if [ "$NPM_RC" != 0 ]; then
+    # not fatal: a real problem will surface in the following global install
+    _log_w "\tunable to uninstall \"$NPM_PACKAGE_NAME\" globally (exit code: $NPM_RC), the next install may fail"
+    "${VERBOSE:-false}" && echo "$NPM_OUT" 1>&2
+  fi
   return 0
 }
 
