@@ -424,6 +424,22 @@ check_ver_cfg() {
   exit
 }
 
+# removes the global installation of the npm package defined in the current directory, if any
+#
+# Note:
+# - the npm package name is read from package.json because it can differ from the
+#   package dir name (eg: "@entando/entando-bundle-cli" vs "entando-bundle-cli")
+# - npm 6 fails with "ENOENT: rename .staging/.." when installing globally over an
+#   existing global installation (dir or symlink) of the same package
+#
+check-env.uninstall-global-npm-package() {
+  local NPM_PACKAGE_NAME
+  NPM_PACKAGE_NAME="$(_jq -r '.name // empty' package.json 2>/dev/null)"
+  [ -z "$NPM_PACKAGE_NAME" ] && return 0
+  _ent-npm_direct uninstall --global "$NPM_PACKAGE_NAME" &> /dev/null
+  return 0
+}
+
 # checks the installation status of a npm package installed from source
 #
 # Options:
@@ -473,6 +489,7 @@ check_npm_git_package() {
       _log_i "\tfound: $VER_REQ => OK"
       _log_i "\tupdating bins"
       __cd "$PACKAGE_NAME/$VER_REQ"
+      check-env.uninstall-global-npm-package
       (_ent-npm_direct install --global 1>/dev/null 2>&1 | grep -v "npm WARN") 1>&2
       exit 0
     else
@@ -527,6 +544,7 @@ check_npm_git_package() {
           ) || _SOE
 
           # ACTUAL INSTALLATION
+          check-env.uninstall-global-npm-package
           ___npm "PHASE 2" install --ignore-scripts --global
 
           date > .entando-finalized
