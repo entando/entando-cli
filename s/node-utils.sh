@@ -360,10 +360,12 @@ _ent-npm.get-internal-tool-path() {
 }
 
 _ent-npm.delete-internal-tool-bin() {
+  local TOOL_NAME="$1"
+  [ -z "$TOOL_NAME" ] && { _log_e "No tool name given while trying to delete the internal tool bin"; return 1; }
   local BIN_PATH
   _ent-npm.get-internal-tool-path --no-override BIN_PATH "$TOOL_NAME"
-  if [[ "$BIN_PATH" = *"/.entando/"* ]]; then
-    rm "$BIN_PATH"
+  if [[ "$BIN_PATH" = *"/.entando/"* && ! -d "$BIN_PATH" ]]; then
+    rm -f "$BIN_PATH"
   else
     _log_e "Error determining the internal tool path while trying delete it"
   fi
