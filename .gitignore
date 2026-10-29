@@ -8,3 +8,6 @@ bin/mod/ext
 *.iml
 ########
 .ent/ent-state
+/.PLAN/
+/.REVIEW/
+/.TESTING/
