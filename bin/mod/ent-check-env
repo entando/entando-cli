@@ -424,6 +424,34 @@ check_ver_cfg() {
   exit
 }
 
+# removes the global installation of the npm package defined in the current directory, if any
+#
+# Note:
+# - the npm package name is read from package.json because it can differ from the
+#   package dir name (eg: "@entando/entando-bundle-cli" vs "entando-bundle-cli")
+# - npm 6 fails with "ENOENT: rename .staging/.." when installing globally over an
+#   existing global installation (dir or symlink) of the same package
+#
+check-env.uninstall-global-npm-package() {
+  local NPM_PACKAGE_NAME NPM_OUT NPM_RC
+  NPM_PACKAGE_NAME="$(_jq -r '.name // empty' package.json 2>/dev/null)"
+  if [ -z "$NPM_PACKAGE_NAME" ]; then
+    _log_d "\tno npm package name found in \"$PWD/package.json\", skipping the global uninstall"
+    return 0
+  fi
+
+  _log_i "\tremoving any previous global installation of \"$NPM_PACKAGE_NAME\""
+  NPM_OUT="$(_ent-npm_direct uninstall --global "$NPM_PACKAGE_NAME" 2>&1)"
+  NPM_RC="$?"
+
+  if [ "$NPM_RC" != 0 ]; then
+    # not fatal: a real problem will surface in the following global install
+    _log_w "\tunable to uninstall \"$NPM_PACKAGE_NAME\" globally (exit code: $NPM_RC), the next install may fail"
+    "${VERBOSE:-false}" && echo "$NPM_OUT" 1>&2
+  fi
+  return 0
+}
+
 # checks the installation status of a npm package installed from source
 #
 # Options:
@@ -463,7 +491,6 @@ check_npm_git_package() {
         skip=false forced=true
         _log_i "\tfound: $VER_REQ but force-reinstall was specified => REINSTALL"
         __rm_disdir "$PACKAGE_NAME/$VER_REQ"
-        _ent-npm.delete-internal-tool-bin "$npm_package"
       else
         skip=true
       fi
@@ -473,6 +500,7 @@ check_npm_git_package() {
       _log_i "\tfound: $VER_REQ => OK"
       _log_i "\tupdating bins"
       __cd "$PACKAGE_NAME/$VER_REQ"
+      check-env.uninstall-global-npm-package
       (_ent-npm_direct install --global 1>/dev/null 2>&1 | grep -v "npm WARN") 1>&2
       exit 0
     else
@@ -527,6 +555,7 @@ check_npm_git_package() {
           ) || _SOE
 
           # ACTUAL INSTALLATION
+          check-env.uninstall-global-npm-package
           ___npm "PHASE 2" install --ignore-scripts --global
 
           date > .entando-finalized
@@ -563,7 +592,7 @@ check-env.npm-registry-package() {
     if ask "Should I try to install it?" "y"; then
       (
         _ent-npm_direct config set @entando:registry "$ENTANDO_NPM_REGISTRY"
-        [ "$FORCE" == "true" ] && _ent-npm.delete-internal-tool-bin "$npm_package"
+        [ "$FORCE" == "true" ] && _ent-npm.delete-internal-tool-bin "$package"
         ___npm "INSTALL" install --global "$npm_package@$version_def" ${FORCE:+--force}
       )
     else

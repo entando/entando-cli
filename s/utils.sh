@@ -802,6 +802,7 @@ bgn_help_parsing() {
 }
 
 before_printing_help() {
+  # shellcheck disable=SC2218 # defined at runtime by the help-option parser
   [[ "$(type -t HH_LATCHED_HELP_HEADING)" == "function" ]] && HH_LATCHED_HELP_HEADING
   HH_LATCHED_HELP_HEADING() { :; }
 }
