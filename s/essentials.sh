@@ -1,6 +1,31 @@
 #!/bin/bash
 # ESSENTIALS
 
+# Prints the CPU architecture of the host: x86-64, x86, arm64 or armv7l.
+# On Apple Silicon it prints arm64 even when the current shell runs as x86_64 under Rosetta 2,
+# because in that case "uname -m" reports x86_64.
+#
+_sys_detect_cpu_arch() {
+  local machine
+  machine="$(uname -m 2>/dev/null)"
+  if [ "$(uname -s 2>/dev/null)" = "Darwin" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then
+    machine="arm64"
+  fi
+  case "$machine" in
+    x86_64|amd64) echo "x86-64";;
+    arm64|aarch64) echo "arm64";;
+    i?86|x86) echo "x86";;
+    armv7l) echo "armv7l";;
+    *)
+      # unknown machine: keep the historical detection
+      case "$(perl -MConfig -e 'print $Config{longsize}*8 . "\n";' 2>/dev/null)" in
+        32) echo "x86";;
+        *) echo "x86-64";;
+      esac
+      ;;
+  esac
+}
+
 ! ${ENT_ESSENTIALS_ALREADY_RUN:-false} && {
   ENT_ESSENTIALS_ALREADY_RUN=true
   _ESS_FATAL_EXIT_CODE=""
@@ -37,10 +62,7 @@
   CTRACE=""
 
   # shellcheck disable=SC2034
-  case "$(perl -MConfig -e 'print $Config{longsize}*8 . "\n";')" in
-    32) SYS_CPU_ARCH="x86";;
-    *) SYS_CPU_ARCH="x86-64";;
-  esac
+  SYS_CPU_ARCH="$(_sys_detect_cpu_arch)"
 
   if [ "$1" = "--with-state" ]; then
     DESIGNATED_KUBECONFIG=$(grep DESIGNATED_KUBECONFIG "$ENT_WORK_DIR/.cfg" | sed "s/DESIGNATED_KUBECONFIG=//")
