@@ -213,4 +213,36 @@ test_node_install_node_failures() {
   )
 }
 
+#TEST:system,lib,node
+test_node_install_node_on_this_host() {
+  ( _IT "should download and run the node.js build for the real host"
+
+    # the windows runner extracts with a portable git-bash that is not representative of the real setup
+    [ "$SYS_OS_TYPE" = "windows" ] && return 0
+
+    # the real download address of node.js
+    # shellcheck disable=SC1091
+    . "$ENTANDO_ENT_HOME/s/_conf.sh"
+
+    __cd "$(mktemp -d "$PWD/node-system.XXXXXX")"
+    ENT_OPTS="$PWD/opt"
+    mkdir -p "$ENT_OPTS"
+    save_cfg_value() { :; }
+    # shellcheck disable=SC2034
+    reload_cfg() { ENT_NODE_VER="v14.20.0"; }
+    _ent-npm-init-rc() { :; }
+
+    # node.install-node exits on failure: the subshell turns that into a test failure
+    ( node.install-node "v14.20.0" ) || _FAIL "unable to install node.js v14.20.0 on $SYS_OS_TYPE/$SYS_CPU_ARCH"
+
+    # node 14 has a native arm64 build only for linux: elsewhere the x64 build runs through the OS emulation
+    local expected_arch="x64"
+    [ "$SYS_OS_TYPE" = "linux" ] && [ "$SYS_CPU_ARCH" = "arm64" ] && expected_arch="arm64"
+
+    local node_bin="$ENT_OPTS/node-v14.20.0/bin/node"
+    _ASSERT -v "node version" "$("$node_bin" --version)" = "v14.20.0"
+    _ASSERT -v "node arch on $SYS_OS_TYPE/$SYS_CPU_ARCH" "$("$node_bin" -p process.arch)" = "$expected_arch"
+  )
+}
+
 true

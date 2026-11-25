@@ -57,15 +57,3 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           bash -c "source ./activate && ent run-tests"
-      - name: "private node on apple silicon"
-        # macos-latest runs on Apple Silicon: node 14 has no native build there and runs through Rosetta 2
-        if: matrix.os == 'macos-latest'
-        run: |
-          bash -c '
-            set -e
-            source ./activate
-            ENTANDO_OPT_YES_FOR_ALL=true ent check-env base-develop
-            uname -m
-            [ "$(ent node --version)" = "v14.20.0" ]
-            [ "$(ent node -p process.arch)" = "x64" ]
-          '
