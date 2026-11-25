@@ -66,32 +66,43 @@ _ent.pkg() {
 # $1: config var to store the result
 # $2: name of the package to install
 # $3: version of the package to install
-# $4: download url linux64
-# $5: checksum url linux64
-# $6: download url darwin64
-# $7: checksum url darwin64
-# $8: download url win64
-# $9: checksum url win64
+# $4: download url linux
+# $5: file name of the executable inside the linux archive
+# $6: checksum url linux
+# $7: download url darwin
+# $8: file name of the executable inside the darwin archive
+# $9: checksum url darwin
+# $10: download url windows
+# $11: file name of the executable inside the windows archive
+# $12: checksum url windows
+# $13: the arguments (space separated) of a quick non-interactive run used to verify that
+#      the executable can run on this host (eg: "--version"); if empty the check is skipped
 #
 _pkg_download_and_install() {
-  local _tmp_resvar="$1" _tmp_name="$2" _tmp_ver="$3"
+  local _tmp_resvar="$1" _tmp_name="$2" _tmp_ver="$3" _tmp_runchk="${13}"
   local COMMENT
-  
+
   case "$SYS_OS_TYPE" in
     "linux") local _tmp_url="$4" _tmp_ext_fn="$5" _tmp_chkurl="$6" EXT="";;
     "darwin") local _tmp_url="$7" _tmp_ext_fn="$8" _tmp_chkurl="$9" EXT="";;
     "windows") local _tmp_url="${10}" _tmp_ext_fn="${11}" _tmp_chkurl="${12}" EXT=".exe";;
   esac
-  
+
   local RESFILE="$(mktemp /tmp/ent-resfile-XXXXXXXX)"
   touch "$RESFILE"
-  
+
   (
     mkdir -p "$ENTANDO_BINS"
     __cd "$ENTANDO_BINS"
-    
+
     local CMD_NAME="$_tmp_name.$_tmp_ver$EXT"
-    
+
+    # a binary that cannot run on this host (eg: an x86-64 one downloaded on arm64 by an older ent) is replaced
+    if [ -f "$CMD_NAME" ] && ! _pkg_runs "./$CMD_NAME" "$_tmp_runchk"; then
+      _log_w "The installed binary of $_tmp_name \"$_tmp_ver\" cannot run on this host and will be downloaded again"
+      rm -f "$CMD_NAME" "$CMD_NAME.sha256"
+    fi
+
     if [ ! -f "$CMD_NAME" ]; then
       _log_i "I don't have the package (\"$_tmp_ver\"). I'll try to download it"
       
@@ -147,6 +158,10 @@ _pkg_download_and_install() {
       # FINALIZE THE NAME
       mv ".download.tmp~" "$CMD_NAME"
       chmod +x "$CMD_NAME"
+      _pkg_runs "./$CMD_NAME" "$_tmp_runchk" || {
+        rm -f "$CMD_NAME" "$CMD_NAME.sha256"
+        FATAL "The downloaded $_tmp_name \"$_tmp_ver\" cannot run on this host ($SYS_OS_TYPE/$SYS_CPU_ARCH)"
+      }
       _log_i "$_tmp_name \"$_tmp_ver\" downloaded$COMMENT"
     else
       _log_i "I already have the binary for this version of $_tmp_name"
@@ -173,37 +188,77 @@ _pkg_is_command_available() {
   return 0
 }
 
+# Tells if the given executable can run on this host
+#
+# Params:
+# $1: the executable
+# $2: the arguments (space separated) of a quick non-interactive run; if empty the check is skipped
+#
+_pkg_runs() {
+  [ -z "$2" ] && return 0
+  # shellcheck disable=SC2086
+  "$1" $2 &>/dev/null </dev/null
+}
+
+# Downloads (if needed) a well-known package and saves its path in the config var of the package
+#
+# On arm64 Linux and macOS the native arm64 build is used.
+# On arm64 Windows the x64 build is used, through the OS emulation.
+#
+# Params:
+# $1: the package name (jq|k9s|crane|fzf)
+# $2: the package version (optional)
+#
 _pkg_get() {
   local VERBOSE=false;[ "$1" = "--verbose" ] && { VERBOSE=true;shift; }
   local pkg="$1" ver="$2" var="" url=""
+  local arm64=false;[ "$SYS_CPU_ARCH" = "arm64" ] && arm64=true
   case "$pkg" in
     jq)
-      var="JQ_PATH";ver="${ver:-1.6}";url="https://github.com/stedolan/jq/releases/download/jq-$ver"
-      _pkg_download_and_install "$var" "jq" "$ver" \
-        "$url/jq-linux64" "jq-linux64" "" \
-        "$url/jq-osx-amd64" "jq-osx-amd64" "" \
-        "$url/jq-win64.exe" "jq-win64.exe" "";
+      var="JQ_PATH"
+      if $arm64; then
+        # jq < 1.7 has no arm64 build
+        ver="${ver:-1.7.1}";url="https://github.com/jqlang/jq/releases/download/jq-$ver"
+        _pkg_download_and_install "$var" "jq" "$ver" \
+          "$url/jq-linux-arm64" "jq-linux-arm64" "" \
+          "$url/jq-macos-arm64" "jq-macos-arm64" "" \
+          "$url/jq-windows-amd64.exe" "jq-windows-amd64.exe" "" \
+          "--version";
+      else
+        ver="${ver:-1.6}";url="https://github.com/stedolan/jq/releases/download/jq-$ver"
+        _pkg_download_and_install "$var" "jq" "$ver" \
+          "$url/jq-linux64" "jq-linux64" "" \
+          "$url/jq-osx-amd64" "jq-osx-amd64" "" \
+          "$url/jq-win64.exe" "jq-win64.exe" "" \
+          "--version";
+      fi
       ;;
     k9s)
       var="K9S_PATH";ver="${ver:-v0.32.7}";url="https://github.com/derailed/k9s/releases/download/$ver/"
+      local k9s_arch="amd64";$arm64 && k9s_arch="arm64"
       _pkg_download_and_install "$var" "k9s" "$ver" \
-        "$url/k9s_Linux_amd64.tar.gz" "k9s" "" \
-        "$url/k9s_Darwin_amd64.tar.gz" "k9s" "" \
-        "$url/k9s_Windows_amd64.tar.gz" "k9s.exe" "";
+        "$url/k9s_Linux_$k9s_arch.tar.gz" "k9s" "" \
+        "$url/k9s_Darwin_$k9s_arch.tar.gz" "k9s" "" \
+        "$url/k9s_Windows_amd64.tar.gz" "k9s.exe" "" \
+        "version --short";
       ;;
     crane)
       var="CRANE_PATH";ver="${ver:-v0.9.0}";url="https://github.com/google/go-containerregistry/releases/download/$ver/"
+      local crane_arch="x86_64";$arm64 && crane_arch="arm64"
       _pkg_download_and_install "$var" "crane" "$ver" \
-        "$url/go-containerregistry_Linux_x86_64.tar.gz" "crane" "" \
-        "$url/go-containerregistry_Darwin_x86_64.tar.gz" "crane" "" \
-        "$url/go-containerregistry_Windows_x86_64.tar.gz" "crane.exe" "";
+        "$url/go-containerregistry_Linux_$crane_arch.tar.gz" "crane" "" \
+        "$url/go-containerregistry_Darwin_$crane_arch.tar.gz" "crane" "" \
+        "$url/go-containerregistry_Windows_x86_64.tar.gz" "crane.exe" "" \
+        "version";
       ;;
     fzf)
       var="FZF_PATH";ver="${ver:-0.30.0}";url="https://github.com/junegunn/fzf/releases/download/$ver"
+      local fzf_arch="amd64";$arm64 && fzf_arch="arm64"
       _pkg_download_and_install "$var" "fzf" "$ver" \
-        "$url/fzf-$ver-linux_amd64.tar.gz" "fzf" "" \
-        "$url/fzf-$ver-darwin_amd64.zip" "fzf" "" \
-        "$url/fzf-$ver-windows_amd64.zip" "fzf.exe" "";
+        "$url/fzf-$ver-linux_$fzf_arch.tar.gz" "fzf" "" \
+        "$url/fzf-$ver-darwin_$fzf_arch.zip" "fzf" "" \
+        "$url/fzf-$ver-windows_amd64.zip" "fzf.exe" "" \
+        "--version";
       ;;
     *)
       _FATAL -s "Unknown package \"$pkg\""

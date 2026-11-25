@@ -15,6 +15,18 @@ You can obtain a bash version for windows by installing either:
 
 _be sure the bash executable is in path_
 
+## macOS on Apple Silicon (M1, M2, ...)
+
+ent installs a private Node.js 14, which has no native Apple Silicon build: `ent check-env` installs the official
+x64 build, which runs through Rosetta 2. If Rosetta 2 is missing, `ent check-env` offers to install it; you can also
+install it yourself with:
+
+```
+softwareupdate --install-rosetta --agree-to-license
+```
+
+On Linux arm64 hosts the native arm64 build of Node.js 14 is installed.
+
 
 ## Other requirement
 

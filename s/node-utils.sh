@@ -22,40 +22,57 @@ node.install-node() {
     
     __cd "$ENT_OPTS"
     
+    node.resolve_dist_arch "$ENT_NODE_VER" || exit 1
     local pathseg_os="${SYS_OS_TYPE/windows/win}"
+    local dist_name="node-$ENT_NODE_VER-${pathseg_os}-${ENT_NODE_DIST_ARCH}"
     
     _tpl_set_var DOWNLOAD_URL "$URL_NODE_JS_DIST_ADDR" \
       NODE_VER "$ENT_NODE_VER" \
       OS "$pathseg_os" \
-      ARCH "${SYS_CPU_ARCH/x86-64/x64}" \
+      ARCH "$ENT_NODE_DIST_ARCH" \
       EXT "${C_DEF_ARCHIVE_FORMAT}" \
     ;
     
+    # an unfinished installation, or a finished one whose node cannot run on this host, is discarded
     if [ -d "$ENT_NODE_DIR" ]; then
       if [ ! -f "$ENT_NODE_DIR/.entando-finalized" ]; then
+        __rm_disdir "$ENT_NODE_DIR"
+      elif ! node.runs "$ENT_NODE_DIR"; then
+        _log_w "The ENT node installation \"$ENT_NODE_DIR\" cannot run on this host and will be reinstalled"
         __rm_disdir "$ENT_NODE_DIR"
       fi
     fi
   
     if [ ! -d "$ENT_NODE_DIR" ]; then
-      rm -rf "./node-$ENT_NODE_VER-linux-x64"
+      rm -rf "./$dist_name"
       if [ "$SYS_OS_TYPE" = "windows" ]; then
         (
-          tmp="$(mktemp).zip"
+          tmp="$(mktemp)"
           # shellcheck disable=SC2064
-          trap "rm \"$tmp\"" exit
-          curl "$DOWNLOAD_URL" > "$tmp"
-          unzip -q "$tmp"
-        ) 
+          trap "rm -f \"$tmp\"" exit
+          curl -fsSL "$DOWNLOAD_URL" -o "$tmp" && unzip -q "$tmp"
+        ) || {
+          _log_e "Unable to download and extract \"$DOWNLOAD_URL\""
+          exit 1
+        }
       else
-        curl "$DOWNLOAD_URL" | tar xz
+        ( set -o pipefail; curl -fsSL "$DOWNLOAD_URL" | tar xz ) || {
+          _log_e "Unable to download and extract \"$DOWNLOAD_URL\""
+          rm -rf "./$dist_name"
+          exit 1
+        }
       fi
-      mv "node-$ENT_NODE_VER-${pathseg_os}-${SYS_CPU_ARCH/x86-64/x64}" "$ENT_NODE_DIR"
+      mv "$dist_name" "$ENT_NODE_DIR"
     else
       _log_i "The ENT node installation \"$ENT_NODE_DIR\" is already present and so it will be reused"
     fi
     __exist -d "$ENT_NODE_DIR"
     __mk_disdir --mark "$ENT_NODE_DIR"
+    node.runs "$ENT_NODE_DIR" || {
+      _log_e "The node binary in \"$ENT_NODE_DIR\" cannot run on this host ($SYS_OS_TYPE/$SYS_CPU_ARCH)"
+      __rm_disdir "$ENT_NODE_DIR"
+      exit 1
+    }
     date > "$ENT_NODE_DIR/.entando-finalized"
     
     save_cfg_value "ENT_NODE_VER" ""
@@ -71,6 +88,62 @@ node.install-node() {
   
   __exist -f "$ENT_NODE_BIN_NATIVE"
   __exist -f "$ENT_NPM_BIN_NATIVE"
+  # __exist returns 1 when the file exists (its last statement is "[ ! -f .. ] && _FATAL")
+  return 0
+}
+
+# Sets ENT_NODE_DIST_ARCH to the architecture segment of the Node.js download for the given version
+#
+# Node.js < 16 has no darwin-arm64 build and Node.js < 20 has no win-arm64 build:
+# on those hosts the x64 build is used through the OS emulation (Rosetta 2 on macOS).
+#
+# Params:
+# $1  the node version (eg: v14.20.0)
+#
+node.resolve_dist_arch() {
+  local ver="${1#v}"
+  local major="${ver%%.*}"
+  [[ "$major" =~ ^[0-9]+$ ]] || major=0
+  ENT_NODE_DIST_ARCH="${SYS_CPU_ARCH/x86-64/x64}"
+
+  if [ "$ENT_NODE_DIST_ARCH" = "arm64" ]; then
+    if [ "$SYS_OS_TYPE" = "darwin" ] && [ "$major" -lt 16 ]; then
+      _log_i "Node.js $1 has no native Apple Silicon build: the x64 build will run through Rosetta 2"
+      node.require_rosetta "$1" || return 1
+      ENT_NODE_DIST_ARCH="x64"
+    elif [ "$SYS_OS_TYPE" = "windows" ] && [ "$major" -lt 20 ]; then
+      ENT_NODE_DIST_ARCH="x64"
+    fi
+  fi
+  return 0
+}
+
+# Ensures that Rosetta 2 is available on Apple Silicon, offering to install it
+#
+# Params:
+# $1  the node version that requires it
+#
+node.require_rosetta() {
+  arch -x86_64 /usr/bin/true &>/dev/null && return 0
+  _log_w "Rosetta 2 is required to run Node.js $1 on Apple Silicon, but it is not installed"
+  if ask "Should I install Rosetta 2 now (softwareupdate --install-rosetta)?" "y"; then
+    # the installation may require administrative privileges: retry through sudo when the plain call fails
+    { softwareupdate --install-rosetta --agree-to-license || _sudo softwareupdate --install-rosetta --agree-to-license; } \
+      && arch -x86_64 /usr/bin/true &>/dev/null && return 0
+  fi
+  _log_e "Rosetta 2 is not available. Install it with: softwareupdate --install-rosetta --agree-to-license"
+  return 1
+}
+
+# Tells if the node binary of the given installation dir can run on this host
+#
+# Params:
+# $1  the node installation dir
+#
+node.runs() {
+  local bin="$1/bin/node"
+  [ "$SYS_OS_TYPE" = "windows" ] && bin="$1/node.exe"
+  "$bin" --version &>/dev/null
 }
 
 # Activates the private node environment
@@ -79,7 +152,7 @@ node.activate_environment() {
   # shellcheck disable=SC2031
   ENT_NODE_DIR="$ENT_OPTS/node-$ENT_NODE_VER"
   # shellcheck disable=SC2154
-  export PATH="$PATH:${ENT_NODE_DIR}bin"
+  export PATH="$PATH:${ENT_NODE_DIR}/bin"
   
   _ent-npm-init-rc
   
