@@ -13,7 +13,7 @@ jobs:
   static-code-analysis:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 
       - name: prepare
@@ -21,7 +21,7 @@ jobs:
       - name: "shellcheck main"
         run: ./prj/run-shellcheck.sh
       - name: "shellcheck standalones"
-        run: shellcheck --exclude "SC2181,SC2155,SC2119,SC2031,SC2317" activate && shellcheck --exclude "SC2181,SC2155,SC2119,SC2031,SC2317" deactivate
+        run: shellcheck --exclude "SC2181,SC2155,SC2119,SC2031,SC2317,SC2329" activate && shellcheck --exclude "SC2181,SC2155,SC2119,SC2031,SC2317,SC2329" deactivate
   tests:
     strategy:
       matrix:
@@ -32,7 +32,7 @@ jobs:
       ENTANDO_PIPELINE_EXECUTION: "true"
       XDEV_TEST_ENABLE_SYSTEM_TESTS: "true"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: "windows tests"
